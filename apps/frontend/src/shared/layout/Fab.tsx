@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { ArrowUp, Headset, MessageCircle, Ticket, BookOpen, Send, X, MoreHorizontal, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
@@ -195,7 +196,7 @@ function CsPanel({ onClose }: { onClose: () => void }) {
     ...(wa ? [{ value: 'wa' as CsTab, label: 'WhatsApp' }] : []),
   ]
 
-  return (
+  const panel = (
     <>
       {isMobile && <div className="fixed inset-0 z-scrim bg-[var(--overlay-dark)]" onClick={onClose} aria-hidden />}
       <div
@@ -205,7 +206,7 @@ function CsPanel({ onClose }: { onClose: () => void }) {
         aria-label={t('cs.title')}
         className={cn(
           'flex flex-col overflow-hidden border border-line bg-surface text-fg shadow-k-lg',
-          isMobile ? 'anim-sheet fixed inset-x-0 bottom-0 z-modal h-[75dvh] rounded-t-xl pb-[var(--safe-b)]' : 'anim-pop absolute bottom-full right-0 mb-3 h-[520px] w-[360px] rounded-xl',
+          isMobile ? 'anim-sheet fixed inset-x-0 bottom-0 z-modal h-[75dvh] rounded-t-xl pb-[var(--safe-b)]' : 'anim-pop absolute bottom-full right-0 mb-3 h-[min(540px,calc(100dvh-240px))] w-[360px] rounded-xl',
         )}
       >
         <div className="border-b border-line bg-primary px-4 py-3 text-primary-contrast">
@@ -225,7 +226,7 @@ function CsPanel({ onClose }: { onClose: () => void }) {
         <div className="border-b border-line px-3 py-2">
           <Segmented items={tabs} value={tab} onChange={setTab} label={t('cs.title')} />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className={cn('min-h-0 flex-1 p-4', tab === 'chat' ? 'flex flex-col' : 'overflow-y-auto')}>
           {tab === 'chat' && <CsChat onTicket={() => setTab('ticket')} />}
           {tab === 'ticket' && <CsTicket loggedIn={!!me} page={loc.pathname} />}
           {tab === 'help' && <CsHelp onClose={onClose} />}
@@ -247,6 +248,8 @@ function CsPanel({ onClose }: { onClose: () => void }) {
       </div>
     </>
   )
+  // Mobile: bottom sheet di-portal ke body agar berada di atas banner cookie & navigasi (lepas dari stacking context FAB)
+  return isMobile ? createPortal(panel, document.body) : panel
 }
 
 // Chatbot bantuan awal (AI Assistant terbatas FAQ) → eskalasi ke tiket (§15.2 butir 4)
@@ -256,7 +259,9 @@ function CsChat({ onTicket }: { onTicket: () => void }) {
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
   const end = useRef<HTMLDivElement>(null)
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [msgs])
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' })
+  }, [msgs])
   const send = async (e: FormEvent) => {
     e.preventDefault()
     const text = q.trim()
@@ -274,8 +279,8 @@ function CsChat({ onTicket }: { onTicket: () => void }) {
     }
   }
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="grid flex-1 content-start gap-2" aria-live="polite">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="grid min-h-0 flex-1 content-start gap-2 overflow-y-auto overscroll-contain pr-1" aria-live="polite">
         {msgs.map((m, i) => (
           <div key={i} className={cn('max-w-[88%] rounded-lg px-3 py-2 text-sm', m.from === 'me' ? 'justify-self-end bg-primary text-primary-contrast' : 'bg-surface-2 text-fg')}>
             <p>{m.text}</p>

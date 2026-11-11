@@ -139,7 +139,7 @@ export function Carousel({
         ))}
       </div>
 
-      {items.length > 1 && variant !== 'strip' && (
+      {items.length > 1 && variant === 'cards' && (
         <>
           <button type="button" onClick={() => goTo(index - 1)} aria-label={t('carousel.prev')} disabled={!loop && index === 0} className="absolute left-2 top-1/2 hidden size-10 -translate-y-1/2 place-items-center rounded-full border border-line bg-surface text-fg opacity-0 shadow-k-md transition-opacity duration-[120ms] group-hover:opacity-100 focus-visible:opacity-100 disabled:hidden [@media(hover:hover)]:grid">
             <ChevronLeft className="size-5" aria-hidden />
@@ -151,13 +151,18 @@ export function Carousel({
       )}
 
       {(showDots || (autoplay && !reduced)) && (
-        <div className="mt-3 flex items-center justify-center gap-3">
+        <div className={cn('mt-3 flex items-center justify-center gap-3', variant === 'hero' && 'mt-5 border-t border-line pt-3 md:mt-6')}>
+          {variant === 'hero' && items.length > 1 && (
+            <button type="button" onClick={() => goTo(index - 1)} aria-label={t('carousel.prev')} className="grid size-9 place-items-center rounded-full border border-line-strong bg-surface text-fg shadow-k-sm hover:border-primary hover:text-primary">
+              <ChevronLeft className="size-4" aria-hidden />
+            </button>
+          )}
           {showDots &&
             (items.length <= 7 ? (
               <div className="flex items-center gap-1.5">
                 {items.map((_, i) => (
                   <button key={i} type="button" onClick={() => goTo(i)} aria-label={t('carousel.go_to', { n: i + 1 })} aria-current={i === index} className="grid h-6 place-items-center px-0.5">
-                    <span className={cn('block h-2 rounded-full transition-[background-color] duration-[300ms]', i === index ? 'w-6 bg-primary' : 'w-2 bg-line')} />
+                    <span className={cn('block h-2 rounded-full transition-[background-color] duration-[300ms]', i === index ? 'w-6 bg-primary' : 'w-2 bg-line-strong')} />
                   </button>
                 ))}
               </div>
@@ -167,9 +172,14 @@ export function Carousel({
               </span>
             ))}
           {autoplay && !reduced && (
-            <button type="button" onClick={() => setPlaying((p) => !p)} className="t-label inline-flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-muted hover:text-fg" aria-label={playing ? t('carousel.pause') : t('carousel.play')}>
+            <button type="button" onClick={() => setPlaying((p) => !p)} className="t-label inline-flex h-8 items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3 text-muted hover:text-fg" aria-label={playing ? t('carousel.pause') : t('carousel.play')}>
               {playing ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
               {playing ? t('carousel.pause') : t('carousel.play')}
+            </button>
+          )}
+          {variant === 'hero' && items.length > 1 && (
+            <button type="button" onClick={() => goTo(index + 1)} aria-label={t('carousel.next')} className="grid size-9 place-items-center rounded-full border border-line-strong bg-surface text-fg shadow-k-sm hover:border-primary hover:text-primary">
+              <ChevronRight className="size-4" aria-hidden />
             </button>
           )}
         </div>

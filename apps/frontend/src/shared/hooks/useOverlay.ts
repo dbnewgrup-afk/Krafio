@@ -57,22 +57,42 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
 }
 
 /** Tombol Back browser/Android menutup overlay teratas (push history state) — §6.3 butir 6, §10.3 butir 10. */
+// popstate yang dipicu sendiri oleh history.back() saat overlay ditutup via tombol (bukan tombol Back browser)
+let selfPops = 0
+if (typeof window !== 'undefined') {
+  // Listener global terdaftar paling awal: menurunkan penghitung setelah semua listener overlay memeriksanya
+  window.addEventListener('popstate', () => {
+    if (selfPops > 0) window.setTimeout(() => (selfPops = Math.max(0, selfPops - 1)), 0)
+  })
+}
+
 export function useBackClose(active: boolean, onClose: () => void): void {
   const cb = useRef(onClose)
   cb.current = onClose
   useEffect(() => {
     if (!active) return
     const token = `ov-${Math.random().toString(36).slice(2)}`
-    window.history.pushState({ ...(window.history.state ?? {}), overlay: token }, '')
+    let pushed = false
     let closedByPop = false
     const onPop = () => {
+      if (selfPops > 0) return
       closedByPop = true
       cb.current()
     }
-    window.addEventListener('popstate', onPop)
+    // Ditunda satu tick: StrictMode (dev) menjalankan efek dua kali; tanpa ini history.back() dari
+    // cleanup pertama memicu popstate yang langsung menutup overlay yang baru dibuka.
+    const timer = window.setTimeout(() => {
+      window.history.pushState({ ...(window.history.state ?? {}), overlay: token }, '')
+      pushed = true
+      window.addEventListener('popstate', onPop)
+    }, 0)
     return () => {
+      window.clearTimeout(timer)
       window.removeEventListener('popstate', onPop)
-      if (!closedByPop && window.history.state?.overlay === token) window.history.back()
+      if (pushed && !closedByPop && window.history.state?.overlay === token) {
+        selfPops++
+        window.history.back()
+      }
     }
   }, [active])
 }

@@ -96,7 +96,9 @@ export function DataTable<T extends { id: number | string }>({
   const meta = data?.meta
   const activeFilters = filters.filter((f) => query[f.key]).length
 
-  useEffect(() => setSelected(new Set()), [data])
+  useEffect(() => {
+    setSelected(new Set())
+  }, [data])
 
   const onSearch = (v: string) => {
     setSearch(v)

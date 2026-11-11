@@ -44,7 +44,9 @@ export function PublicLayout() {
     return () => window.removeEventListener('scroll', f)
   }, [isMobile])
 
-  useEffect(() => setMenu(false), [loc.pathname])
+  useEffect(() => {
+    setMenu(false)
+  }, [loc.pathname])
   const panelHref = me ? (me.role === 'admin' ? '/admin' : '/app') : null
 
   return (

@@ -41,10 +41,11 @@ function Hero() {
   ]
   return (
     <section className="border-b border-line bg-bg-subtle">
-      <div className="mx-auto max-w-[1360px] px-4 pb-6 pt-6 md:px-6 lg:px-8 lg:pb-10 lg:pt-12">
+      <div className="mx-auto max-w-[1360px] px-4 pb-6 pt-6 md:px-6 lg:px-8 lg:pb-10 lg:pt-10">
+        <div className="k-hero-stage rounded-2xl border border-line px-3 pb-3 pt-4 shadow-k-md md:px-6 md:pb-4 md:pt-8 lg:px-4 lg:pb-5 lg:pt-10">
         <Carousel label={t('home.hero_label')} itemClass="basis-full" autoplay interval={6500} loop gap="gap-0" variant="hero">
           {slides.map((s, i) => (
-            <div key={s.key} className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12">
+            <div key={s.key} className="grid items-center gap-6 px-1 pb-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12 lg:px-6">
               <div className="grid content-center gap-4 lg:gap-5">
                 {i === 0 ? <h1 className="t-display text-fg">{t(`home.hero.${s.key}.title`)}</h1> : <h2 className="t-display text-fg">{t(`home.hero.${s.key}.title`)}</h2>}
                 <p className="t-body max-w-[46ch] text-muted lg:text-lg lg:leading-7">{t(`home.hero.${s.key}.body`)}</p>
@@ -61,6 +62,7 @@ function Hero() {
             </div>
           ))}
         </Carousel>
+        </div>
       </div>
     </section>
   )
@@ -70,7 +72,7 @@ function Hero() {
 function PhotoPanelVisual() {
   const { t } = useTranslation()
   return (
-    <div aria-hidden className="grid gap-3 rounded-xl border border-line bg-surface p-4 shadow-k-md md:p-5">
+    <div aria-hidden className="grid gap-3 rounded-xl border border-line-strong bg-surface p-4 shadow-k-md md:p-5">
       <div className="flex items-center gap-2">
         <span className="grid size-8 place-items-center rounded-md bg-primary-soft text-primary">
           <ImageIcon className="size-4" />
@@ -109,7 +111,7 @@ function WebsiteVisual() {
   const { t } = useTranslation()
   const blocks = ['hero', 'about', 'services', 'contact']
   return (
-    <div aria-hidden className="grid gap-3 rounded-xl border border-line bg-surface p-4 shadow-k-md md:grid-cols-[150px_minmax(0,1fr)] md:p-5">
+    <div aria-hidden className="grid gap-3 rounded-xl border border-line-strong bg-surface p-4 shadow-k-md md:grid-cols-[150px_minmax(0,1fr)] md:p-5">
       <div className="grid content-start gap-1.5">
         <p className="t-label text-muted">{t('home.visual.structure')}</p>
         {blocks.map((b, i) => (
@@ -145,7 +147,7 @@ function SeoVisual() {
     { sev: 'success', key: 'heading' },
   ]
   return (
-    <div aria-hidden className="grid gap-3 rounded-xl border border-line bg-surface p-4 shadow-k-md md:p-5">
+    <div aria-hidden className="grid gap-3 rounded-xl border border-line-strong bg-surface p-4 shadow-k-md md:p-5">
       <div className="flex items-center gap-2">
         <span className="grid size-8 place-items-center rounded-md bg-primary-soft text-primary">
           <SearchCheck className="size-4" />

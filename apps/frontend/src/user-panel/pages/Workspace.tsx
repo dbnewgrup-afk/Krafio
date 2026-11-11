@@ -280,7 +280,9 @@ export function AssistantPage() {
   useEffect(() => {
     if (chat.data) setMsgs(chat.data.messages)
   }, [chat.data])
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [msgs])
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' })
+  }, [msgs])
   const send = async (e: FormEvent) => {
     e.preventDefault()
     const text = q.trim()
