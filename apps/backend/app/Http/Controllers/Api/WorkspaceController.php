@@ -14,6 +14,7 @@ use App\Models\Website;
 use App\Services\Billing;
 use App\Services\Entitlements;
 use App\Services\SeoAuditor;
+use App\Services\SeoWriter;
 use App\Services\Settings;
 use App\Support\ApiException;
 use App\Support\Present;
@@ -77,7 +78,8 @@ class WorkspaceController extends Controller
                     ['id' => (string) Str::uuid(), 'type' => 'services', 'title' => 'Layanan', 'body' => $services ? implode("\n", $services) : 'Tuliskan layanan utama Anda di sini.'],
                     ['id' => (string) Str::uuid(), 'type' => 'contact', 'title' => 'Hubungi kami', 'body' => 'Tambahkan alamat, jam buka, dan kontak.'],
                 ],
-                'seo' => ['title' => Str::limit($data['name'], 60, ''), 'description' => Str::limit($data['business'], 160, '')],
+                // SEO disusun berbasis aturan agar draft langsung lolos validasi publish (judul 10–60, deskripsi 50–160)
+                'seo' => ['title' => SeoWriter::title($data['name'], $services, $data['business']), 'description' => SeoWriter::description($data['name'], $data['business'], $services)],
             ],
         ]);
 
@@ -100,6 +102,15 @@ class WorkspaceController extends Controller
         ]);
 
         return $data['content'];
+    }
+
+    /** Saran perbaikan SEO otomatis (tanpa AI) dari konten editor; tidak menyimpan. */
+    public function suggestSeo(Request $r, Website $website)
+    {
+        abort_unless($website->user_id === $r->user()->id, 404);
+        $content = $this->validContent($r);
+
+        return ['data' => ['seo' => SeoWriter::fix($website->name, $content)['seo']]];
     }
 
     public function updateWebsite(Request $r, Website $website)

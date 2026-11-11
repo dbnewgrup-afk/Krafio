@@ -40,6 +40,7 @@ class BillingController extends Controller
             'current' => $cur ? [
                 'plan' => $plan ? Present::plan($plan) : ['code' => $cur->plan_code, 'name' => $cur->plan_name],
                 'status' => $cur->status, 'starts_at' => $cur->starts_at?->toIso8601String(), 'ends_at' => $cur->ends_at?->toIso8601String(), 'cycle' => $cur->cycle,
+                'granted_by_admin' => $cur->source === 'admin',
                 // Akhir periode terakhir yang sudah dibayar (termasuk perpanjangan di muka)
                 'paid_until' => \App\Models\Subscription::where('user_id', $u->id)->where('status', 'active')->where('plan_code', $cur->plan_code)->latest('ends_at')->first()?->ends_at?->toIso8601String() ?? $cur->ends_at?->toIso8601String(),
             ] : null,
@@ -143,6 +144,12 @@ class BillingController extends Controller
         Billing::startTrial($r->user());
 
         return response()->noContent();
+    }
+
+    /** Prakiraan kapan kredit habis dari laju pemakaian 14 hari terakhir. */
+    public function creditForecast(Request $r)
+    {
+        return ['data' => \App\Services\Ops::creditForecast($r->user())];
     }
 
     public function creditHistory(Request $r)

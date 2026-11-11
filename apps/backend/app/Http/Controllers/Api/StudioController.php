@@ -14,6 +14,7 @@ use App\Services\AiGateway;
 use App\Services\Audit;
 use App\Services\Credits;
 use App\Services\Entitlements;
+use App\Services\FaqResponder;
 use App\Support\ApiException;
 use App\Support\Present;
 use Illuminate\Http\Request;
@@ -367,9 +368,14 @@ class StudioController extends Controller
         AssistantMessage::create(['user_id' => $u->id, 'role' => 'user', 'content' => $data['message']]);
         $history = AssistantMessage::where('user_id', $u->id)->latest('id')->limit(10)->get()->reverse()->map(fn ($m) => ['role' => $m->role, 'content' => $m->content])->values()->all();
         $res = AiGateway::chat(array_merge([['role' => 'system', 'content' => 'Anda AI Assistant Krafio yang membantu UMKM dan kreator membuat konten pemasaran. Jawab ringkas dalam bahasa pengguna.']], $history));
-        $text = $res['text'] ?? "Provider AI teks belum dikonfigurasi oleh Admin, jadi saya belum dapat menjawab dengan model sungguhan.\n\nSementara itu, Anda dapat memakai Brainstorming Konten untuk ide terstruktur, atau menghubungi tim support lewat tombol bantuan.";
+        $text = $res['text'] ?? null;
         if (! $res) {
+            // Tanpa provider AI: jawab dari FAQ aktif (pencocokan kata kunci), kuota tidak dipotong.
             Entitlements::refund($u, 'chatbot.basic', 1);
+            $faq = FaqResponder::answer($data['message'], $u->locale ?? 'id');
+            $text = $faq
+                ? "{$faq['answer']}\n\n— Dijawab dari Pusat Bantuan: \"{$faq['question']}\". Asisten AI penuh aktif setelah Admin mengonfigurasi provider AI."
+                : "Provider AI teks belum dikonfigurasi oleh Admin, jadi saya belum dapat menjawab dengan model sungguhan.\n\nSementara itu, Anda dapat memakai Brainstorming Konten untuk ide terstruktur, atau menghubungi tim support lewat tombol bantuan.";
         }
         $m = AssistantMessage::create(['user_id' => $u->id, 'role' => 'assistant', 'content' => $text]);
 

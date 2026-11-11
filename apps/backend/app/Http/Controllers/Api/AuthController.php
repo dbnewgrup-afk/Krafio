@@ -249,7 +249,8 @@ class AuthController extends Controller
     public static function grantFreePlan(User $u, bool $force = false): void
     {
         $free = Plan::where('code', 'free')->where('is_active', true)->first();
-        if (! $free || (! $force && $u->subscriptions()->exists())) {
+        // Akun admin adalah pengelola: tidak pernah diberi paket/fitur
+        if (! $free || $u->isAdmin() || (! $force && $u->subscriptions()->exists())) {
             return;
         }
         Subscription::create([

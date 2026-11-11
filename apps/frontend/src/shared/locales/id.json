@@ -537,7 +537,13 @@
   "compare_plans": "Bandingkan paket",
   "faq_title": "Pertanyaan umum",
   "faq_body": "Belum menemukan jawaban? Tim kami siap membantu lewat tombol bantuan.",
-  "all_faq": "Semua FAQ"
+  "all_faq": "Semua FAQ",
+  "hero_alt": {
+   "photo": "Panel Generate Krafio: prompt kopi susu gula aren dan tombol Generate 3 kredit",
+   "website": "Galeri template UMKM dan website builder Krafio",
+   "seo": "Kartu skor evaluasi Krafio 78 dengan daftar temuan SEO"
+  },
+  "money_alt": "Kartu saldo top-up dan saldo komisi yang terpisah"
  },
  "generate": {
   "estimate": "Estimasi"
@@ -1191,7 +1197,11 @@
   "tab_activity": "Aktivitas",
   "type": "Jenis",
   "cost": "Biaya",
-  "action": "Aktivitas"
+  "action": "Aktivitas",
+  "forecast": "Rata-rata pemakaian {{avg}} kredit/hari → kredit diperkirakan habis dalam {{days}} hari ({{date}}).",
+  "forecast_before_reset": "Ini sebelum kredit paket diperbarui — pertimbangkan add-on kredit.",
+  "forecast_none": "Belum ada pemakaian kredit 14 hari terakhir, jadi belum ada perkiraan.",
+  "forecast_empty": "Kredit Anda sudah habis. Beli add-on kredit atau tunggu pembaruan paket."
  },
  "activity": {
   "auth.login": "Masuk",
@@ -1303,7 +1313,9 @@
    "gallery": "Galeri",
    "testimonial": "Testimoni",
    "cta": "Ajakan"
-  }
+  },
+  "seo_fix": "Perbaiki SEO otomatis",
+  "seo_fixed": "Judul & deskripsi SEO sudah disesuaikan."
  },
  "seo": {
   "subtitle": "Audit halaman publik dengan rules engine Krafio.",
@@ -1483,7 +1495,12 @@
    "template_studio": "Kelola & pratinjau",
    "dashboard_hero": "Hero dashboard",
    "admin_accounts": "Akun admin",
-   "payment_approval": "Approval pembayaran"
+   "payment_approval": "Approval pembayaran",
+   "subscriptions": "Langganan user",
+   "usage_counters": "Pemakaian kuota",
+   "credit_ledger": "Riwayat kredit",
+   "coupon_redemptions": "Pemakaian kupon",
+   "social_accounts": "Akun sosial terhubung"
   },
   "login_title": "Masuk Admin",
   "login_sub": "Khusus Super Admin. Setiap percobaan tercatat.",
@@ -1815,7 +1832,8 @@
    "tags_hint": "Pisahkan dengan koma.",
    "sections_hint": "Array JSON: [{\"id\": \"definisi\", \"heading\": \"Definisi\", \"body\": \"…\"}]",
    "meta_name_hint": "Huruf kecil, angka, garis bawah — sama persis dengan nama di WhatsApp Manager.",
-   "variables_hint": "Urutan variabel {{1}}, {{2}}, … dipisah koma. Tersedia: name, code, minutes, amount, reference, plan, ends_at, reason."
+   "variables_hint": "Urutan variabel {{1}}, {{2}}, … dipisah koma. Tersedia: name, code, minutes, amount, reference, plan, ends_at, reason.",
+   "job_stop_hint": "Hanya job yang masih antre/diproses. Kredit atau kuota user dikembalikan otomatis."
   },
   "s": {
    "credits_costs": "Biaya kredit per aksi (JSON, kosong = nilai PRD 55.1.1)",
@@ -1889,6 +1907,75 @@
    "sent": "Belum dibayar",
    "paid": "Lunas di JualKirim",
    "amount_mismatch": "Nominal tidak cocok"
+  },
+  "view": "Lihat detail",
+  "uf": {
+   "title": "Fitur & paket",
+   "none": "Belum ada paket aktif",
+   "by_admin": "Diberikan admin",
+   "until": "berlaku sampai {{date}}",
+   "no_end": "tanpa batas waktu",
+   "configure": "Atur fitur & paket",
+   "revoke": "Cabut ke Gratis",
+   "revoke_body": "Paket pemberian admin dihentikan sekarang dan akun kembali ke paket Gratis. Data user tetap tersimpan.",
+   "apply": "Terapkan",
+   "mode": "Cara mengatur",
+   "mode_plan": "Paket katalog",
+   "mode_plan_hint": "Beri Starter/Pro/Business tanpa bayar",
+   "mode_custom": "Racik custom",
+   "mode_custom_hint": "Pilih sendiri fitur, kuota & batas",
+   "plan": "Paket",
+   "plan_preview": "{{features}} fitur · {{credits}} kredit/bulan · {{projects}} proyek",
+   "name": "Nama paket",
+   "name_ph": "mis. Paket Khusus Toko Sari",
+   "base": "Mulai dari paket",
+   "base_hint": "Mengisi otomatis fitur, kuota & batas lain (resolusi, watermark, dll.) dari paket ini.",
+   "features": "Fitur aktif",
+   "quotas": "Kuota bulanan / harian",
+   "limits": "Batas jumlah",
+   "limits_hint": "Batas lain (resolusi, durasi video, watermark, prioritas) mengikuti paket {{plan}}.",
+   "days": "Durasi (hari)",
+   "days_hint": "Kosongkan untuk tanpa batas waktu. Setelah berakhir akun kembali ke paket Gratis.",
+   "replace_warning": "Paket {{plan}} yang sedang berjalan (termasuk periode yang sudah dibayar di muka) akan dihentikan dan diganti. Nilai yang sudah dibayar tidak dikembalikan otomatis — sesuaikan saldo bila perlu.",
+   "admin_title": "Akun pengelola",
+   "admin_body": "Akun admin adalah pengelola platform sehingga tidak memiliki paket, kredit, maupun fitur pengguna.",
+   "k": {
+    "credits": "Kredit/bulan",
+    "chatbot.basic": "Chatbot dasar/hari",
+    "chatbot.premium": "Chatbot premium/hari",
+    "content.brainstorm": "Brainstorm/bulan",
+    "seo.basic": "Audit SEO/bulan",
+    "seo.advanced": "SEO lanjutan/bulan",
+    "projects": "Proyek",
+    "websites": "Website",
+    "social_accounts": "Akun sosial",
+    "storage_mb": "Storage (MB)"
+   }
+  },
+  "sub": {
+   "subscriptions": "Koreksi status & tanggal berakhir. Untuk ganti paket/fitur pakai \"Atur fitur & paket\" di detail user.",
+   "usage_counters": "Koreksi atau reset angka pemakaian kuota teks per periode.",
+   "usage_quotas": "Pack kredit per user. Tambah untuk memberi kredit bonus (tercatat di riwayat kredit).",
+   "credit_ledger": "Jejak kredit masuk/keluar — hanya-baca agar tidak bisa dimanipulasi.",
+   "coupon_redemptions": "Pemakaian kupon per transaksi — hanya-baca.",
+   "social_accounts": "Akun sosial yang dihubungkan user. Hapus untuk memutus koneksi."
+  },
+  "ops": {
+   "title": "Perlu tindakan",
+   "all_clear": "Semua aman — tidak ada yang perlu ditindaklanjuti.",
+   "recover": "Pulihkan job macet",
+   "recovered": "{{n}} job dihentikan & kreditnya dikembalikan.",
+   "k": {
+    "stuck_jobs": "Job AI macet > 30 menit",
+    "failed_jobs_24h": "Job AI gagal (24 jam)",
+    "past_due": "Langganan menunggak",
+    "expiring_7d": "Langganan berbayar habis ≤ 7 hari",
+    "pending_approvals": "Approval menunggu",
+    "pending_withdrawals": "Penarikan diproses",
+    "failed_payments_24h": "Pembayaran gagal (24 jam)",
+    "open_tickets_sla": "Tiket lewat SLA",
+    "pending_accounts": "Akun menunggu persetujuan"
+   }
   }
  },
  "ops": {

@@ -27,6 +27,7 @@ Artisan::command('krafio:prune', function () {
 Schedule::call(fn () => Billing::releaseCommissions())->hourly()->name('release-commissions')->withoutOverlapping();
 Schedule::call(fn () => Billing::releaseExpiredReservations())->everyFifteenMinutes()->name('expire-payments')->withoutOverlapping();
 Schedule::call(fn () => JualKirimInvoices::syncPending())->everyMinute()->name('jualkirim-invoice-sync')->withoutOverlapping(); // JualKirim tanpa webhook → polling
+Schedule::call(fn () => \App\Services\Ops::recoverStuckJobs())->everyFiveMinutes()->name('recover-stuck-jobs')->withoutOverlapping();
 Schedule::call(fn () => Billing::renewals())->hourly()->name('subscription-renewals')->withoutOverlapping();
 Schedule::call(function () {
     Backups::database();

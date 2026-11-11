@@ -41,10 +41,18 @@ class AdminResources
                 'campaign' => 'nullable|in:early_bird,flash_sale,annual,referral,winback,upgrade', 'starts_at' => 'nullable|date', 'ends_at' => 'nullable|date', 'is_active' => $bool,
             ]],
             'coupon-redemptions' => ['model' => Models\CouponRedemption::class, 'readonly' => true, 'search' => [], 'filters' => ['status', 'coupon_id'], 'sort' => ['created_at', 'discount']],
-            'credit-packs' => ['model' => Models\CreditPack::class, 'readonly' => true, 'search' => ['label'], 'filters' => ['source', 'period'], 'sort' => ['created_at', 'expires_at']],
+            // Kontrol manual: admin memberi kredit bonus (Credits::grant → tercatat di ledger kredit) & mengubah label/masa berlaku.
+            'credit-packs' => ['model' => Models\CreditPack::class, 'can' => ['create', 'update'], 'search' => ['label'], 'filters' => ['source', 'period', 'user_id'], 'sort' => ['created_at', 'expires_at'], 'rules' => [
+                'user_id' => 'required|integer|exists:users,id', 'credits_total' => 'required|integer|min:1|max:1000000', 'label' => 'required|string|max:120', 'expires_at' => 'nullable|date|after:now',
+            ], 'update_rules' => ['label' => 'sometimes|required|string|max:120', 'expires_at' => 'sometimes|nullable|date']],
             'credit-ledger' => ['model' => Models\CreditLedgerEntry::class, 'readonly' => true, 'search' => ['description'], 'filters' => ['direction', 'ref_type'], 'sort' => ['created_at', 'amount']],
-            'subscriptions' => ['model' => Models\Subscription::class, 'readonly' => true, 'with' => ['user'], 'search' => ['plan_code', 'plan_name'], 'filters' => ['status', 'plan_code'], 'sort' => ['created_at', 'ends_at', 'price']],
-            'usage' => ['model' => Models\UsageCounter::class, 'readonly' => true, 'search' => ['entitlement', 'period'], 'filters' => ['entitlement', 'period'], 'sort' => ['used', 'updated_at']],
+            // Paket/fitur user diatur lewat "Atur fitur & paket"; di sini hanya koreksi status & tanggal berakhir.
+            'subscriptions' => ['model' => Models\Subscription::class, 'can' => ['update'], 'with' => ['user'], 'search' => ['plan_code', 'plan_name'], 'filters' => ['status', 'plan_code', 'source'], 'sort' => ['created_at', 'ends_at', 'price'], 'rules' => [
+                'status' => 'required|in:active,past_due,cancelled,expired', 'ends_at' => 'nullable|date',
+            ]],
+            'usage' => ['model' => Models\UsageCounter::class, 'can' => ['update', 'delete'], 'search' => ['entitlement', 'period'], 'filters' => ['entitlement', 'period'], 'sort' => ['used', 'updated_at'], 'rules' => [
+                'used' => 'required|integer|min:0|max:100000000',
+            ]],
             'payments' => ['model' => Models\Payment::class, 'readonly' => true, 'with' => ['user'], 'search' => ['reference'], 'filters' => ['status', 'purpose', 'gateway'], 'sort' => ['created_at', 'amount']],
             'topups' => ['model' => Models\Payment::class, 'readonly' => true, 'scope' => ['purpose' => 'topup'], 'with' => ['user'], 'search' => ['reference'], 'filters' => ['status'], 'sort' => ['created_at', 'amount']],
             'ledger' => ['model' => Models\LedgerEntry::class, 'readonly' => true, 'with' => ['user'], 'search' => ['description'], 'filters' => ['wallet', 'direction'], 'sort' => ['created_at', 'amount']],
@@ -65,8 +73,11 @@ class AdminResources
             'ai-agents' => ['model' => Models\AiAgent::class, 'search' => ['name', 'purpose'], 'filters' => ['status'], 'sort' => ['updated_at'], 'rules' => [
                 'name' => 'required|string|max:80', 'purpose' => 'required|string|max:255', 'model_id' => 'nullable|exists:ai_models,id', 'instructions' => 'nullable|string|max:8000', 'status' => 'required|in:draft,active,disabled',
             ]],
-            'ai-jobs' => ['model' => Models\AiJob::class, 'readonly' => true, 'with' => ['user'], 'search' => ['prompt'], 'filters' => ['status', 'type'], 'sort' => ['created_at', 'cost']],
-            'uploads' => ['model' => Models\Upload::class, 'readonly' => true, 'search' => ['original_name', 'mime'], 'filters' => ['mime'], 'sort' => ['created_at', 'size']],
+            // Batalkan/gagalkan job macet → kredit/kuota dikembalikan otomatis (AdminResourceHooks)
+            'ai-jobs' => ['model' => Models\AiJob::class, 'can' => ['update'], 'with' => ['user'], 'search' => ['prompt'], 'filters' => ['status', 'type'], 'sort' => ['created_at', 'cost'], 'rules' => [
+                'status' => 'required|in:cancelled,failed', 'error' => 'nullable|string|max:500',
+            ]],
+            'uploads' => ['model' => Models\Upload::class, 'can' => ['delete'], 'search' => ['original_name', 'mime'], 'filters' => ['mime'], 'sort' => ['created_at', 'size']],
             'templates' => ['model' => Models\Template::class, 'search' => ['title_id', 'category'], 'filters' => ['type', 'status', 'is_premium', 'is_featured'], 'sort' => ['usage_count', 'created_at', 'updated_at', 'sort'], 'rules' => [
                 'title_id' => 'required|string|max:160', 'title_en' => 'nullable|string|max:160', 'description_id' => 'nullable|string|max:1000', 'description_en' => 'nullable|string|max:1000',
                 'type' => 'required|in:photo,video,website,social,business', 'category' => 'nullable|string|max:60', 'ratio' => 'required|in:1:1,4:5,9:16,16:9,4:3',
@@ -78,13 +89,17 @@ class AdminResources
             'template-categories' => ['model' => Models\TemplateCategory::class, 'search' => ['slug', 'name_id'], 'filters' => ['type'], 'sort' => ['sort'], 'rules' => [
                 'slug' => 'required|alpha_dash|max:60', 'name_id' => 'required|string|max:80', 'name_en' => 'nullable|string|max:80', 'type' => 'required|in:photo,video,website,social,business', 'sort' => 'integer|min:0',
             ]],
-            'projects' => ['model' => Models\Project::class, 'readonly' => true, 'search' => ['name'], 'filters' => ['type', 'status'], 'sort' => ['updated_at']],
-            'websites' => ['model' => Models\Website::class, 'readonly' => true, 'with' => ['user'], 'search' => ['name', 'subdomain'], 'filters' => ['status'], 'sort' => ['updated_at', 'published_at']],
+            'projects' => ['model' => Models\Project::class, 'can' => ['update', 'delete'], 'search' => ['name'], 'filters' => ['type', 'status'], 'sort' => ['updated_at'], 'rules' => [
+                'name' => 'required|string|max:120', 'status' => 'required|in:active,archived',
+            ]],
+            'websites' => ['model' => Models\Website::class, 'can' => ['update', 'delete'], 'with' => ['user'], 'search' => ['name', 'subdomain'], 'filters' => ['status'], 'sort' => ['updated_at', 'published_at'], 'rules' => [
+                'name' => 'required|string|max:120', 'status' => 'required|in:draft,published,archived', 'custom_domain' => 'nullable|string|max:190|regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i',
+            ]],
             'seo-rules' => ['model' => Models\SeoRule::class, 'search' => ['code', 'name'], 'filters' => ['severity', 'is_active'], 'sort' => ['weight', 'code'], 'rules' => [
                 'code' => 'required|alpha_dash|max:60', 'name' => 'required|string|max:120', 'severity' => 'required|in:critical,warning,info', 'weight' => 'required|integer|min:1|max:20', 'is_active' => $bool, 'ruleset_version' => 'required|string|max:10',
             ]],
-            'seo-audits' => ['model' => Models\SeoAudit::class, 'readonly' => true, 'search' => ['url'], 'filters' => ['status'], 'sort' => ['created_at', 'score']],
-            'social-accounts' => ['model' => Models\SocialAccount::class, 'readonly' => true, 'search' => ['account_name'], 'filters' => ['platform', 'status'], 'sort' => ['updated_at']],
+            'seo-audits' => ['model' => Models\SeoAudit::class, 'can' => ['delete'], 'search' => ['url'], 'filters' => ['status'], 'sort' => ['created_at', 'score']],
+            'social-accounts' => ['model' => Models\SocialAccount::class, 'can' => ['delete'], 'search' => ['account_name'], 'filters' => ['platform', 'status'], 'sort' => ['updated_at']],
             'webhook-logs' => ['model' => Models\WebhookLog::class, 'readonly' => true, 'search' => ['event', 'source'], 'filters' => ['source', 'signature_valid'], 'sort' => ['created_at']],
             'email-templates' => ['model' => Models\EmailTemplate::class, 'search' => ['key', 'subject_id'], 'filters' => ['is_active'], 'sort' => ['key'], 'rules' => [
                 'key' => 'required|alpha_dash|max:60', 'subject_id' => 'required|string|max:160', 'body_id' => 'required|string|max:10000', 'subject_en' => 'nullable|string|max:160', 'body_en' => 'nullable|string|max:10000', 'is_active' => $bool,
@@ -115,8 +130,23 @@ class AdminResources
                 'meta_name' => 'required|string|max:120|regex:/^[a-z0-9_]+$/', 'language' => 'required|string|max:10', 'body_preview' => 'required|string|max:1024',
                 'variables' => 'array', 'is_active' => $bool,
             ]],
-            'tickets' => ['model' => Models\Ticket::class, 'readonly' => true, 'with' => ['user'], 'search' => ['number', 'subject', 'guest_email'], 'filters' => ['status'], 'sort' => ['updated_at', 'created_at']],
+            'tickets' => ['model' => Models\Ticket::class, 'can' => ['delete'], 'with' => ['user'], 'search' => ['number', 'subject', 'guest_email'], 'filters' => ['status'], 'sort' => ['updated_at', 'created_at']],
         ];
+    }
+
+    /**
+     * Hak per resource: `can` eksplisit, `readonly` → hanya lihat & ekspor, selain itu CRUD penuh.
+     * Jejak uang & log (ledger, pembayaran, komisi, penarikan, audit, keamanan, email/WA/webhook) sengaja
+     * tetap hanya-baca agar pembukuan & audit tidak bisa dimanipulasi (PRD 11.4); koreksinya lewat alur resmi
+     * (penyesuaian saldo, approval, dll.).
+     */
+    public static function abilities(array $def): array
+    {
+        if (isset($def['can'])) {
+            return $def['can'];
+        }
+
+        return ! empty($def['readonly']) || empty($def['rules']) ? [] : ['create', 'update', 'delete'];
     }
 
     public static function get(string $key): array

@@ -75,6 +75,18 @@ class AdminController extends Controller
         ]];
     }
 
+    /** Monitoring "Perlu tindakan": hitungan per kategori, diurutkan dari yang paling kritis. */
+    public function opsAttention()
+    {
+        return ['data' => \App\Services\Ops::attention()];
+    }
+
+    /** Pulihkan manual job macet (> 30 menit diproses) — sama seperti scheduler. */
+    public function opsRecoverStuckJobs()
+    {
+        return ['data' => ['recovered' => \App\Services\Ops::recoverStuckJobs()]];
+    }
+
     public function dashboard()
     {
         $today = now()->startOfDay();

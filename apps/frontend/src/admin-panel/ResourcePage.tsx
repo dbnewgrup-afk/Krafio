@@ -14,7 +14,7 @@ import { useToast } from '@/shared/context/ToastContext'
 import { useDocTitle } from '@/shared/hooks/useDocTitle'
 import { useIsDesktop } from '@/shared/hooks/useMediaQuery'
 import { dateTime, number, rupiah } from '@/shared/lib/format'
-import { RESOURCES, type ColDef, type FieldDef } from './resources'
+import { RESOURCES, abilities, type ColDef, type FieldDef } from './resources'
 import { useAdmin } from './AdminContext'
 
 type Row = Record<string, any> & { id: number | string }
@@ -55,6 +55,7 @@ export function ResourcePage({ resource, title, subtitle, preset = {}, group, hi
   const { t } = useTranslation()
   useDocTitle(title)
   const def = RESOURCES[resource]
+  const can = abilities(def)
   const toast = useToast()
   const nav = useNavigate()
   const { withReauth } = useAdmin()
@@ -88,29 +89,30 @@ export function ResourcePage({ resource, title, subtitle, preset = {}, group, hi
         title={title}
         subtitle={subtitle}
         crumbs={group ? [{ label: group }, { label: title }] : undefined}
-        actions={!def.readonly && def.fields && !hideCreate ? <Button icon={<Plus className="size-4" aria-hidden />} onClick={() => setEditing('new')}>{t('admin.add_new')}</Button> : undefined}
+        actions={can.includes('create') && def.fields && !hideCreate ? <Button icon={<Plus className="size-4" aria-hidden />} onClick={() => setEditing('new')}>{t('admin.add_new')}</Button> : undefined}
       />
       <DataTable<Row>
         list={list}
         columns={columns}
         filters={filters}
         exportName={def.endpoint}
-        onRowClick={resource === 'tickets' ? (r) => nav(`/admin/support/tickets/${r.id}`) : def.readonly ? (r) => setViewing(r) : undefined}
+        onRowClick={resource === 'tickets' ? (r) => nav(`/admin/support/tickets/${r.id}`) : (r) => setViewing(r)}
         bulkActions={
-          def.bulk && !def.readonly
+          (def.bulk && can.includes('update')) || can.includes('delete')
             ? (ids, clear) => (
                 <>
-                  <Button size="sm" variant="secondary" onClick={async () => { await http.post(`/admin/r/${def.endpoint}/bulk`, { ids, action: 'activate' }); clear(); list.reload() }}>{t('admin.activate')}</Button>
-                  <Button size="sm" variant="secondary" onClick={async () => { await http.post(`/admin/r/${def.endpoint}/bulk`, { ids, action: 'deactivate' }); clear(); list.reload() }}>{t('admin.deactivate')}</Button>
-                  <Button size="sm" variant="danger" onClick={() => setBulkDel({ ids, clear })}>{t('common.delete')}</Button>
+                  {def.bulk && can.includes('update') && (
+                    <>
+                      <Button size="sm" variant="secondary" onClick={async () => { await http.post(`/admin/r/${def.endpoint}/bulk`, { ids, action: 'activate' }); clear(); list.reload() }}>{t('admin.activate')}</Button>
+                      <Button size="sm" variant="secondary" onClick={async () => { await http.post(`/admin/r/${def.endpoint}/bulk`, { ids, action: 'deactivate' }); clear(); list.reload() }}>{t('admin.deactivate')}</Button>
+                    </>
+                  )}
+                  {can.includes('delete') && <Button size="sm" variant="danger" onClick={() => setBulkDel({ ids, clear })}>{t('common.delete')}</Button>}
                 </>
               )
             : undefined
         }
-        rowActions={
-          def.readonly
-            ? undefined
-            : (r) => (
+        rowActions={(r) => (
                 <Menu
                   label={t('table.actions')}
                   width="w-52"
@@ -122,14 +124,15 @@ export function ResourcePage({ resource, title, subtitle, preset = {}, group, hi
                 >
                   {(close) => (
                     <>
-                      <MenuItem icon={<Pencil className="size-4" aria-hidden />} onClick={() => { close(); setEditing(r) }}>{t('common.edit')}</MenuItem>
+                      <MenuItem icon={<Eye className="size-4" aria-hidden />} onClick={() => { close(); setViewing(r) }}>{t('admin.view')}</MenuItem>
+                      {can.includes('update') && def.fields && <MenuItem icon={<Pencil className="size-4" aria-hidden />} onClick={() => { close(); setEditing(r) }}>{t('common.edit')}</MenuItem>}
                       {def.testable && (
                         <>
                           <MenuItem icon={<PlugZap className="size-4" aria-hidden />} onClick={async () => { close(); try { const res = await http.post<{ data: { ok: boolean } }>(`/admin/ai-providers/${r.id}/test`); toast.push(res.data.ok ? 'success' : 'error', res.data.ok ? t('admin.test_ok') : t('admin.test_failed')); list.reload() } catch (e) { toast.push('error', (e as Error).message) } }}>{t('admin.test_connection')}</MenuItem>
                           <MenuItem icon={<KeyRound className="size-4" aria-hidden />} onClick={() => { close(); setNewKey(''); setRotate(r) }}>{t('admin.rotate_key')}</MenuItem>
                         </>
                       )}
-                      <MenuItem danger icon={<Trash2 className="size-4" aria-hidden />} onClick={() => { close(); setDel(r) }}>{t('common.delete')}</MenuItem>
+                      {can.includes('delete') && <MenuItem danger icon={<Trash2 className="size-4" aria-hidden />} onClick={() => { close(); setDel(r) }}>{t('common.delete')}</MenuItem>}
                     </>
                   )}
                 </Menu>
@@ -182,7 +185,7 @@ function ResourceForm({ resource, row, onClose, onSaved }: { resource: string; r
   const { t } = useTranslation()
   const def = RESOURCES[resource]
   const isDesktop = useIsDesktop()
-  const fields = def.fields!
+  const fields = useMemo(() => def.fields!.filter((f) => !(row && f.createOnly)), [def, row])
   const init = useMemo(() => Object.fromEntries(fields.map((f) => [f.name, initial(f, row)])), [fields, row])
   const [vals, setVals] = useState<Record<string, any>>(init)
   const [errs, setErrs] = useState<Record<string, string[]>>({})

@@ -20,6 +20,7 @@ import { useIsMobile } from '@/shared/hooks/useMediaQuery'
 import { ResourcePage, InfoCard } from './ResourcePage'
 import { useAdmin } from './AdminContext'
 import { CreateAccountModal } from './CreateAccount'
+import { UserFeaturesCard } from './UserFeatures'
 import { cn } from '@/shared/lib/cn'
 import { CountUp } from '@/shared/motion/CountUp'
 import { RevealCard, GrowBar } from '@/shared/motion/Reveal'
@@ -36,6 +37,58 @@ interface Dash {
   signups_14d: { date: string; count: number }[]
   recent_approvals: { id: number; type: string; title: string; created_at: string }[]
 }
+/** Monitoring "Perlu tindakan" (Ops::attention) — kategori kosong dirapatkan di belakang. */
+function AttentionPanel() {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const a = useApi<{ key: string; severity: 'critical' | 'warning' | 'info'; count: number; to: string }[]>('/admin/ops/attention')
+  const [busy, setBusy] = useState(false)
+  if (!a.data) return null
+  const open = a.data.filter((x) => x.count > 0)
+  const tone = { critical: 'bg-danger/12 text-danger', warning: 'bg-warning/14 text-warning', info: 'bg-info/12 text-info' }
+  const stuck = a.data.find((x) => x.key === 'stuck_jobs')?.count ?? 0
+  return (
+    <Card className="mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CardTitle>{t('admin.ops.title')}</CardTitle>
+        {stuck > 0 && (
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={busy}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                const r = await http.post<{ data: { recovered: number } }>('/admin/ops/recover-stuck-jobs')
+                toast.push('success', t('admin.ops.recovered', { n: r.data.recovered }))
+                a.reload()
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            {t('admin.ops.recover')}
+          </Button>
+        )}
+      </div>
+      {open.length === 0 ? (
+        <p className="t-small text-muted">{t('admin.ops.all_clear')}</p>
+      ) : (
+        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {open.map((x) => (
+            <li key={x.key}>
+              <Link to={x.to} className="flex items-center justify-between gap-3 rounded-md border border-line px-3 py-2.5 hover:bg-surface-2">
+                <span className="text-sm">{t(`admin.ops.k.${x.key}`)}</span>
+                <span className={cn('inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-[12px] font-semibold tabular-nums', tone[x.severity])}>{number(x.count)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
 export function AdminDashboard() {
   const { t } = useTranslation()
   useDocTitle(t('admin.nav.dashboard'))
@@ -62,6 +115,7 @@ export function AdminDashboard() {
       <PageHeader title={t('admin.nav.dashboard')} subtitle={t('admin.dash_sub')} />
       <DashboardHero area="admin" />
       {isMobile ? <Carousel label={t('admin.kpi.label')} itemClass="basis-[78%]" variant="strip">{kpis}</Carousel> : <div className="grid grid-cols-4 gap-4">{kpis.map((k, i) => <RevealCard key={k.key} order={i + 1}>{k}</RevealCard>)}</div>}
+      <AttentionPanel />
       <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <RevealCard order={5}>
         <Card>
@@ -290,6 +344,8 @@ export function AdminUserDetail() {
           </div>
         )}
         {tab === 'subscription' && (
+          <>
+          <UserFeaturesCard userId={id!} isAdmin={d.role === 'admin'} onChanged={u.reload} />
           <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
             {d.subscriptions.map((s: any) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -301,6 +357,7 @@ export function AdminUserDetail() {
             ))}
             {d.subscriptions.length === 0 && <li className="t-small px-4 py-6 text-muted">{t('billing.no_history')}</li>}
           </ul>
+          </>
         )}
         {tab === 'wallet' && <ResourcePage resource="ledger" title={t('admin.nav.wallet_ledger')} preset={{ user_id: Number(id) }} hideCreate />}
         {(tab === 'ai_usage' || tab === 'media_jobs') && <ResourcePage resource="ai-jobs" title={t(`admin.user_tabs.${tab}`)} preset={{ user_id: Number(id) }} />}

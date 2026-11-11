@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Controller;
 use App\Services\Audit;
+use App\Support\AdminResourceHooks;
 use App\Support\AdminResources;
 use App\Support\ApiException;
 use App\Support\Present;
@@ -83,12 +84,20 @@ class ResourceController extends Controller
         return ['data' => $this->row($def['model']::with($def['with'] ?? [])->findOrFail($id), $def)];
     }
 
+    private function authorizeAbility(array $def, string $ability): void
+    {
+        if (! in_array($ability, AdminResources::abilities($def), true)) {
+            throw new ApiException('read_only', $ability === 'delete' ? 'Data ini tidak dapat dihapus.' : 'Data ini tidak dapat diubah langsung.', 405);
+        }
+    }
+
     private function validated(Request $r, array $def, string $resource, $model = null): array
     {
-        if (! empty($def['readonly']) || empty($def['rules'])) {
+        $this->authorizeAbility($def, $model ? 'update' : 'create');
+        if (empty($def['rules'])) {
             throw new ApiException('read_only', 'Data ini tidak dapat diubah langsung.', 405);
         }
-        $rules = $def['rules'];
+        $rules = $model && isset($def['update_rules']) ? $def['update_rules'] : $def['rules'];
         $table = (new $def['model'])->getTable();
         foreach (['code', 'key', 'slug', 'event'] as $uniq) {
             if (isset($rules[$uniq])) {
@@ -114,7 +123,8 @@ class ResourceController extends Controller
                 $data['key_rotated_at'] = now();
             }
         }
-        $m = $def['model']::create($data + ($resource === 'templates' ? ['created_by' => $r->user()->id] : []));
+        $m = AdminResourceHooks::create($resource, $data, $r)
+            ?? $def['model']::create($data + ($resource === 'templates' ? ['created_by' => $r->user()->id] : []));
         Audit::log("admin.{$resource}.created", $m);
 
         return response()->json(['data' => $this->row($m, $def)], 201);
@@ -126,7 +136,9 @@ class ResourceController extends Controller
         $m = $def['model']::findOrFail($id);
         $data = $this->validated($r, $def, $resource, $m);
         $before = collect($m->only(array_keys($data)))->all();
+        AdminResourceHooks::beforeUpdate($resource, $m, $data);
         $m->update($data);
+        AdminResourceHooks::afterUpdate($resource, $m, $before);
         Audit::log("admin.{$resource}.updated", $m, ['changed' => array_keys(array_diff_assoc(array_map('json_encode', $data), array_map('json_encode', $before)))]);
 
         return ['data' => $this->row($m->fresh(), $def)];
@@ -135,10 +147,9 @@ class ResourceController extends Controller
     public function destroy(Request $r, string $resource, string $id)
     {
         $def = AdminResources::get($resource);
-        if (! empty($def['readonly'])) {
-            throw new ApiException('read_only', 'Data ini tidak dapat dihapus.', 405);
-        }
+        $this->authorizeAbility($def, 'delete');
         $m = $def['model']::findOrFail($id);
+        AdminResourceHooks::beforeDelete($resource, $m);
         $m->delete();
         Audit::log("admin.{$resource}.deleted", $m);
 
@@ -149,16 +160,17 @@ class ResourceController extends Controller
     {
         $def = AdminResources::get($resource);
         $data = $r->validate(['ids' => 'required|array|max:500', 'action' => 'required|in:delete,activate,deactivate', 'confirm' => 'nullable|string']);
-        if (! empty($def['readonly'])) {
-            throw new ApiException('read_only', 'Data ini tidak dapat diubah.', 405);
-        }
+        $this->authorizeAbility($def, $data['action'] === 'delete' ? 'delete' : 'update');
         if ($data['action'] === 'delete' && ($data['confirm'] ?? '') !== 'HAPUS') {
             throw new ApiException('confirm_required', 'Ketik HAPUS untuk melanjutkan.', 422);
         }
         $q = $def['model']::whereIn((new $def['model'])->getKeyName(), $data['ids']);
         $field = isset($def['rules']['is_active']) ? 'is_active' : (isset($def['rules']['enabled']) ? 'enabled' : null);
         match ($data['action']) {
-            'delete' => $q->get()->each->delete(),
+            'delete' => $q->get()->each(function ($m) use ($resource) {
+                AdminResourceHooks::beforeDelete($resource, $m);
+                $m->delete();
+            }),
             'activate' => $field ? $q->update([$field => true]) : null,
             'deactivate' => $field ? $q->update([$field => false]) : null,
         };

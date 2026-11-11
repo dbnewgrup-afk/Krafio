@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\Admin\UserFeaturesController;
 use App\Http\Controllers\Api\Admin\OpsController;
 use App\Http\Controllers\Api\Admin\ResourceController;
 use App\Http\Controllers\Api\AuthController;
@@ -97,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('websites/{website}', [WorkspaceController::class, 'showWebsite']);
         Route::put('websites/{website}', [WorkspaceController::class, 'updateWebsite']);
         Route::post('websites/{website}/publish', [WorkspaceController::class, 'publishWebsite']);
+        Route::post('websites/{website}/seo-suggest', [WorkspaceController::class, 'suggestSeo'])->middleware('throttle:60,1,ws1');
         Route::get('seo/audits', [WorkspaceController::class, 'seoAudits']);
         Route::post('seo/audits', [WorkspaceController::class, 'runSeo'])->middleware('throttle:10,1,r16');
         Route::patch('seo/findings/{finding}', [WorkspaceController::class, 'updateFinding']);
@@ -125,6 +127,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('subscription/auto-renew', [BillingController::class, 'autoRenew']);
         Route::post('trial', [BillingController::class, 'trial'])->middleware('throttle:5,1,r19');
         Route::get('credits/history', [BillingController::class, 'creditHistory']);
+        Route::get('credits/forecast', [BillingController::class, 'creditForecast']);
         Route::get('addons', [BillingController::class, 'myAddons']);
         Route::get('custom-packages', [BillingController::class, 'customPackages']);
         Route::post('custom-packages/request', [BillingController::class, 'requestCustom'])->middleware('throttle:5,1,r20');
@@ -150,6 +153,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('session/ping', [AdminController::class, 'ping']);
         Route::get('badges', [AdminController::class, 'badges']);
         Route::get('dashboard', [AdminController::class, 'dashboard']);
+        Route::get('ops/attention', [AdminController::class, 'opsAttention']);
+        Route::post('ops/recover-stuck-jobs', [AdminController::class, 'opsRecoverStuckJobs'])->middleware('throttle:10,1,ops1');
         Route::get('users', [AdminController::class, 'users']);
         Route::post('users', [AccountController::class, 'store'])->middleware('throttle:20,1,acc1');
         Route::post('users/{user}/reset-password', [AccountController::class, 'resetPassword'])->middleware('throttle:10,1,acc2');
@@ -158,6 +163,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('users/{user}/status', [AdminController::class, 'setStatus']);
         Route::post('users/{user}/balance', [AdminController::class, 'adjustBalance']);
         Route::post('users/{user}/quota-reset', [AdminController::class, 'resetQuota']);
+        Route::get('users/{user}/features', [UserFeaturesController::class, 'show']);
+        Route::post('users/{user}/features', [UserFeaturesController::class, 'store'])->middleware('throttle:20,1,uf1');
+        Route::delete('users/{user}/features', [UserFeaturesController::class, 'destroy'])->middleware('throttle:20,1,uf2');
         Route::get('approvals', [AdminController::class, 'approvals']);
         Route::post('approvals/{approval}/decide', [AdminController::class, 'decide']);
         Route::post('withdrawals/{withdrawal}/status', [AdminController::class, 'withdrawalStatus']);

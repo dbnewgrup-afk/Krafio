@@ -25,6 +25,31 @@ import { QuotaBar } from './Dashboard'
 import { cn } from '@/shared/lib/cn'
 
 /* ---------------- Penggunaan & aktivitas ---------------- */
+/** Prakiraan kredit habis dari rata-rata pemakaian 14 hari (dihitung di server, tanpa AI). */
+function CreditForecast() {
+  const { t } = useTranslation()
+  const f = useApi<{ daily_avg: number; days_left: number | null; runs_out_at: string | null; before_reset: boolean | null }>('/app/credits/forecast')
+  if (!f.data) return null
+  const d = f.data
+  let text: string
+  let warn = false
+  if (d.days_left === 0) {
+    text = t('usage.forecast_empty')
+    warn = true
+  } else if (d.days_left === null || !d.runs_out_at) {
+    text = t('usage.forecast_none')
+  } else {
+    text = t('usage.forecast', { avg: d.daily_avg, days: d.days_left, date: dateTime(d.runs_out_at, false) })
+    warn = !!d.before_reset
+  }
+  return (
+    <p className={`t-small mb-4 rounded-md p-3 ${warn ? 'bg-warning/14 text-fg' : 'bg-surface-2 text-muted'}`}>
+      {text}
+      {warn && d.days_left !== 0 && <> {t('usage.forecast_before_reset')}</>}
+    </p>
+  )
+}
+
 export function UsagePage() {
   const { t } = useTranslation()
   useDocTitle(t('user.nav.usage'))
@@ -49,6 +74,7 @@ export function UsagePage() {
       <div className="mt-5">
         {tab === 'quota' && (
           <Card>
+            <CreditForecast />
             {ents.length === 0 ? (
               <p className="t-small text-muted">{t('user.dash.no_quota')}</p>
             ) : (

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, Send, Bot, Globe, Monitor, Tablet, Smartphone, Save, Rocket, Link2, Unlink, RefreshCw, Trash2, FolderOpen, MonitorSmartphone } from 'lucide-react'
+import { Plus, Send, Bot, Globe, Monitor, Tablet, Smartphone, Save, Rocket, Link2, Unlink, RefreshCw, Trash2, FolderOpen, MonitorSmartphone, Wand2 } from 'lucide-react'
 import { http, ApiError } from '@/api-client/http'
 import type { AiJob, TemplateItem } from '@/api-client/types'
 import { useAuth } from '@/shared/context/AuthContext'
@@ -469,6 +469,18 @@ export function WebsiteEditorPage() {
     setContent({ ...content, blocks: content.blocks.map((b) => (b.id === sel ? { ...b, ...patch } : b)) })
     setDirty(true)
   }
+  // Perbaikan SEO berbasis aturan (tanpa AI): judul 10–60 & deskripsi 50–160 karakter
+  const fixSeo = async () => {
+    try {
+      const r = await http.post<{ data: { seo: { title: string; description: string } } }>(`/app/websites/${id}/seo-suggest`, { content })
+      setContent({ ...content, seo: r.data.seo })
+      setDirty(true)
+      setIssues(null)
+      toast.push('success', t('websites.seo_fixed'))
+    } catch (e) {
+      toast.push('error', e instanceof ApiError ? e.message : (e as Error).message)
+    }
+  }
   const publish = async () => {
     try {
       await http.post(`/app/websites/${id}/publish`, { content })
@@ -486,6 +498,7 @@ export function WebsiteEditorPage() {
       <p className="t-label mt-2">SEO</p>
       <TextField label={t('websites.seo_title')} value={content.seo.title} onChange={(e) => { setContent({ ...content, seo: { ...content.seo, title: e.target.value } }); setDirty(true) }} hint={t('websites.chars', { n: content.seo.title.length, max: 60 })} />
       <TextArea label={t('websites.seo_desc')} rows={3} value={content.seo.description} onChange={(e) => { setContent({ ...content, seo: { ...content.seo, description: e.target.value } }); setDirty(true) }} hint={t('websites.chars', { n: content.seo.description.length, max: 160 })} />
+      <Button variant="secondary" size="sm" icon={<Wand2 className="size-4" aria-hidden />} onClick={fixSeo}>{t('websites.seo_fix')}</Button>
     </div>
   ) : null
   const W = { desktop: 'max-w-full', tablet: 'max-w-[768px]', mobile: 'max-w-[390px]' }[device]

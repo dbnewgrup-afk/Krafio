@@ -75,6 +75,10 @@ export const ADMIN_NAV: Group[] = [
     { key: 'entitlements', path: '/admin/billing/entitlements', el: () => <AdminEntitlements /> },
     { key: 'coupons', path: '/admin/billing/coupons', el: () => <R resource="coupons" k="coupons" g="g_billing" /> },
     { key: 'usage_quotas', path: '/admin/billing/usage', el: () => <R resource="credit-packs" k="usage_quotas" g="g_billing" /> },
+    { key: 'subscriptions', path: '/admin/billing/subscriptions', el: () => <R resource="subscriptions" k="subscriptions" g="g_billing" /> },
+    { key: 'usage_counters', path: '/admin/billing/usage-counters', el: () => <R resource="usage" k="usage_counters" g="g_billing" /> },
+    { key: 'credit_ledger', path: '/admin/billing/credit-ledger', el: () => <R resource="credit-ledger" k="credit_ledger" g="g_billing" /> },
+    { key: 'coupon_redemptions', path: '/admin/billing/coupon-redemptions', el: () => <R resource="coupon-redemptions" k="coupon_redemptions" g="g_billing" /> },
   ] },
   { key: 'g_financial', children: [
     { key: 'payments', path: '/admin/finance/payments', el: () => <R resource="payments" k="payments" g="g_financial" /> },
@@ -148,6 +152,7 @@ export const ADMIN_NAV: Group[] = [
     { key: 'tiktok', path: '/admin/social/tiktok', el: () => <S k="tiktok" g="g_social" info="admin.info.social_official" fields={social('tiktok')} /> },
     { key: 'threads', path: '/admin/social/threads', el: () => <S k="threads" g="g_social" info="admin.info.social_official" fields={social('threads')} /> },
     { key: 'webhook_logs', path: '/admin/social/webhooks', el: () => <R resource="webhook-logs" k="webhook_logs" g="g_social" /> },
+    { key: 'social_accounts', path: '/admin/social/accounts', el: () => <R resource="social-accounts" k="social_accounts" g="g_social" /> },
   ] },
   { key: 'g_communication', children: [
     { key: 'smtp_settings', path: '/admin/communication/smtp', el: () => <IntegrationPage kind="smtp" /> },

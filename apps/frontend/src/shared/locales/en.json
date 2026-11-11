@@ -537,7 +537,13 @@
   "compare_plans": "Compare plans",
   "faq_title": "Common questions",
   "faq_body": "No answer yet? Our team is one click away on the help button.",
-  "all_faq": "All FAQs"
+  "all_faq": "All FAQs",
+  "hero_alt": {
+   "photo": "Krafio Generate panel: palm sugar iced coffee prompt and a Generate 3 credits button",
+   "website": "Krafio SME template gallery and website builder",
+   "seo": "Krafio evaluation score card 78 with SEO findings"
+  },
+  "money_alt": "Separate top-up balance and commission balance cards"
  },
  "generate": {
   "estimate": "Estimate"
@@ -1191,7 +1197,11 @@
   "tab_activity": "Activity",
   "type": "Type",
   "cost": "Cost",
-  "action": "Activity"
+  "action": "Activity",
+  "forecast": "Average usage {{avg}} credits/day → credits expected to run out in {{days}} days ({{date}}).",
+  "forecast_before_reset": "That is before your plan credits renew — consider a credit add-on.",
+  "forecast_none": "No credit usage in the last 14 days, so no forecast yet.",
+  "forecast_empty": "You are out of credits. Buy a credit add-on or wait for your plan to renew."
  },
  "activity": {
   "auth.login": "Signed in",
@@ -1303,7 +1313,9 @@
    "gallery": "Gallery",
    "testimonial": "Testimonial",
    "cta": "Call to action"
-  }
+  },
+  "seo_fix": "Auto-fix SEO",
+  "seo_fixed": "SEO title & description adjusted."
  },
  "seo": {
   "subtitle": "Audit public pages with the Krafio rules engine.",
@@ -1483,7 +1495,12 @@
    "template_studio": "Manage & preview",
    "dashboard_hero": "Dashboard hero",
    "admin_accounts": "Admin accounts",
-   "payment_approval": "Payment approval"
+   "payment_approval": "Payment approval",
+   "subscriptions": "User subscriptions",
+   "usage_counters": "Quota usage",
+   "credit_ledger": "Credit history",
+   "coupon_redemptions": "Coupon redemptions",
+   "social_accounts": "Connected social accounts"
   },
   "login_title": "Admin sign in",
   "login_sub": "Super Admin only. Every attempt is logged.",
@@ -1815,7 +1832,8 @@
    "tags_hint": "Comma-separated.",
    "sections_hint": "JSON array: [{\"id\": \"definitions\", \"heading\": \"Definitions\", \"body\": \"…\"}]",
    "meta_name_hint": "Lowercase letters, numbers, underscores — exactly as in WhatsApp Manager.",
-   "variables_hint": "Order of {{1}}, {{2}}, … comma-separated. Available: name, code, minutes, amount, reference, plan, ends_at, reason."
+   "variables_hint": "Order of {{1}}, {{2}}, … comma-separated. Available: name, code, minutes, amount, reference, plan, ends_at, reason.",
+   "job_stop_hint": "Only queued/processing jobs. The user's credits or quota are refunded automatically."
   },
   "s": {
    "credits_costs": "Credit cost per action (JSON, empty = PRD 55.1.1 values)",
@@ -1889,6 +1907,75 @@
    "sent": "Unpaid",
    "paid": "Paid on JualKirim",
    "amount_mismatch": "Amount mismatch"
+  },
+  "view": "View details",
+  "uf": {
+   "title": "Features & plan",
+   "none": "No active plan",
+   "by_admin": "Granted by admin",
+   "until": "valid until {{date}}",
+   "no_end": "no end date",
+   "configure": "Configure features & plan",
+   "revoke": "Revert to Free",
+   "revoke_body": "The admin-granted plan stops now and the account returns to the Free plan. User data is kept.",
+   "apply": "Apply",
+   "mode": "Mode",
+   "mode_plan": "Catalog plan",
+   "mode_plan_hint": "Grant Starter/Pro/Business for free",
+   "mode_custom": "Custom mix",
+   "mode_custom_hint": "Pick features, quotas & limits",
+   "plan": "Plan",
+   "plan_preview": "{{features}} features · {{credits}} credits/month · {{projects}} projects",
+   "name": "Package name",
+   "name_ph": "e.g. Special package for Sari Store",
+   "base": "Start from plan",
+   "base_hint": "Prefills features, quotas and other limits (resolution, watermark, etc.) from this plan.",
+   "features": "Enabled features",
+   "quotas": "Monthly / daily quotas",
+   "limits": "Count limits",
+   "limits_hint": "Other limits (resolution, video length, watermark, priority) follow the {{plan}} plan.",
+   "days": "Duration (days)",
+   "days_hint": "Leave empty for no end date. Afterwards the account returns to the Free plan.",
+   "replace_warning": "The running {{plan}} plan (including prepaid periods) will be stopped and replaced. Paid amounts are not refunded automatically — adjust the balance if needed.",
+   "admin_title": "Manager account",
+   "admin_body": "Admin accounts manage the platform, so they never have a plan, credits or user features.",
+   "k": {
+    "credits": "Credits/month",
+    "chatbot.basic": "Basic chatbot/day",
+    "chatbot.premium": "Premium chatbot/day",
+    "content.brainstorm": "Brainstorm/month",
+    "seo.basic": "SEO audits/month",
+    "seo.advanced": "Advanced SEO/month",
+    "projects": "Projects",
+    "websites": "Websites",
+    "social_accounts": "Social accounts",
+    "storage_mb": "Storage (MB)"
+   }
+  },
+  "sub": {
+   "subscriptions": "Correct status & end date. To change a plan/features use \"Configure features & plan\" on the user detail.",
+   "usage_counters": "Correct or reset text-quota usage per period.",
+   "usage_quotas": "Credit packs per user. Add one to grant bonus credits (recorded in credit history).",
+   "credit_ledger": "Credit in/out trail — read-only so it cannot be tampered with.",
+   "coupon_redemptions": "Coupon usage per transaction — read-only.",
+   "social_accounts": "Social accounts connected by users. Delete to disconnect."
+  },
+  "ops": {
+   "title": "Needs attention",
+   "all_clear": "All clear — nothing needs follow-up.",
+   "recover": "Recover stuck jobs",
+   "recovered": "{{n}} jobs stopped & credits refunded.",
+   "k": {
+    "stuck_jobs": "AI jobs stuck > 30 min",
+    "failed_jobs_24h": "Failed AI jobs (24h)",
+    "past_due": "Past-due subscriptions",
+    "expiring_7d": "Paid plans ending ≤ 7 days",
+    "pending_approvals": "Pending approvals",
+    "pending_withdrawals": "Withdrawals in progress",
+    "failed_payments_24h": "Failed payments (24h)",
+    "open_tickets_sla": "Tickets past SLA",
+    "pending_accounts": "Accounts awaiting approval"
+   }
   }
  },
  "ops": {
