@@ -55,6 +55,8 @@ class User extends Authenticatable
         return $this->subscriptions()
             ->whereIn('status', ['active', 'past_due'])
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))
+            // Periode hasil perpanjangan di muka belum berlaku sebelum tanggal mulainya
+            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->latest('starts_at')
             ->first();
     }

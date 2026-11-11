@@ -1155,7 +1155,8 @@
   "go_to_payment": "Lanjut ke pembayaran",
   "waiting_payment": "Menunggu pembayaran. Halaman ini diperbarui otomatis setelah pembayaran dikonfirmasi.",
   "payment_failed": "Pembayaran gagal atau ditolak. Silakan buat pesanan baru.",
-  "payment_expired": "Tagihan kedaluwarsa. Silakan buat pesanan baru."
+  "payment_expired": "Tagihan kedaluwarsa. Silakan buat pesanan baru.",
+  "renewed_hint": "Sudah diperpanjang. Periode berjalan sampai {{date}}."
  },
  "affiliate_user": {
   "subtitle": "Bagikan tautan dan pantau komisi Anda.",

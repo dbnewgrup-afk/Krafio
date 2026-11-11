@@ -64,8 +64,23 @@ class Billing
         }
         $total = max(1, $cur->starts_at->diffInDays($cur->ends_at));
         $left = max(0, now()->diffInDays($cur->ends_at, false));
+        // Periode perpanjangan yang sudah dibayar tetapi belum mulai ikut dihitung penuh (akan dibatalkan saat upgrade)
+        $prepaid = (int) self::upcomingPeriods($u)->sum('price');
 
-        return (int) floor($cur->price * $left / $total);
+        return (int) floor($cur->price * $left / $total) + $prepaid;
+    }
+
+    /** Periode langganan yang sudah dibayar di muka dan belum mulai (hasil perpanjangan manual). */
+    public static function upcomingPeriods(User $u)
+    {
+        return Subscription::where('user_id', $u->id)->where('status', 'active')->where('starts_at', '>', now())->get();
+    }
+
+    /** Ada periode lanjutan setelah langganan ini (sudah diperpanjang)? */
+    public static function hasSuccessor(Subscription $s): bool
+    {
+        return $s->ends_at && Subscription::where('user_id', $s->user_id)->where('id', '!=', $s->id)->where('status', 'active')
+            ->where('starts_at', '>=', $s->ends_at->copy()->subMinute())->exists();
     }
 
     public static function isUpgrade(User $u, array $item): bool
@@ -222,10 +237,15 @@ class Billing
             $cur = $u->activeSubscription();
             $days = $item['kind'] === 'custom' ? ($item['snapshot']['duration_days'] ?? 30) : ($item['cycle'] === 'yearly' ? 365 : 30);
             $start = now();
-            if ($cur && $cur->plan_code === $item['code'] && $cur->ends_at && $cur->ends_at->isFuture()) {
-                $start = $cur->ends_at->copy(); // perpanjangan melanjutkan masa aktif
+            // Ujung rantai periode paket yang sama (termasuk periode yang sudah diperpanjang di muka)
+            $last = $cur ? Subscription::where('user_id', $u->id)->where('status', 'active')->where('plan_code', $item['code'])->where('ends_at', '>', now())->latest('ends_at')->first() : null;
+            if ($cur && $cur->plan_code === $item['code'] && $last) {
+                $start = $last->ends_at->copy(); // perpanjangan melanjutkan masa aktif, tanpa tumpang-tindih
             } elseif ($cur) {
                 $cur->update(['status' => 'cancelled', 'ends_at' => now()]); // upgrade berlaku langsung (55.5.3)
+                foreach (self::upcomingPeriods($u) as $future) {
+                    $future->update(['status' => 'cancelled']); // nilainya sudah dihitung di prorata
+                }
             }
             $promo = null;
             if ($coupon && ($c = Coupon::find($coupon['id'])) && $c->duration !== 'once') {
@@ -365,6 +385,14 @@ class Billing
         foreach (Subscription::where('status', 'active')->whereNotNull('ends_at')->where('ends_at', '<=', now()->addDays(7))->where('source', '!=', 'trial')->get() as $s) {
             $u = $s->user;
             if (! $u || $s->price <= 0) {
+                continue;
+            }
+            // Sudah diperpanjang manual (periode berikutnya sudah dibayar): tanpa pengingat & tanpa auto-renew
+            if (self::hasSuccessor($s)) {
+                if ($s->ends_at->isPast()) {
+                    $s->update(['status' => 'expired']);
+                }
+
                 continue;
             }
             $days = (int) ceil(now()->diffInHours($s->ends_at, false) / 24);

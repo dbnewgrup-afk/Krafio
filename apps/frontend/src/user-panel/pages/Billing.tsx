@@ -104,7 +104,7 @@ function SubscriptionExtras({ onChange }: { onChange: () => void }) {
 }
 
 interface SubInfo {
-  current: { plan: Plan; status: string; starts_at: string; ends_at: string | null; cycle: string } | null
+  current: { plan: Plan; status: string; starts_at: string; ends_at: string | null; paid_until?: string | null; cycle: string } | null
   history: { id: number; plan_name: string; status: string; starts_at: string; ends_at: string | null; price: number }[]
 }
 
@@ -125,7 +125,12 @@ export function SubscriptionPage() {
         <div className="grid gap-3 sm:grid-cols-3">
           <KpiCard label={t('billing.current_plan')} value={cur.plan.name} hint={<StatusChip status={cur.status} />} />
           <KpiCard label={t('billing.started')} value={dateTime(cur.starts_at, false)} />
-          <KpiCard label={t('billing.ends')} value={cur.ends_at ? dateTime(cur.ends_at, false) : '—'} tone="warning" />
+          <KpiCard
+            label={t('billing.ends')}
+            value={cur.paid_until ?? cur.ends_at ? dateTime((cur.paid_until ?? cur.ends_at)!, false) : '—'}
+            hint={cur.paid_until && cur.ends_at && cur.paid_until !== cur.ends_at ? t('billing.renewed_hint', { date: dateTime(cur.ends_at, false) }) : undefined}
+            tone="warning"
+          />
         </div>
       ) : (
         <EmptyState title={t('billing.no_sub')} body={t('billing.no_sub_body')} />

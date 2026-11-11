@@ -1155,7 +1155,8 @@
   "go_to_payment": "Continue to payment",
   "waiting_payment": "Waiting for payment. This page updates automatically once payment is confirmed.",
   "payment_failed": "Payment failed or was rejected. Please place a new order.",
-  "payment_expired": "The invoice has expired. Please place a new order."
+  "payment_expired": "The invoice has expired. Please place a new order.",
+  "renewed_hint": "Renewed. Current period runs until {{date}}."
  },
  "affiliate_user": {
   "subtitle": "Share your link and track your commission.",

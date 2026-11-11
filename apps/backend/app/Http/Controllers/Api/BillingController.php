@@ -40,6 +40,8 @@ class BillingController extends Controller
             'current' => $cur ? [
                 'plan' => $plan ? Present::plan($plan) : ['code' => $cur->plan_code, 'name' => $cur->plan_name],
                 'status' => $cur->status, 'starts_at' => $cur->starts_at?->toIso8601String(), 'ends_at' => $cur->ends_at?->toIso8601String(), 'cycle' => $cur->cycle,
+                // Akhir periode terakhir yang sudah dibayar (termasuk perpanjangan di muka)
+                'paid_until' => \App\Models\Subscription::where('user_id', $u->id)->where('status', 'active')->where('plan_code', $cur->plan_code)->latest('ends_at')->first()?->ends_at?->toIso8601String() ?? $cur->ends_at?->toIso8601String(),
             ] : null,
             'history' => $u->subscriptions()->latest('id')->limit(30)->get()->map(fn ($s) => [
                 'id' => $s->id, 'plan_name' => $s->plan_name, 'status' => $s->ends_at && $s->ends_at->isPast() && $s->status === 'active' ? 'expired' : $s->status,
@@ -72,10 +74,12 @@ class BillingController extends Controller
         // Downgrade berlaku pada periode tagihan berikutnya (BR-034)
         $cur = $u->activeSubscription();
         if ($data['kind'] === 'plan' && $cur && $cur->plan_code !== $data['code'] && $cur->source !== 'trial' && $cur->price > 0 && ! Billing::isUpgrade($u, $item)) {
-            $cur->update(['scheduled_plan_code' => $data['code'], 'scheduled_cycle' => $item['cycle']]);
-            Audit::log('billing.downgrade_scheduled', $cur, ['to' => $data['code']]);
+            // Berlaku di akhir periode TERAKHIR (bila sudah diperpanjang di muka)
+            $tail = \App\Models\Subscription::where('user_id', $u->id)->where('status', 'active')->latest('ends_at')->first() ?? $cur;
+            $tail->update(['scheduled_plan_code' => $data['code'], 'scheduled_cycle' => $item['cycle']]);
+            Audit::log('billing.downgrade_scheduled', $tail, ['to' => $data['code']]);
 
-            return ['data' => ['status' => 'scheduled', 'effective_at' => $cur->ends_at?->toIso8601String()]];
+            return ['data' => ['status' => 'scheduled', 'effective_at' => $tail->ends_at?->toIso8601String()]];
         }
 
         $q = Billing::quote($u, $item, $data['coupon'] ?? null);
@@ -110,7 +114,7 @@ class BillingController extends Controller
 
     public function cancelDowngrade(Request $r)
     {
-        $r->user()->activeSubscription()?->update(['scheduled_plan_code' => null, 'scheduled_cycle' => null]);
+        \App\Models\Subscription::where('user_id', $r->user()->id)->where('status', 'active')->update(['scheduled_plan_code' => null, 'scheduled_cycle' => null]);
 
         return response()->noContent();
     }
