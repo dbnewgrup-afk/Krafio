@@ -11,6 +11,7 @@ use App\Services\JualKirim\JualKirimClient;
 use App\Services\Payment\JualKirimInvoices;
 use App\Services\Payment\PaymentGateway;
 use App\Services\Wallet;
+use App\Support\ApiException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -198,6 +199,20 @@ class JualKirimPaymentTest extends KrafioTestCase
         $this->actingUser($u);
 
         $this->json_('POST', '/app/wallet/topups', ['amount' => 100000, 'method' => 'va'])->assertStatus(422)->assertJsonPath('code', 'phone_required');
+        Http::assertNotSent(fn (Request $r) => str_ends_with($r->url(), '/api/v1/invoices'));
+    }
+
+    public function test_amount_below_jualkirim_minimum_is_rejected_before_calling_api(): void
+    {
+        $u = $this->user();
+        $p = Payment::create(['user_id' => $u->id, 'reference' => 'KRFMIN1', 'purpose' => 'addon', 'amount' => 24999, 'status' => 'pending', 'expires_at' => now()->addDay()]);
+
+        try {
+            JualKirimInvoices::open($p, $u, 'Add-on kecil', ['driver' => 'jualkirim']);
+            $this->fail('Seharusnya ditolak');
+        } catch (ApiException $e) {
+            $this->assertStringContainsString('25.000', $e->getMessage());
+        }
         Http::assertNotSent(fn (Request $r) => str_ends_with($r->url(), '/api/v1/invoices'));
     }
 

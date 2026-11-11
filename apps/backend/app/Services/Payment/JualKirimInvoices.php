@@ -30,9 +30,15 @@ class JualKirimInvoices
 {
     public const DRIVER = 'jualkirim';
 
+    /** Minimal tagihan untuk dibayar via payment gateway JualKirim (pesan halaman bayar JualKirim, 11 Nov 2026). */
+    public const MIN_AMOUNT = 25000;
+
     /** @return array{redirect_url:string, gateway_ref:string, invoice_number:?string} */
     public static function open(Payment $p, User $u, string $description, array $c): array
     {
+        if ((int) $p->amount < self::MIN_AMOUNT) {
+            throw new ApiException('amount_below_minimum', 'Pembayaran lewat payment gateway minimal Rp'.number_format(self::MIN_AMOUNT, 0, ',', '.').'. Gunakan saldo top-up untuk nominal di bawahnya.', 422);
+        }
         $phone = self::phone($u->phone);
         if (! $phone) {
             throw new ApiException('phone_required', 'Lengkapi nomor HP di Profil sebelum membayar.', 422);

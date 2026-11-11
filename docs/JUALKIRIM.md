@@ -52,6 +52,7 @@ Pengaman:
 - Nominal invoice berbeda dari nominal Krafio → tidak pernah diaktifkan otomatis; dicatat di audit log `payment.mismatch` dan approval diberi label "Nominal tidak cocok".
 - Pelanggan membayar setelah tagihan Krafio kedaluwarsa (mode auto) → tidak diaktifkan otomatis; admin diberi notifikasi `payment.late_paid` untuk tindak lanjut manual.
 - Invoice dibatalkan di JualKirim → payment `failed`, reservasi kupon dilepas.
+- Nominal di bawah **Rp25.000** ditolak sebelum memanggil API (minimal pembayaran via payment gateway JualKirim, terlihat di halaman bayar 11 Nov 2026). Pakai saldo top-up untuk pembelian di bawahnya.
 - Pelanggan tanpa nomor HP diminta melengkapi profil (field `customer_phone` wajib di spec). Nomor `+62…` dikirim sebagai `0…`.
 
 ## 3. Klien API (untuk developer)
@@ -107,7 +108,7 @@ Semua memakai `Http::fake()`. `JualKirimClientTest`: token/cache/lock, 401 → r
 
 ## 8. Catatan yang belum terverifikasi ke API asli
 
-- Bentuk `GET /api/v1/invoices/{id}` → `data.invoice` tidak bertipe di spec. Klien membaca `data.invoice.status` (`draft|sent|paid|cancelled`) dan `data.invoice.grand_total`. **Verifikasi dengan satu invoice nyata** sebelum memakai mode `auto` di production; sampai saat itu mode `manual` lebih aman.
+- Bentuk `GET /api/v1/invoices/{id}` sudah dicek ke API asli (11 Nov 2026): `data.invoice.status` dan `data.invoice.grand_total` ada sesuai yang dibaca klien. Invoice baru berstatus **`draft`** (bukan `sent` seperti di spec) namun halaman bayarnya tetap bisa dipakai. Uji bayar nyata Rp25.000 (11 Nov 2026, invoice BILL/2026/11/202669): status berubah `draft` → `paid` dan Krafio mengaktifkan top-up otomatis dalam satu siklus polling (mode `auto` terverifikasi).
 - Apakah invoice JualKirim masih bisa dibayar setelah `due_date` belum diketahui (ditangani lewat notifikasi late-paid / approval manual).
 - Belum ada webhook di spec (lihat §2 butir 5).
 - Temuan saat uji API asli (11 Nov 2026, sebelum fitur pengiriman dihapus): `postal-codes` mengembalikan `id` integer (spec: UUID) dan `check-cost` membaca `weight` sebagai kg (spec: gram). Tidak relevan selama fitur pengiriman tidak dipakai.
