@@ -379,6 +379,15 @@ class JualKirimClientTest extends TestCase
         Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/check-cost') && $r['weight'] === 1000 && $r->hasHeader('X-API-KEY', self::API_KEY));
     }
 
+    public function test_shipping_check_cost_sends_integer_postal_ids_as_strings(): void
+    {
+        $this->fake(['/api/v1/shipping/check-cost' => Http::response(['success' => true, 'data' => []], 200)]);
+
+        JualKirim::shipping()->checkCost(['weight' => 1, 'postal_code_id' => 171797, 'send_postal_id' => 171104]);
+
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/check-cost') && $r['postal_code_id'] === '171797' && $r['send_postal_id'] === '171104');
+    }
+
     public function test_order_resource_list_filters_find_cancel_and_cod_create(): void
     {
         $this->fake([

@@ -119,6 +119,7 @@ Semua test memakai `Http::fake()`, tanpa request ke API asli. Mencakup login + c
 
 - **400 vs 422**: spec memakai 400 untuk validasi field dan 422 untuk kegagalan bisnis. Keduanya dipetakan ke `JualKirimValidationException`.
 - **Tidak ada webhook** di spec. Status order/pembayaran harus di-poll (`orders()->find()`, `payments()->status()`).
-- **`postal_code_id`**: di skema Address bertipe integer, sedangkan `postalCodes()` mengembalikan `id` UUID dan contoh `SaveOrderRequest` memakai string `'12345'`. Klien meneruskan nilai apa adanya. Verifikasi dengan satu request nyata sebelum dipakai di produksi.
+- **`postal_code_id`** (diuji ke API asli, 11 Nov 2026): `postalCodes()` mengembalikan `id` **integer** (mis. `171104`), bukan UUID seperti di spec. `check-cost` menolak id integer dengan 400 "Invalid request format" dan menerima versi string. `checkCost()` otomatis mengubah `postal_code_id`, `send_postal_id`, dan `pickup_address_id` menjadi string. Skema Address (integer) dan order (string) belum diuji dengan request asli, jadi nilainya masih diteruskan apa adanya.
+- **Satuan `weight` di `check-cost`** (diuji ke API asli): spec menyebut gram, tetapi API membacanya sebagai **kilogram**. `weight: 1` Jakarta–Bandung JNE REG = Rp12.000, sedangkan `weight: 1000` = Rp12.000.000. Klien tidak mengonversi apa pun. Kirim berat dalam kg sampai JualKirim mengonfirmasi. Satuan `total_weight` dan `weight` item di create order belum diuji.
 - Skema Product dan Category tidak bertipe di spec, jadi payload diteruskan apa adanya.
 - `GET /me` hanya butuh Bearer. Klien tetap mengirim `X-API-KEY` bila terisi (tidak berpengaruh).

@@ -39,6 +39,14 @@ class ShippingResource extends Resource
      */
     public function checkCost(array $data, bool $withOrganizationDiscount = true): array
     {
+        // postalCodes() mengembalikan id integer, tetapi check-cost menolak id numerik ("Invalid request format").
+        // Spec mendefinisikan field ini sebagai string → kirim sebagai string.
+        foreach (['postal_code_id', 'send_postal_id', 'pickup_address_id'] as $key) {
+            if (isset($data[$key]) && is_int($data[$key])) {
+                $data[$key] = (string) $data[$key];
+            }
+        }
+
         return $this->client->request('POST', '/api/v1/shipping/check-cost', ['json' => $data], $withOrganizationDiscount ? JualKirimClient::AUTH_OPTIONAL : JualKirimClient::AUTH_NONE);
     }
 }
