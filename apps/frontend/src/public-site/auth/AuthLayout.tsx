@@ -17,9 +17,9 @@ export function AuthLayout() {
   ]
   return (
     <div className="grid min-h-[100dvh] bg-bg md:bg-bg-subtle lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:bg-bg">
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[var(--loader-solid)] p-10 text-[var(--on-dark)] lg:flex" aria-hidden>
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[var(--loader-solid)] p-10 text-[var(--on-dark)] lg:flex">
         <Logo onDark />
-        <Carousel label={t('auth.visual_label')} itemClass="basis-full" autoplay interval={6000} loop gap="gap-0" className="[&_button]:text-[var(--on-dark-muted)]">
+        <Carousel label={t('auth.visual_label')} itemClass="basis-full" autoplay interval={6000} loop gap="gap-0" variant="hero" tone="dark">
           {slides.map((s) => (
             <div key={s.key} className="grid max-w-md gap-4 pb-2">
               <span className="grid size-12 place-items-center rounded-lg bg-white/8 text-[var(--on-dark-accent)]">
@@ -46,7 +46,7 @@ export function AuthLayout() {
         </div>
         <main id="main-content" className="relative flex flex-1 items-start justify-center px-4 pb-10 md:items-center md:px-6">
           <ContentLoader />
-          <div className="w-full max-w-[480px] md:rounded-xl md:border md:border-line md:bg-surface md:p-8 md:shadow-k-md lg:max-w-[440px] lg:border-0 lg:p-0 lg:shadow-none">
+          <div className="w-full max-w-[480px] md:rounded-xl md:border md:border-line md:bg-surface md:p-8 md:shadow-k-md lg:max-w-[440px] lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
             <div className="mb-5 lg:hidden">
               <Logo />
             </div>

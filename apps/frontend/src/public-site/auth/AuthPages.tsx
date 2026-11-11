@@ -310,14 +310,14 @@ export function RegisterPage() {
             {t('fields.whatsapp')} <span className="text-muted">({t('common.optional')})</span>
           </label>
           <div className="flex gap-2">
-            <select aria-label={t('fields.country_code')} value={f.cc} onChange={(e) => setF({ ...f, cc: e.target.value })} className={cn(inputCls, 'w-28 shrink-0')}>
+            <select aria-label={t('fields.country_code')} value={f.cc} onChange={(e) => setF({ ...f, cc: e.target.value })} className={cn(inputCls.replace('w-full ', ''), 'w-28 shrink-0')}>
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.label}
                 </option>
               ))}
             </select>
-            <input id="reg-phone" type="tel" inputMode="tel" autoComplete="tel-national" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} aria-invalid={errs.phone ? true : undefined} placeholder="812 3456 7890" className={inputCls} />
+            <input id="reg-phone" type="tel" inputMode="tel" autoComplete="tel-national" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} aria-invalid={errs.phone ? true : undefined} placeholder="812 3456 7890" className={cn(inputCls, 'min-w-0 flex-1')} />
           </div>
           {errs.phone && <p className="t-small text-danger">{errs.phone}</p>}
         </div>
