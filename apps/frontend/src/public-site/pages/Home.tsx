@@ -95,7 +95,7 @@ function PhotoPanelVisual() {
         </div>
         <span className="rounded-md bg-primary px-3 py-2 text-[13px] font-semibold text-primary-contrast">{t('home.visual.cta')}</span>
       </div>
-      <img src={img('samples/product-kopi.svg')} alt="" width={480} height={480} className="aspect-[16/10] w-full rounded-lg object-cover" />
+      <img src={img('samples/product-kopi.svg')} alt="" width={480} height={480} className="aspect-[4/3] w-full rounded-lg object-cover object-[50%_40%]" />
       <p className="t-small text-muted">{t('home.visual.note')}</p>
     </div>
   )
