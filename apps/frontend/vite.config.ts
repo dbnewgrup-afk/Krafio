@@ -6,19 +6,20 @@ import { fileURLToPath, URL } from 'node:url'
 // Backend Laravel berjalan di BACKEND_URL (default http://127.0.0.1:8000).
 // Proxy membuat browser melihat satu origin sehingga cookie Sanctum (HttpOnly) bekerja.
 const backend = process.env.BACKEND_URL ?? 'http://127.0.0.1:8000'
+const proxy = {
+  '/api': { target: backend, changeOrigin: false },
+  '/sanctum': { target: backend, changeOrigin: false },
+}
+// Tunnel sementara (Cloudflare Quick Tunnel) untuk uji dari perangkat lain
+const allowedHosts = ['.trycloudflare.com']
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': { target: backend, changeOrigin: false },
-      '/sanctum': { target: backend, changeOrigin: false },
-    },
-  },
+  server: { port: 5173, proxy, allowedHosts },
+  preview: { port: 4173, proxy, allowedHosts },
   build: {
     rollupOptions: {
       output: {
