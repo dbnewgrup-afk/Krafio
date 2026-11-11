@@ -13,7 +13,8 @@ export function OtpInput({ value, onChange, onComplete, disabled, invalid, shake
     arr[i] = d
     const next = arr.join('').slice(0, 6)
     onChange(next)
-    if (next.length === 6 && !next.includes('') && /^\d{6}$/.test(next)) onComplete?.(next)
+    // Semua 6 kotak terisi angka → kirim otomatis. (Catatan: "x".includes('') selalu true, jadi cek per kotak.)
+    if (arr.every((x) => /^\d$/.test(x)) && /^\d{6}$/.test(next)) onComplete?.(next)
   }
 
   return (

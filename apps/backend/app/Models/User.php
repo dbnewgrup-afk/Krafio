@@ -15,7 +15,7 @@ class User extends Authenticatable
 
     public const STATUSES = ['pending_verification', 'pending_approval', 'request_revision', 'active', 'rejected', 'suspended', 'banned', 'deactivated'];
 
-    protected $guarded = ['id', 'role', 'status', 'mfa_secret', 'mfa_enabled', 'referral_code'];
+    protected $guarded = ['id', 'role', 'status', 'mfa_secret', 'mfa_enabled', 'referral_code', 'must_change_password', 'created_by', 'phone_verified_at'];
 
     protected $hidden = ['password', 'remember_token', 'mfa_secret'];
 
@@ -23,6 +23,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
+            'must_change_password' => 'boolean',
             'password' => 'hashed',
             'mfa_secret' => 'encrypted',
             'mfa_enabled' => 'boolean',
@@ -35,6 +37,12 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
+    }
+
+    /** Akun user yang dibuat Admin wajib memverifikasi email ATAU nomor HP sebelum memakai User Panel. */
+    public function needsContactVerification(): bool
+    {
+        return ! $this->isAdmin() && $this->created_by !== null && ! $this->email_verified_at && ! $this->phone_verified_at;
     }
 
     public function subscriptions()

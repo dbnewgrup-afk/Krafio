@@ -126,6 +126,8 @@ class AdminController extends Controller
         $map = fn ($u) => [
             'id' => $u->id, 'name' => $u->name, 'email' => Present::mask($u->email), 'phone' => $u->phone ? substr($u->phone, 0, 4).'****'.substr($u->phone, -3) : null,
             'status' => $u->status, 'plan' => $u->activeSubscription()?->plan_name, 'created_at' => $u->created_at->toIso8601String(), 'last_login_at' => $u->last_login_at?->toIso8601String(),
+            'must_change_password' => (bool) $u->must_change_password, 'needs_verification' => $u->needsContactVerification(), 'created_by_admin' => $u->created_by !== null,
+            'email_verified' => (bool) $u->email_verified_at, 'phone_verified' => (bool) $u->phone_verified_at,
         ];
         if ($r->query('export') === 'csv') {
             Audit::log('admin.users.export');

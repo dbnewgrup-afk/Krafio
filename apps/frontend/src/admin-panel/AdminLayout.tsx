@@ -15,6 +15,7 @@ import { AdminProvider } from './AdminContext'
 import { ADMIN_NAV } from './adminRoutes'
 import { MessagesProvider } from '@/shared/messages/MessagesProvider'
 import { MessagesMenu } from '@/shared/messages/MessagesMenu'
+import { PasswordAlert } from '@/shared/account/PasswordAlert'
 
 const ICONS = [LayoutDashboard, Users, ClipboardCheck, Package, Landmark, Cpu, LayoutTemplate, Images, Globe, SearchCheck, Share2, Mail, FileText, ShieldCheck, LifeBuoy, Settings]
 
@@ -91,7 +92,12 @@ export default function AdminLayout() {
     area: 'admin',
     home: '/admin',
     sections,
-    topBanner: env !== 'production' ? <div className="bg-warning px-4 py-1 text-center text-[12px] font-bold uppercase text-black">{env === 'local' ? 'LOCAL' : 'STAGING'} — {t('admin.not_production')}</div> : null,
+    topBanner: (
+      <>
+        {env !== 'production' && <div className="bg-warning px-4 py-1 text-center text-[12px] font-bold uppercase text-black">{env === 'local' ? 'LOCAL' : 'STAGING'} — {t('admin.not_production')}</div>}
+        <PasswordAlert />
+      </>
+    ),
     navbarExtra: <MessagesMenu />,
     sidebarFooter: (
       <div className="grid gap-1.5 rounded-md border border-line bg-surface p-3">

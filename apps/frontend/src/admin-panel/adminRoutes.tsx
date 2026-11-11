@@ -20,9 +20,9 @@ function S({ k, g, fields, info }: { k: string; g: string; fields: SettingField[
   const { t } = useTranslation()
   return <AdminSettings key={k} title={t(`admin.nav.${k}`)} group={t(`admin.nav.${g}`)} fields={fields} info={info ? t(info) : undefined} />
 }
-function U({ k, status }: { k: string; status?: string }) {
+function U({ k, status, role }: { k: string; status?: string; role?: 'user' | 'admin' }) {
   const { t } = useTranslation()
-  return <AdminUsers key={k} title={t(`admin.nav.${k}`)} status={status} />
+  return <AdminUsers key={k} title={t(`admin.nav.${k}`)} status={status} role={role} />
 }
 function A({ k, type, history }: { k: string; type?: string; history?: boolean }) {
   const { t } = useTranslation()
@@ -50,6 +50,7 @@ export const ADMIN_NAV: Group[] = [
   ] },
   { key: 'g_users', children: [
     { key: 'all_users', path: '/admin/users', el: () => <U k="all_users" /> },
+    { key: 'admin_accounts', path: '/admin/users/admins', el: () => <U k="admin_accounts" role="admin" /> },
     { key: 'pending_accounts', path: '/admin/users/pending', el: () => <U k="pending_accounts" status="pending_approval,request_revision" /> },
     { key: 'user_verification', path: '/admin/users/verification', el: () => <U k="user_verification" status="pending_verification" /> },
     { key: 'user_activity', path: '/admin/users/activity', el: () => <R resource="audit-logs" k="user_activity" g="g_users" /> },

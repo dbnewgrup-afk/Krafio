@@ -51,6 +51,7 @@ class MeController extends Controller
             throw new ApiException('validation_failed', 'Kata sandi saat ini salah.', 422, [], ['current_password' => ['Kata sandi saat ini salah.']]);
         }
         $u->update(['password' => $r->input('password')]);
+        $u->forceFill(['must_change_password' => false])->save();
         DB::table('sessions')->where('user_id', $u->id)->where('id', '!=', $r->session()->getId())->delete();
         \App\Services\Messenger::notify($u, 'password_changed', ['time' => now()->format('d-m-Y H:i')], 'Kata sandi diubah', 'Kata sandi akun Anda baru saja diubah. Jika bukan Anda, segera hubungi support.');
         Audit::log('auth.password_changed', $u);

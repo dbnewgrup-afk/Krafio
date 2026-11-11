@@ -19,6 +19,10 @@ class EnsureActiveUser
             throw new ApiException('account_'.$u->status, 'Status akun belum aktif.', 403, ['status' => $u->status]);
         }
 
+        if ($u->needsContactVerification()) {
+            throw new ApiException('contact_verification_required', 'Verifikasi email atau nomor HP terlebih dahulu.', 403);
+        }
+
         return $next($request);
     }
 }

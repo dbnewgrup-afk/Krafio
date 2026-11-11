@@ -28,7 +28,8 @@
   "type_to_confirm": "Type {{word}} to continue",
   "wide_screen_hint": "Easier on a wider screen.",
   "yes": "Yes",
-  "remove": "Remove"
+  "remove": "Remove",
+  "done": "Done"
  },
  "status": {
   "active": "Active",
@@ -1462,7 +1463,8 @@
    "whatsapp_logs": "WhatsApp logs",
    "inbox": "Message inbox",
    "template_studio": "Manage & preview",
-   "dashboard_hero": "Dashboard hero"
+   "dashboard_hero": "Dashboard hero",
+   "admin_accounts": "Admin accounts"
   },
   "login_title": "Admin sign in",
   "login_sub": "Super Admin only. Every attempt is logged.",
@@ -2360,5 +2362,65 @@
   "no_template": "No template",
   "confirm_delete": "Delete \"{{name}}\"?",
   "confirm_delete_body": "The project moves to trash for 30 days. You can undo right from the notification."
+ },
+ "account_new": {
+  "button": "Add account",
+  "title": "Add account",
+  "type": "Account type",
+  "t_user": "User",
+  "t_admin": "Admin",
+  "t_user_desc": "Krafio app user (Free plan).",
+  "t_admin_desc": "Full access to the Admin Panel.",
+  "phone": "Phone/WhatsApp number",
+  "phone_hint": "The user can verify through WhatsApp with this number.",
+  "initial_password": "Initial password",
+  "pw_auto": "Generate",
+  "pw_manual": "Set manually",
+  "pw_rule": "At least 8 characters with letters and numbers.",
+  "pw_auto_hint": "A 12-character password is generated and shown once after the account is created.",
+  "info_user": "The account is active right away. On first sign-in the user must verify their email or phone number and is reminded to change the password.",
+  "info_admin": "The admin account is active right away and is reminded to change the password on sign-in.",
+  "create_user": "Create user account",
+  "create_admin": "Create admin account",
+  "done_title": "Account created",
+  "done_user": "User account {{name}} is active.",
+  "done_admin": "Admin account {{name}} is active.",
+  "login_at": "Sign-in page",
+  "shown_once": "This password is shown only once. Copy it now and give it to the account owner.",
+  "copy": "Copy sign-in details",
+  "copied": "Sign-in details copied.",
+  "copy_intro": "Your Krafio account has been created.",
+  "another": "Create another",
+  "note_password": "The owner will see a reminder to change the password; the red flag in the list clears once they do.",
+  "note_verify": "The user must verify their email or phone number before using the panel.",
+  "flag_password": "Must change password",
+  "flag_verify": "Not verified"
+ },
+ "pw_alert": {
+  "title": "Change your password.",
+  "body": "This account was created by an admin with an initial password. For your security, replace it with your own.",
+  "cta": "Change now",
+  "later": "Remind me later",
+  "modal_title": "Change password",
+  "modal_body": "Enter the initial password you received, then choose a new one.",
+  "current": "Current password",
+  "new": "New password",
+  "confirm": "Repeat new password",
+  "save": "Save password"
+ },
+ "contact_verify": {
+  "title": "Verify your account",
+  "body": "Your account was created by a Krafio admin. Verify one contact, your email or phone number, to start using Krafio.",
+  "choose": "Choose a verification method",
+  "email": "By email",
+  "whatsapp": "By WhatsApp",
+  "no_phone": "No phone number registered",
+  "wa_off": "WhatsApp verification is not available yet",
+  "send": "Send code",
+  "sent_to": "A 6-digit code was sent to {{dest}}.",
+  "verify": "Verify",
+  "resend": "Resend code",
+  "resend_in": "Resend in {{s}}s",
+  "dev_code": "Local mode: your code is {{code}}"
  }
 }

@@ -130,7 +130,7 @@ class AuthController extends Controller
             'locale' => $data['locale'] ?? 'id',
             'referred_by' => $referrer?->id,
         ]);
-        $user->forceFill(['role' => 'user', 'status' => 'pending_verification', 'referral_code' => $this->newReferralCode()])->save();
+        $user->forceFill(['role' => 'user', 'status' => 'pending_verification', 'referral_code' => self::newReferralCode()])->save();
         foreach (['terms', 'privacy'] as $docType) {
             $doc = LegalDocument::where('type', $docType)->where('is_active', true)->latest('effective_at')->first();
             UserConsent::create(['user_id' => $user->id, 'document' => $docType, 'version' => $doc?->version ?? '1.0', 'ip_hash' => hash('sha256', (string) $r->ip()), 'device' => Str::limit((string) $r->userAgent(), 250), 'locale' => $user->locale, 'agreed_at' => now()]);
@@ -147,7 +147,7 @@ class AuthController extends Controller
         return response()->json(['data' => Present::me($user->fresh())], 201);
     }
 
-    private function newReferralCode(): string
+    public static function newReferralCode(): string
     {
         do {
             $c = strtoupper(Str::random(8));
@@ -280,7 +280,7 @@ class AuthController extends Controller
     {
         $r->validate(['token' => 'required', 'email' => 'required|email', 'password' => ['required', 'confirmed', PasswordRule::min(8)->letters()->numbers()]]);
         $status = Password::broker()->reset($r->only('email', 'password', 'password_confirmation', 'token'), function (User $u, string $pw) {
-            $u->forceFill(['password' => $pw, 'remember_token' => Str::random(60)])->save();
+            $u->forceFill(['password' => $pw, 'remember_token' => Str::random(60), 'must_change_password' => false])->save();
             // Cabut semua sesi lain (§9.6 butir 3)
             \Illuminate\Support\Facades\DB::table('sessions')->where('user_id', $u->id)->delete();
             Audit::log('auth.password_reset', $u, [], $u->id);

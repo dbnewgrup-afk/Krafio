@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Check, X, RotateCcw, Eye, Wallet, ShieldAlert, Banknote, Download } from 'lucide-react'
+import { Check, X, RotateCcw, Eye, Wallet, ShieldAlert, Banknote, Download, UserPlus } from 'lucide-react'
 import { http, ApiError } from '@/api-client/http'
 import { useApi } from '@/shared/hooks/useApi'
 import { useDocTitle } from '@/shared/hooks/useDocTitle'
@@ -19,6 +19,7 @@ import { dateTime, number, relative, rupiah } from '@/shared/lib/format'
 import { useIsMobile } from '@/shared/hooks/useMediaQuery'
 import { ResourcePage, InfoCard } from './ResourcePage'
 import { useAdmin } from './AdminContext'
+import { CreateAccountModal } from './CreateAccount'
 import { cn } from '@/shared/lib/cn'
 import { CountUp } from '@/shared/motion/CountUp'
 import { RevealCard, GrowBar } from '@/shared/motion/Reveal'
@@ -165,23 +166,43 @@ interface UserRow {
   plan: string | null
   created_at: string
   last_login_at: string | null
+  must_change_password?: boolean
+  needs_verification?: boolean
+  created_by_admin?: boolean
+  email_verified?: boolean
+  phone_verified?: boolean
 }
-export function AdminUsers({ status, title }: { status?: string; title?: string }) {
+export function AdminUsers({ status, title, role }: { status?: string; title?: string; role?: 'user' | 'admin' }) {
   const { t } = useTranslation()
   const ttl = title ?? t('admin.nav.all_users')
   useDocTitle(ttl)
   const nav = useNavigate()
-  const list = useServerList<UserRow>('/admin/users', { status: status ?? '' })
+  const list = useServerList<UserRow>('/admin/users', { status: status ?? '', role: role ?? '' })
+  const [creating, setCreating] = useState(false)
   return (
     <>
-      <PageHeader title={ttl} crumbs={[{ label: t('admin.nav.g_users') }, { label: ttl }]} />
+      <PageHeader title={ttl} crumbs={[{ label: t('admin.nav.g_users') }, { label: ttl }]} actions={<Button icon={<UserPlus className="size-4" aria-hidden />} onClick={() => setCreating(true)}>{t('account_new.button')}</Button>} />
+      <CreateAccountModal open={creating} defaultType={role === 'admin' ? 'admin' : 'user'} onClose={() => setCreating(false)} onCreated={() => list.reload()} />
       <DataTable<UserRow>
         list={list}
         exportName="users"
         onRowClick={(r) => nav(`/admin/users/${r.id}`)}
         filters={status ? [] : [{ key: 'status', label: t('common.status'), options: ['pending_verification', 'pending_approval', 'request_revision', 'active', 'rejected', 'suspended', 'banned', 'deactivated'].map((s) => ({ value: s, label: t(`status.${s}`) })) }]}
         columns={[
-          { key: 'name', header: t('fields.name'), primary: true, sortable: true },
+          {
+            key: 'name',
+            header: t('fields.name'),
+            primary: true,
+            sortable: true,
+            render: (r) => (
+              <span className="inline-flex flex-wrap items-center gap-1.5">
+                {r.must_change_password && <span className="size-2 shrink-0 rounded-full bg-danger" aria-hidden />}
+                <span>{r.name}</span>
+                {r.must_change_password && <span className="inline-flex h-5 items-center rounded-full bg-danger/12 px-2 text-[11px] font-semibold text-danger">{t('account_new.flag_password')}</span>}
+                {r.needs_verification && <span className="inline-flex h-5 items-center rounded-full bg-warning/14 px-2 text-[11px] font-semibold text-warning">{t('account_new.flag_verify')}</span>}
+              </span>
+            ),
+          },
           { key: 'email', header: t('fields.email'), mobile: true },
           { key: 'plan', header: t('admin.f.plan'), render: (r) => r.plan ?? '—' },
           { key: 'status', header: t('common.status'), mobile: true, render: (r) => <StatusChip status={r.status} /> },

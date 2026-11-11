@@ -28,7 +28,8 @@
   "type_to_confirm": "Ketik {{word}} untuk melanjutkan",
   "wide_screen_hint": "Lebih nyaman di layar lebar.",
   "yes": "Ya",
-  "remove": "Hapus"
+  "remove": "Hapus",
+  "done": "Selesai"
  },
  "status": {
   "active": "Aktif",
@@ -1462,7 +1463,8 @@
    "whatsapp_logs": "Log WhatsApp",
    "inbox": "Inbox pesan",
    "template_studio": "Kelola & pratinjau",
-   "dashboard_hero": "Hero dashboard"
+   "dashboard_hero": "Hero dashboard",
+   "admin_accounts": "Akun admin"
   },
   "login_title": "Masuk Admin",
   "login_sub": "Khusus Super Admin. Setiap percobaan tercatat.",
@@ -2360,5 +2362,65 @@
   "no_template": "Tanpa template",
   "confirm_delete": "Hapus \"{{name}}\"?",
   "confirm_delete_body": "Proyek dipindah ke tempat sampah selama 30 hari. Anda bisa mengurungkannya langsung dari notifikasi."
+ },
+ "account_new": {
+  "button": "Tambah akun",
+  "title": "Tambah akun",
+  "type": "Tipe akun",
+  "t_user": "User",
+  "t_admin": "Admin",
+  "t_user_desc": "Pengguna aplikasi Krafio (paket Gratis).",
+  "t_admin_desc": "Akses penuh ke Admin Panel.",
+  "phone": "Nomor HP/WhatsApp",
+  "phone_hint": "Bisa dipakai pengguna untuk verifikasi lewat WhatsApp.",
+  "initial_password": "Kata sandi awal",
+  "pw_auto": "Buat otomatis",
+  "pw_manual": "Isi sendiri",
+  "pw_rule": "Minimal 8 karakter, kombinasi huruf dan angka.",
+  "pw_auto_hint": "Kata sandi 12 karakter dibuat otomatis dan ditampilkan sekali setelah akun dibuat.",
+  "info_user": "Akun langsung aktif. Saat pertama masuk, pengguna wajib memverifikasi email atau nomor HP, dan diingatkan untuk mengganti kata sandi.",
+  "info_admin": "Akun admin langsung aktif dan diingatkan untuk mengganti kata sandi saat masuk.",
+  "create_user": "Buat akun user",
+  "create_admin": "Buat akun admin",
+  "done_title": "Akun dibuat",
+  "done_user": "Akun user {{name}} sudah aktif.",
+  "done_admin": "Akun admin {{name}} sudah aktif.",
+  "login_at": "Halaman masuk",
+  "shown_once": "Kata sandi ini hanya ditampilkan sekali. Salin sekarang lalu berikan ke pemilik akun.",
+  "copy": "Salin data masuk",
+  "copied": "Data masuk disalin.",
+  "copy_intro": "Akun Krafio Anda sudah dibuat.",
+  "another": "Buat akun lain",
+  "note_password": "Pemilik akun akan melihat pengingat untuk mengganti kata sandi; tanda merah di daftar hilang setelah diganti.",
+  "note_verify": "Pengguna harus memverifikasi email atau nomor HP sebelum bisa memakai panel.",
+  "flag_password": "Wajib ganti kata sandi",
+  "flag_verify": "Belum verifikasi"
+ },
+ "pw_alert": {
+  "title": "Ganti kata sandi Anda.",
+  "body": "Akun ini dibuat oleh admin dengan kata sandi awal. Demi keamanan, segera ganti dengan kata sandi milik Anda sendiri.",
+  "cta": "Ganti sekarang",
+  "later": "Ingatkan nanti",
+  "modal_title": "Ganti kata sandi",
+  "modal_body": "Masukkan kata sandi awal yang Anda terima, lalu buat kata sandi baru.",
+  "current": "Kata sandi saat ini",
+  "new": "Kata sandi baru",
+  "confirm": "Ulangi kata sandi baru",
+  "save": "Simpan kata sandi"
+ },
+ "contact_verify": {
+  "title": "Verifikasi akun Anda",
+  "body": "Akun Anda dibuat oleh admin Krafio. Verifikasi salah satu kontak, email atau nomor HP, untuk mulai memakai Krafio.",
+  "choose": "Pilih cara verifikasi",
+  "email": "Lewat email",
+  "whatsapp": "Lewat WhatsApp",
+  "no_phone": "Nomor HP belum terdaftar",
+  "wa_off": "Verifikasi WhatsApp belum tersedia",
+  "send": "Kirim kode",
+  "sent_to": "Kode 6 digit dikirim ke {{dest}}.",
+  "verify": "Verifikasi",
+  "resend": "Kirim ulang kode",
+  "resend_in": "Kirim ulang dalam {{s}} dtk",
+  "dev_code": "Mode lokal: kode Anda {{code}}"
  }
 }

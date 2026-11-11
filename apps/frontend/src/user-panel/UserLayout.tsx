@@ -12,6 +12,8 @@ import { useAuth } from '@/shared/context/AuthContext'
 import { LegalModal } from '@/shared/layout/Legal'
 import { MessagesProvider } from '@/shared/messages/MessagesProvider'
 import { MessagesMenu } from '@/shared/messages/MessagesMenu'
+import { PasswordAlert } from '@/shared/account/PasswordAlert'
+import { ContactVerifyGate } from './ContactVerifyGate'
 import { http } from '@/api-client/http'
 import { number, dateTime } from '@/shared/lib/format'
 import { Link } from 'react-router-dom'
@@ -101,6 +103,8 @@ export default function UserLayout() {
   if (me.role === 'admin') return <Navigate to="/admin" replace />
   if (me.status === 'pending_verification') return <Navigate to="/verify" replace />
   if (me.status !== 'active') return <Navigate to="/account-status" replace />
+  // Akun buatan Admin: wajib verifikasi email ATAU nomor HP sebelum memakai panel
+  if (me.needs_verification) return <ContactVerifyGate />
 
   const plan = me.plan
   const expSoon = plan?.ends_at && new Date(plan.ends_at).getTime() - Date.now() < 7 * 86400_000
@@ -117,7 +121,12 @@ export default function UserLayout() {
     area: 'user',
     home: '/app',
     sections,
-    topBanner: <TopBanner subscription={subBanner} />,
+    topBanner: (
+      <>
+        <TopBanner subscription={subBanner} />
+        <PasswordAlert />
+      </>
+    ),
     navbarExtra: <MessagesMenu />,
     sidebarFooter: (
       <div className="grid gap-2">

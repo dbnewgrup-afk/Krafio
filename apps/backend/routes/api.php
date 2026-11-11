@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\OpsController;
 use App\Http\Controllers\Api\Admin\ResourceController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\InboxController;
 use App\Http\Controllers\Api\ShowcaseController;
@@ -52,6 +53,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('me', [MeController::class, 'update']);
     Route::patch('me/preferences', [MeController::class, 'preferences']);
     Route::put('me/password', [MeController::class, 'password']);
+    // Akun buatan Admin: verifikasi email ATAU nomor HP
+    Route::get('me/contact-verification', [AccountController::class, 'verifyStatus']);
+    Route::post('me/contact-verification/send', [AccountController::class, 'verifySend'])->middleware('throttle:10,1,acv1');
+    Route::post('me/contact-verification/confirm', [AccountController::class, 'verifyConfirm'])->middleware('throttle:20,1,acv2');
     Route::get('me/sessions', [MeController::class, 'sessions']);
     Route::post('me/sessions/revoke-others', [MeController::class, 'revokeOthers']);
     Route::post('me/consents', [MeController::class, 'consent']);
@@ -143,6 +148,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('badges', [AdminController::class, 'badges']);
         Route::get('dashboard', [AdminController::class, 'dashboard']);
         Route::get('users', [AdminController::class, 'users']);
+        Route::post('users', [AccountController::class, 'store'])->middleware('throttle:20,1,acc1');
+        Route::post('users/{user}/reset-password', [AccountController::class, 'resetPassword'])->middleware('throttle:10,1,acc2');
         Route::get('users/{user}', [AdminController::class, 'user']);
         Route::post('users/{user}/reveal', [AdminController::class, 'reveal']);
         Route::post('users/{user}/status', [AdminController::class, 'setStatus']);

@@ -21,6 +21,11 @@ export interface Me {
   loader: 'auto' | 'transparent' | 'dark'
   referral_code: string
   email_verified_at: string | null
+  phone_verified_at?: string | null
+  /** Akun buatan Admin yang belum memverifikasi email maupun nomor HP */
+  needs_verification?: boolean
+  /** Pengingat ganti kata sandi awal dari Admin */
+  must_change_password?: boolean
   mfa_enabled: boolean
   mfa_passed?: boolean
   avatar_color?: string
