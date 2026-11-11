@@ -102,7 +102,11 @@ class DatabaseSeeder extends Seeder
         \App\Models\Coupon::updateOrCreate(['code' => 'UPGRADE20'], ['name' => 'Upgrade Starter ke Pro', 'type' => 'percent', 'value' => 20, 'plan_codes' => ['pro'], 'cycles' => ['monthly'], 'auto_apply' => true, 'campaign' => 'upgrade', 'duration' => 'once', 'is_active' => true]);
         \App\Models\Coupon::updateOrCreate(['code' => 'WINBACK15'], ['name' => 'Kembali lagi', 'type' => 'percent', 'value' => 15, 'max_discount' => 50000, 'auto_apply' => true, 'campaign' => 'winback', 'duration' => 'once', 'is_active' => false]);
         \App\Models\Coupon::updateOrCreate(['code' => 'EARLYBIRD'], ['name' => 'Early bird peluncuran', 'type' => 'percent', 'value' => 30, 'max_discount' => 100000, 'plan_codes' => ['starter', 'pro'], 'duration' => 'first_n_months', 'duration_months' => 3, 'max_uses' => 500, 'max_uses_per_user' => 1, 'is_active' => false]);
-        \App\Models\Coupon::updateOrCreate(['code' => 'BONUS100'], ['name' => 'Bonus 100 kredit', 'type' => 'bonus_credit', 'value' => 100, 'min_purchase' => 59000, 'duration' => 'once', 'max_uses_per_user' => 1, 'is_active' => true]);
+        \App\Models\Coupon::updateOrCreate(['code' => 'BONUS100'], ['name' => 'Bonus 100 kredit', 'type' => 'bonus_credit', 'value' => 100, 'min_purchase' => 59000, 'duration' => 'once', 'max_uses_per_user' => 1, 'is_active' => true] + \App\Support\PromoShowcase::SEED['BONUS100']);
+        // Promo publik contoh (tampil di /promo & beranda)
+        foreach (\App\Support\PromoShowcase::extraCoupons() as $code => $attrs) {
+            \App\Models\Coupon::firstOrCreate(['code' => $code], $attrs);
+        }
     }
 
     private function templates(): void

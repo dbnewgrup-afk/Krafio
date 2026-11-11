@@ -91,6 +91,12 @@ class PublicController extends Controller
         return ['data' => $q->limit(min(100, (int) $r->query('per_page', 48)))->get()->map(fn ($t) => Present::template($t))];
     }
 
+    /** Etalase promo publik (halaman /promo & section beranda). */
+    public function promos()
+    {
+        return ['data' => \App\Services\Promos::publicList()];
+    }
+
     public function faqs(Request $r)
     {
         $q = Faq::where('is_active', true)->orderBy('sort');

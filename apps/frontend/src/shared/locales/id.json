@@ -472,7 +472,8 @@
    "templates": "Template",
    "pricing": "Harga",
    "affiliate": "Affiliate",
-   "faq": "FAQ"
+   "faq": "FAQ",
+   "promo": "Promo"
   }
  },
  "home": {
@@ -1818,7 +1819,10 @@
    "language": "Bahasa",
    "body_preview": "Pratinjau isi",
    "variables": "Variabel",
-   "meta_status": "Status Meta"
+   "meta_status": "Status Meta",
+   "is_public": "Tampil di halaman Promo",
+   "headline": "Judul promo",
+   "image": "Gambar"
   },
   "hint": {
    "quotas_hint": "JSON. Contoh: {\"credits\": 300, \"chatbot.basic\": 30, \"content.brainstorm\": 30, \"seo.basic\": 20}",
@@ -1833,7 +1837,10 @@
    "sections_hint": "Array JSON: [{\"id\": \"definisi\", \"heading\": \"Definisi\", \"body\": \"…\"}]",
    "meta_name_hint": "Huruf kecil, angka, garis bawah — sama persis dengan nama di WhatsApp Manager.",
    "variables_hint": "Urutan variabel {{1}}, {{2}}, … dipisah koma. Tersedia: name, code, minutes, amount, reference, plan, ends_at, reason.",
-   "job_stop_hint": "Hanya job yang masih antre/diproses. Kredit atau kuota user dikembalikan otomatis."
+   "job_stop_hint": "Hanya job yang masih antre/diproses. Kredit atau kuota user dikembalikan otomatis.",
+   "promo_public_hint": "Tampil di /promo, strip beranda, dan chip \"Promo tersedia\" saat checkout. Kode rahasia/khusus: matikan.",
+   "promo_headline_hint": "Kalimat konkret, mis. \"Hemat 20% bulan pertama\". Kosong = memakai nama/kode.",
+   "promo_image_hint": "Path gambar, mis. /assets/img/pages/pricing.jpg atau URL /api/media/… dari Media."
   },
   "s": {
    "credits_costs": "Biaya kredit per aksi (JSON, kosong = nilai PRD 55.1.1)",
@@ -2539,5 +2546,79 @@
   "resend": "Kirim ulang kode",
   "resend_in": "Kirim ulang dalam {{s}} dtk",
   "dev_code": "Mode lokal: kode Anda {{code}}"
+ },
+ "promo": {
+  "title": "Promo & kode diskon",
+  "body": "Salin kodenya, pilih paket, dan potongan langsung terhitung di checkout sebelum Anda membayar.",
+  "count": "{{count}} promo aktif saat ini",
+  "count_one": "{{count}} promo aktif saat ini",
+  "count_other": "{{count}} promo aktif saat ini",
+  "unit": {
+   "off": "Diskon",
+   "cut": "Potongan",
+   "credits": "Kredit bonus",
+   "days": "Hari bonus"
+  },
+  "campaign": {
+   "early_bird": "Early bird",
+   "flash_sale": "Flash sale",
+   "annual": "Paket tahunan",
+   "referral": "Referral",
+   "winback": "Kembali lagi",
+   "upgrade": "Upgrade"
+  },
+  "plan": {
+   "free": "Gratis",
+   "starter": "Starter",
+   "pro": "Pro",
+   "business": "Business"
+  },
+  "terms_label": "Syarat promo",
+  "terms": {
+   "plans": "Paket {{plans}}",
+   "cycle_monthly": "Bulanan",
+   "cycle_yearly": "Tahunan",
+   "min": "Min. {{amount}}",
+   "max": "Maks. potongan {{amount}}",
+   "months": "Berlaku {{n}} bulan",
+   "forever": "Selama berlangganan",
+   "first": "Pembelian pertama",
+   "addons": "Termasuk add-on"
+  },
+  "until": "Berlaku s.d. {{date}}",
+  "days_left_one": "Berakhir hari ini",
+  "days_left_other": "Sisa {{count}} hari",
+  "remaining_one": "Sisa {{count}} kuota",
+  "remaining_other": "Sisa {{count}} kuota",
+  "auto": "Otomatis di checkout",
+  "copy_aria": "Salin kode {{code}}",
+  "copied": "Kode {{code}} disalin",
+  "copy_manual": "Salin manual: {{code}}",
+  "use": "Pakai promo",
+  "see_plans": "Lihat paket",
+  "see_all": "Lihat {{count}} promo",
+  "see_all_short": "Lihat promo",
+  "strip_overline": "Sedang berlangsung",
+  "strip_title": "Promo yang bisa Anda pakai hari ini",
+  "empty_title": "Belum ada promo aktif",
+  "empty_body": "Promo baru akan tampil di sini. Paket Gratis tetap bisa dipakai tanpa kode.",
+  "error_title": "Promo belum bisa dimuat",
+  "error_body": "Periksa koneksi Anda lalu coba lagi.",
+  "how_title": "Cara pakai promo",
+  "how_body": "Satu pembelian memakai satu kode. Bila ada promo otomatis, sistem memilih potongan terbesar.",
+  "how": {
+   "copy_title": "Salin atau tekan \"Pakai promo\"",
+   "copy_body": "Kode tersimpan otomatis, bahkan bila Anda perlu masuk atau daftar dulu.",
+   "choose_title": "Pilih paket",
+   "choose_body": "Buka Langganan, pilih paket dan siklus yang sesuai syarat promo.",
+   "apply_title": "Cek potongan di checkout",
+   "apply_body": "Kode sudah terisi. Rincian harga, potongan, dan PPN tampil sebelum Anda membayar."
+  },
+  "fine_print": "Promo tidak berlaku untuk top-up saldo dan tidak dapat digabung. Syarat lengkap mengikuti",
+  "available_for_item": "Promo tersedia untuk pembelian ini",
+  "save": "hemat {{amount}}",
+  "applied": "Kode {{code}} terpasang",
+  "remove": "Hapus kode promo",
+  "ready": "Kode {{code}} siap dipakai — pilih paket di bawah dan kode otomatis terisi saat checkout."
  }
 }

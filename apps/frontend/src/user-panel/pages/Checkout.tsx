@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Tag, Info } from 'lucide-react'
+import { Tag, Info, TicketPercent, X } from 'lucide-react'
 import { http, ApiError, newIdempotencyKey } from '@/api-client/http'
 import type { Quote } from '@/api-client/types'
 import { useAuth } from '@/shared/context/AuthContext'
@@ -16,6 +16,7 @@ import { cn } from '@/shared/lib/cn'
 import { usePaymentStatus } from '@/shared/billing/usePaymentStatus'
 import { PaymentWaitNote } from '@/shared/billing/PaymentWaitNote'
 import { CancelInvoiceButton } from '@/shared/billing/CancelInvoiceButton'
+import { clearPromo, pendingPromo, type Promo } from '@/shared/lib/promo'
 
 export interface CheckoutItem {
   kind: 'plan' | 'addon' | 'custom'
@@ -36,8 +37,10 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
   const toast = useToast()
   const { block, unblock } = useLoader()
   const [source, setSource] = useState<'balance' | 'gateway'>('balance')
+  // Kode yang dipilih di halaman Promo langsung terpasang (tetap bisa diganti/dihapus)
   const [code, setCode] = useState('')
   const [applied, setApplied] = useState('')
+  const [offers, setOffers] = useState<Promo[]>([])
   const [quote, setQuote] = useState<Quote | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -63,6 +66,20 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
       .catch((e) => setErr(e instanceof ApiError ? e.message : t('errors.server_body')))
   }, [item, applied, t])
 
+  // Setiap membuka checkout: pasang kode dari halaman Promo (bila ada) & muat promo yang berlaku untuk item ini
+  useEffect(() => {
+    setOffers([])
+    if (!item) return
+    const pending = item.kind !== 'custom' ? pendingPromo() ?? '' : ''
+    setCode(pending)
+    setApplied(pending)
+    if (item.kind === 'custom') return
+    http
+      .post<{ data: Promo[] }>('/app/orders/promos', { kind: item.kind, code: item.code, cycle: item.cycle })
+      .then((r) => setOffers(r.data))
+      .catch(() => setOffers([]))
+  }, [item])
+
   if (!item) return null
   const final = quote?.final ?? item.price
   const insufficient = source === 'balance' && final > 0 && (me?.balances.topup ?? 0) < final
@@ -78,6 +95,7 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
         { idempotencyKey: key },
       )
       await refresh()
+      if (applied && applied === pendingPromo()) clearPromo()
       if (r.data.status === 'scheduled') {
         toast.push('success', t('billing.downgrade_scheduled', { date: dateTime(r.data.effective_at, false) }))
       } else if (r.data.status === 'pending_payment' && r.data.payment) {
@@ -173,11 +191,45 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Tag className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
-                <input id="coupon" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} className={cn(inputCls, 'pl-9 font-mono uppercase')} autoComplete="off" />
+                <input id="coupon" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === 'Enter' && code.trim()) setApplied(code.trim()) }} placeholder="HEMAT20" className={cn(inputCls, 'pl-9 font-mono uppercase', applied && 'pr-10')} autoComplete="off" />
+                {applied && (
+                  <button type="button" onClick={() => { setApplied(''); setCode('') }} aria-label={t('promo.remove')} className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg">
+                    <X className="size-4" aria-hidden />
+                  </button>
+                )}
               </div>
-              <Button variant="secondary" disabled={!code.trim()} onClick={() => setApplied(code.trim())}>{t('billing.apply')}</Button>
+              <Button variant="secondary" disabled={!code.trim() || code.trim() === applied} onClick={() => setApplied(code.trim())}>{t('billing.apply')}</Button>
             </div>
-            {applied && quote?.coupon_error && <p className="t-small text-danger">{quote.coupon_error}</p>}
+            {applied && quote?.coupon_error && <p role="alert" className="t-small text-danger">{quote.coupon_error}</p>}
+            {applied && quote && !quote.coupon_error && quote.coupon?.code === applied && <p className="t-small font-semibold text-success">{t('promo.applied', { code: applied })}</p>}
+            {offers.length > 0 && (
+              <div className="grid gap-1.5 pt-1">
+                <span className="t-small inline-flex items-center gap-1.5 text-muted">
+                  <TicketPercent className="size-4 text-primary" aria-hidden />
+                  {t('promo.available_for_item')}
+                </span>
+                <ul className="flex flex-wrap gap-2">
+                  {offers.map((o) => {
+                    const on = applied === o.code
+                    return (
+                      <li key={o.id}>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => { setCode(o.code ?? ''); setApplied(o.code ?? '') }}
+                          className={cn('inline-flex min-h-11 items-center gap-2 rounded-full border px-3 text-left text-[13px] transition-colors duration-[120ms]', on ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface hover:border-primary/60')}
+                        >
+                          <span className="font-mono font-semibold tracking-[0.04em]">{o.code}</span>
+                          <span className={on ? 'text-primary' : 'text-muted'}>
+                            {o.discount && o.discount > 0 ? t('promo.save', { amount: rupiah(o.discount) }) : o.type === 'bonus_credit' ? t('billing.bonus_credits', { n: o.value }) : t('billing.bonus_days', { n: o.value })}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
             <p className="t-small text-muted">{t('billing.coupon_rules')}</p>
           </div>
         )}

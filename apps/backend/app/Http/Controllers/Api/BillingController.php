@@ -52,6 +52,15 @@ class BillingController extends Controller
     }
 
     /** Rincian harga sebelum bayar: normal, prorata upgrade, diskon kupon/promo terbaik, PPN (PRD 55.4–55.5). */
+    /** Promo publik yang berlaku untuk item ini (chip "Promo tersedia" di checkout). */
+    public function promosForItem(Request $r)
+    {
+        $data = $r->validate(['kind' => 'required|in:plan,addon,custom', 'code' => 'required|string|max:40', 'cycle' => 'nullable|in:monthly,yearly']);
+        $item = Billing::resolve($r->user(), $data['kind'], $data['code'], $data['cycle'] ?? null);
+
+        return ['data' => \App\Services\Promos::forItem($r->user(), $item)];
+    }
+
     public function quote(Request $r)
     {
         $data = $r->validate(['kind' => 'required|in:plan,addon,custom', 'code' => 'required|string|max:40', 'cycle' => 'nullable|in:monthly,yearly', 'coupon' => 'nullable|string|max:40']);

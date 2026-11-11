@@ -24,6 +24,7 @@ Route::prefix('public')->middleware('throttle:120,1,r1')->group(function () {
     Route::get('catalog/unlocks', [PublicController::class, 'unlocks']);
     Route::get('templates', [PublicController::class, 'templates']);
     Route::get('faqs', [PublicController::class, 'faqs']);
+    Route::get('promos', [PublicController::class, 'promos']);
     Route::get('legal/{type}', [PublicController::class, 'legal'])->whereIn('type', ['terms', 'privacy', 'refund', 'affiliate_terms', 'cookies']);
     Route::get('status', [PublicController::class, 'status']);
     Route::post('ref/{code}', [BillingController::class, 'trackClick'])->middleware('throttle:30,1,r2');
@@ -122,6 +123,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('subscription', [BillingController::class, 'subscription']);
         Route::post('orders/quote', [BillingController::class, 'quote'])->middleware('throttle:60,1,r17');
+        Route::post('orders/promos', [BillingController::class, 'promosForItem'])->middleware('throttle:60,1,pr1');
         Route::post('orders', [BillingController::class, 'order'])->middleware('throttle:20,1,r18');
         Route::delete('subscription/scheduled-change', [BillingController::class, 'cancelDowngrade']);
         Route::patch('subscription/auto-renew', [BillingController::class, 'autoRenew']);

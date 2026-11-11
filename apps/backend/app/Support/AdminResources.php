@@ -38,7 +38,10 @@ class AdminResources
                 'max_discount' => 'nullable|integer|min:0', 'min_purchase' => 'nullable|integer|min:0', 'plan_codes' => 'nullable|array', 'cycles' => 'nullable|array', 'cycles.*' => 'in:monthly,yearly',
                 'applies_to_addons' => $bool, 'applies_to_custom' => $bool, 'first_purchase_only' => $bool, 'max_uses' => 'nullable|integer|min:1', 'max_uses_per_user' => 'nullable|integer|min:1',
                 'duration' => 'required|in:once,first_n_months,forever', 'duration_months' => 'nullable|integer|min:1|max:24', 'auto_apply' => $bool,
-                'campaign' => 'nullable|in:early_bird,flash_sale,annual,referral,winback,upgrade', 'starts_at' => 'nullable|date', 'ends_at' => 'nullable|date', 'is_active' => $bool,
+                'campaign' => 'nullable|in:early_bird,flash_sale,annual,referral,winback,upgrade', 'starts_at' => 'nullable|date', 'ends_at' => 'nullable|date|after_or_equal:starts_at', 'is_active' => $bool,
+                // Etalase publik (halaman Promo & beranda)
+                'is_public' => $bool, 'headline' => 'nullable|string|max:120', 'description' => 'nullable|string|max:500',
+                'image' => ['nullable', 'string', 'max:255', 'regex:#^(/assets/img/|/api/media/|https://)#'], 'sort' => 'integer|min:0|max:9999',
             ]],
             'coupon-redemptions' => ['model' => Models\CouponRedemption::class, 'readonly' => true, 'search' => [], 'filters' => ['status', 'coupon_id'], 'sort' => ['created_at', 'discount']],
             // Kontrol manual: admin memberi kredit bonus (Credits::grant → tercatat di ledger kredit) & mengubah label/masa berlaku.

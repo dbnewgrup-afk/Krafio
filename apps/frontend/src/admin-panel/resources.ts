@@ -19,6 +19,8 @@ export interface FieldDef {
   hint?: string
   /** Hanya tampil saat membuat data baru (mis. jumlah kredit bonus) */
   createOnly?: boolean
+  /** Nilai awal saat membuat data baru (switch default ON bila tidak diisi) */
+  default?: boolean
 }
 export type Ability = 'create' | 'update' | 'delete'
 export interface FilterDefLite {
@@ -77,13 +79,16 @@ export const RESOURCES: Record<string, ResourceDef> = {
   coupons: {
     endpoint: 'coupons',
     bulk: true,
-    columns: [{ key: 'code', type: 'mono', primary: true }, { key: 'name' }, { key: 'type', mobile: true }, { key: 'value', type: 'number' }, { key: 'auto_apply', type: 'bool' }, { key: 'used', type: 'number', sortable: true, mobile: true }, { key: 'reserved', type: 'number' }, { key: 'ends_at', type: 'date', sortable: true }, { key: 'is_active', type: 'bool' }],
-    filters: [{ key: 'type', options: ['percent', 'fixed', 'bonus_credit', 'bonus_days'] }, { key: 'auto_apply', options: BOOL }, { key: 'is_active', options: BOOL }, { key: 'campaign', options: ['early_bird', 'flash_sale', 'annual', 'referral', 'winback', 'upgrade'] }],
+    columns: [{ key: 'code', type: 'mono', primary: true }, { key: 'name' }, { key: 'type', mobile: true }, { key: 'value', type: 'number' }, { key: 'auto_apply', type: 'bool' }, { key: 'is_public', type: 'bool', mobile: true }, { key: 'used', type: 'number', sortable: true, mobile: true }, { key: 'reserved', type: 'number' }, { key: 'ends_at', type: 'date', sortable: true }, { key: 'is_active', type: 'bool' }],
+    filters: [{ key: 'type', options: ['percent', 'fixed', 'bonus_credit', 'bonus_days'] }, { key: 'auto_apply', options: BOOL }, { key: 'is_public', options: BOOL }, { key: 'is_active', options: BOOL }, { key: 'campaign', options: ['early_bird', 'flash_sale', 'annual', 'referral', 'winback', 'upgrade'] }],
     fields: [
       { name: 'code', type: 'text', required: true }, { name: 'name', type: 'text' }, { name: 'type', type: 'select', options: ['percent', 'fixed', 'bonus_credit', 'bonus_days'], required: true }, { name: 'value', type: 'number', required: true },
-      { name: 'max_discount', type: 'money' }, { name: 'min_purchase', type: 'money' }, { name: 'plan_codes', type: 'tags' }, { name: 'cycles', type: 'tags', hint: 'cycles_hint' }, { name: 'applies_to_addons', type: 'bool' }, { name: 'applies_to_custom', type: 'bool' },
-      { name: 'first_purchase_only', type: 'bool' }, { name: 'max_uses', type: 'number' }, { name: 'max_uses_per_user', type: 'number' }, { name: 'duration', type: 'select', options: ['once', 'first_n_months', 'forever'], required: true }, { name: 'duration_months', type: 'number' },
-      { name: 'auto_apply', type: 'bool' }, { name: 'campaign', type: 'select', options: ['', 'early_bird', 'flash_sale', 'annual', 'referral', 'winback', 'upgrade'] }, { name: 'starts_at', type: 'date' }, { name: 'ends_at', type: 'date' }, { name: 'is_active', type: 'bool' },
+      { name: 'max_discount', type: 'money' }, { name: 'min_purchase', type: 'money' }, { name: 'plan_codes', type: 'tags' }, { name: 'cycles', type: 'tags', hint: 'cycles_hint' }, { name: 'applies_to_addons', type: 'bool', default: false }, { name: 'applies_to_custom', type: 'bool', default: false },
+      { name: 'first_purchase_only', type: 'bool', default: false }, { name: 'max_uses', type: 'number' }, { name: 'max_uses_per_user', type: 'number' }, { name: 'duration', type: 'select', options: ['once', 'first_n_months', 'forever'], required: true }, { name: 'duration_months', type: 'number' },
+      { name: 'auto_apply', type: 'bool', default: false }, { name: 'campaign', type: 'select', options: ['', 'early_bird', 'flash_sale', 'annual', 'referral', 'winback', 'upgrade'] }, { name: 'starts_at', type: 'date' }, { name: 'ends_at', type: 'date' }, { name: 'is_active', type: 'bool' },
+      // Etalase publik: halaman /promo, strip beranda & chip "Promo tersedia" di checkout
+      { name: 'is_public', type: 'bool', default: false, hint: 'promo_public_hint' }, { name: 'headline', type: 'text', hint: 'promo_headline_hint' }, { name: 'description', type: 'textarea' },
+      { name: 'image', type: 'text', hint: 'promo_image_hint' }, { name: 'sort', type: 'number' },
     ],
   },
   'coupon-redemptions': { endpoint: 'coupon-redemptions', readonly: true, columns: [{ key: 'coupon_id', type: 'number', primary: true }, { key: 'user_id', type: 'number', mobile: true }, { key: 'discount', type: 'money', sortable: true }, { key: 'status', type: 'status', mobile: true }, { key: 'created_at', type: 'date', sortable: true }], filters: [{ key: 'status', options: ['reserved', 'used', 'released'] }] },

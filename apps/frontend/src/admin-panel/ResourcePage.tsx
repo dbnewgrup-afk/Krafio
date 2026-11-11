@@ -175,7 +175,7 @@ function initial(f: FieldDef, row: Row | null): any {
   if (f.type === 'features') return Array.isArray(v) ? v : []
   if (f.type === 'palette') return Array.isArray(v) ? v : ['#F4E7D3', '#C7A27C', '#3E2C23']
   if (f.type === 'sections') return v ? JSON.stringify(v, null, 2) : '[\n  { "id": "umum", "heading": "Ketentuan umum", "body": "" }\n]'
-  if (f.type === 'bool') return v ?? true
+  if (f.type === 'bool') return v ?? f.default ?? true
   if (f.type === 'date') return v ? String(v).slice(0, 10) : ''
   if (f.type === 'secret') return ''
   return v ?? ''
@@ -268,7 +268,7 @@ function ResourceForm({ resource, row, onClose, onSaved }: { resource: string; r
                 </SelectField>
               )
             case 'bool':
-              return <Switch key={f.name} label={label} checked={!!vals[f.name]} onChange={(v) => set(f.name, v)} />
+              return <Switch key={f.name} label={label} description={hint} checked={!!vals[f.name]} onChange={(v) => set(f.name, v)} />
             case 'features':
               return (
                 <fieldset key={f.name} className="grid gap-2">

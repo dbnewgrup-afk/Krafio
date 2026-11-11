@@ -12,6 +12,7 @@ import type { FaqItem, Plan, TemplateItem } from '@/api-client/types'
 import { rupiah } from '@/shared/lib/format'
 import { useAuth } from '@/shared/context/AuthContext'
 import { TemplateCard } from '../components/TemplateCard'
+import { PromoStrip } from './Promo'
 import { PlanCard } from '../components/PlanCard'
 import { useDocTitle } from '@/shared/hooks/useDocTitle'
 import { cn } from '@/shared/lib/cn'
@@ -23,6 +24,7 @@ export default function Home() {
   return (
     <>
       <Hero />
+      <PromoStrip />
       <FeatureWorkbench />
       <TemplatesStrip />
       <MoneySplit />

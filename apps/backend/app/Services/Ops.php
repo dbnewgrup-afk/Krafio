@@ -27,8 +27,8 @@ class Ops
     {
         $stuckCut = now()->subMinutes(self::STUCK_MINUTES);
         $items = [
-            ['key' => 'stuck_jobs', 'severity' => 'critical', 'count' => AiJob::where('status', 'processing')->where(fn ($q) => $q->where('started_at', '<', $stuckCut)->orWhere(fn ($w) => $w->whereNull('started_at')->where('updated_at', '<', $stuckCut)))->count(), 'to' => '/admin/ai/jobs'],
-            ['key' => 'failed_jobs_24h', 'severity' => 'warning', 'count' => AiJob::where('status', 'failed')->where('updated_at', '>=', now()->subDay())->count(), 'to' => '/admin/ai/jobs'],
+            ['key' => 'stuck_jobs', 'severity' => 'critical', 'count' => AiJob::where('status', 'processing')->where(fn ($q) => $q->where('started_at', '<', $stuckCut)->orWhere(fn ($w) => $w->whereNull('started_at')->where('updated_at', '<', $stuckCut)))->count(), 'to' => '/admin/media/jobs'],
+            ['key' => 'failed_jobs_24h', 'severity' => 'warning', 'count' => AiJob::where('status', 'failed')->where('updated_at', '>=', now()->subDay())->count(), 'to' => '/admin/media/jobs'],
             ['key' => 'past_due', 'severity' => 'warning', 'count' => Subscription::where('status', 'past_due')->count(), 'to' => '/admin/billing/subscriptions'],
             ['key' => 'expiring_7d', 'severity' => 'info', 'count' => Subscription::where('status', 'active')->where('price', '>', 0)->whereBetween('ends_at', [now(), now()->addDays(7)])->count(), 'to' => '/admin/billing/subscriptions'],
             ['key' => 'pending_approvals', 'severity' => 'warning', 'count' => Approval::where('status', 'pending')->count(), 'to' => '/admin/approvals'],

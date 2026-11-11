@@ -8,6 +8,7 @@ import { PublicLayout } from '@/public-site/PublicLayout'
 import Home from '@/public-site/pages/Home'
 import { AddonsPage, FeatureDetailPage, FeaturesPage, NotFoundPage, PricingPage, TemplatesPage } from '@/public-site/pages/Catalog'
 import { AboutPage, AffiliatePage, ContactPage, FaqPage, LegalPage, StatusPage } from '@/public-site/pages/Info'
+import PromoPage from '@/public-site/pages/Promo'
 import { AuthLayout } from '@/public-site/auth/AuthLayout'
 import { AccountStatusPage, ForgotPasswordPage, LoginPage, RegisterPage, ResetPasswordPage, ReviseAccountPage, VerifyPage } from '@/public-site/auth/AuthPages'
 
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
           { path: 'templates', element: <TemplatesPage /> },
           { path: 'affiliate', element: <AffiliatePage /> },
           { path: 'faq', element: <FaqPage /> },
+          { path: 'promo', element: <PromoPage /> },
           { path: 'contact', element: <ContactPage /> },
           { path: 'about', element: <AboutPage /> },
           { path: 'status', element: <StatusPage /> },

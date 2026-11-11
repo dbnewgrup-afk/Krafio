@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, Link2, Check } from 'lucide-react'
+import { Copy, Link2, Check, TicketPercent, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { clearPromo, pendingPromo } from '@/shared/lib/promo'
 import { http, ApiError } from '@/api-client/http'
 import type { Addon, Plan } from '@/api-client/types'
 import { useAuth } from '@/shared/context/AuthContext'
@@ -116,10 +118,21 @@ export function SubscriptionPage() {
   const sub = useApi<SubInfo>('/app/subscription')
   const [cycle, setCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [co, setCo] = useState<CheckoutItem | null>(null)
+  const [promo, setPromo] = useState(() => pendingPromo())
   const cur = sub.data?.current
   return (
     <>
       <PageHeader title={t('user.nav.my_plan')} subtitle={t('billing.sub_subtitle')} crumbs={[{ label: t('user.nav.subscription') }, { label: t('user.nav.my_plan') }]} />
+      {promo && (
+        <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-warm-sand-soft px-4 py-3 text-fg">
+          <TicketPercent className="size-5 shrink-0 text-primary" aria-hidden />
+          <p className="t-small flex-1">{t('promo.ready', { code: promo })}</p>
+          <Link to="/promo" className="t-label text-primary hover:underline">{t('promo.see_all_short')}</Link>
+          <button type="button" onClick={() => { clearPromo(); setPromo(null) }} aria-label={t('promo.remove')} className="grid size-9 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg">
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+      )}
       <PendingInvoices onChange={sub.reload} />
       {!sub.data ? (
         <Skeleton className="h-28" />
@@ -183,7 +196,7 @@ export function SubscriptionPage() {
           </ul>
         )}
       </section>
-      <CheckoutModal item={co} onClose={() => setCo(null)} onDone={sub.reload} />
+      <CheckoutModal item={co} onClose={() => { setCo(null); setPromo(pendingPromo()) }} onDone={sub.reload} />
     </>
   )
 }

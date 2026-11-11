@@ -17,6 +17,7 @@ const NAV = [
   { to: '/features', key: 'features' },
   { to: '/templates', key: 'templates' },
   { to: '/pricing', key: 'pricing' },
+  { to: '/promo', key: 'promo' },
   { to: '/affiliate', key: 'affiliate' },
   { to: '/faq', key: 'faq' },
 ]
@@ -170,7 +171,7 @@ function PublicFooter() {
   const { t } = useTranslation()
   const { settings } = useAuth()
   const groups: { key: string; links: { to: string; label: string }[] }[] = [
-    { key: 'product', links: [{ to: '/features', label: t('public.nav.features') }, { to: '/pricing', label: t('public.nav.pricing') }, { to: '/templates', label: t('public.nav.templates') }, { to: '/addons', label: t('footer.addons') }] },
+    { key: 'product', links: [{ to: '/features', label: t('public.nav.features') }, { to: '/pricing', label: t('public.nav.pricing') }, { to: '/templates', label: t('public.nav.templates') }, { to: '/addons', label: t('footer.addons') }, { to: '/promo', label: t('public.nav.promo') }] },
     { key: 'resources', links: [{ to: '/faq', label: t('public.nav.faq') }, { to: '/affiliate', label: t('public.nav.affiliate') }, { to: '/status', label: t('footer.status') }] },
     { key: 'company', links: [{ to: '/about', label: t('footer.about') }, { to: '/contact', label: t('footer.contact') }] },
     { key: 'legal', links: [{ to: '/terms', label: t('legal.terms_short') }, { to: '/privacy', label: t('legal.privacy_short') }, { to: '/refund', label: t('legal.refund_short') }, { to: '/affiliate-terms', label: t('legal.affiliate_terms_short') }, { to: '/cookies', label: t('legal.cookies') }] },

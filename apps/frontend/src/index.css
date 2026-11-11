@@ -24,6 +24,10 @@
   --danger: #DC2626;
   --info: #2563EB;
   --wallet-topup: #2563EB;
+  /* Palet hangat (ilustrasi/editorial/promo — bukan untuk tombol/status) */
+  --warm-sand: #E9D5B7;
+  --warm-sand-soft: #F6EDE0;
+  --warm-coffee: #3F2E22;
   --wallet-commission: #16A34A;
   --overlay-dark: rgba(15, 23, 42, 0.72);
   --overlay-clear: rgba(255, 255, 255, 0.55);
@@ -66,6 +70,9 @@
   --danger: #F87171;
   --info: #60A5FA;
   --wallet-topup: #60A5FA;
+  --warm-sand: #4A3A2C;
+  --warm-sand-soft: #2A2119;
+  --warm-coffee: #F3E6D3;
   --wallet-commission: #4ADE80;
   --overlay-dark: rgba(2, 6, 23, 0.80);
   --overlay-clear: rgba(11, 16, 32, 0.55);
@@ -95,6 +102,9 @@
   --color-danger: var(--danger);
   --color-info: var(--info);
   --color-wallet-topup: var(--wallet-topup);
+  --color-warm-sand: var(--warm-sand);
+  --color-warm-sand-soft: var(--warm-sand-soft);
+  --color-warm-coffee: var(--warm-coffee);
   --color-wallet-commission: var(--wallet-commission);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);

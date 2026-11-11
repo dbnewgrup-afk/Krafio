@@ -472,7 +472,8 @@
    "templates": "Templates",
    "pricing": "Pricing",
    "affiliate": "Affiliate",
-   "faq": "FAQ"
+   "faq": "FAQ",
+   "promo": "Promos"
   }
  },
  "home": {
@@ -1818,7 +1819,10 @@
    "language": "Language",
    "body_preview": "Body preview",
    "variables": "Variables",
-   "meta_status": "Meta status"
+   "meta_status": "Meta status",
+   "is_public": "Show on Promos page",
+   "headline": "Promo headline",
+   "image": "Image"
   },
   "hint": {
    "quotas_hint": "JSON. Example: {\"credits\": 300, \"chatbot.basic\": 30, \"content.brainstorm\": 30, \"seo.basic\": 20}",
@@ -1833,7 +1837,10 @@
    "sections_hint": "JSON array: [{\"id\": \"definitions\", \"heading\": \"Definitions\", \"body\": \"…\"}]",
    "meta_name_hint": "Lowercase letters, numbers, underscores — exactly as in WhatsApp Manager.",
    "variables_hint": "Order of {{1}}, {{2}}, … comma-separated. Available: name, code, minutes, amount, reference, plan, ends_at, reason.",
-   "job_stop_hint": "Only queued/processing jobs. The user's credits or quota are refunded automatically."
+   "job_stop_hint": "Only queued/processing jobs. The user's credits or quota are refunded automatically.",
+   "promo_public_hint": "Shown on /promo, the home strip and the \"Promos available\" chips at checkout. Turn off for secret codes.",
+   "promo_headline_hint": "A concrete line, e.g. \"Save 20% on your first month\". Empty = name/code.",
+   "promo_image_hint": "Image path, e.g. /assets/img/pages/pricing.jpg or a /api/media/… URL from Media."
   },
   "s": {
    "credits_costs": "Credit cost per action (JSON, empty = PRD 55.1.1 values)",
@@ -2539,5 +2546,78 @@
   "resend": "Resend code",
   "resend_in": "Resend in {{s}}s",
   "dev_code": "Local mode: your code is {{code}}"
+ },
+ "promo": {
+  "title": "Promos & discount codes",
+  "body": "Copy a code, pick a plan, and the discount is calculated at checkout before you pay.",
+  "count_one": "{{count}} active promo",
+  "count_other": "{{count}} active promos",
+  "unit": {
+   "off": "Off",
+   "cut": "Off",
+   "credits": "Bonus credits",
+   "days": "Bonus days"
+  },
+  "campaign": {
+   "early_bird": "Early bird",
+   "flash_sale": "Flash sale",
+   "annual": "Annual plan",
+   "referral": "Referral",
+   "winback": "Welcome back",
+   "upgrade": "Upgrade"
+  },
+  "plan": {
+   "free": "Free",
+   "starter": "Starter",
+   "pro": "Pro",
+   "business": "Business"
+  },
+  "terms_label": "Promo terms",
+  "terms": {
+   "plans": "{{plans}} plan",
+   "cycle_monthly": "Monthly",
+   "cycle_yearly": "Yearly",
+   "min": "Min. {{amount}}",
+   "max": "Max. {{amount}} off",
+   "months": "For {{n}} months",
+   "forever": "For the whole subscription",
+   "first": "First purchase",
+   "addons": "Includes add-ons"
+  },
+  "until": "Valid until {{date}}",
+  "days_left_one": "Ends today",
+  "days_left_other": "{{count}} days left",
+  "remaining_one": "{{count}} left",
+  "remaining_other": "{{count}} left",
+  "auto": "Applied automatically",
+  "copy_aria": "Copy code {{code}}",
+  "copied": "Code {{code}} copied",
+  "copy_manual": "Copy manually: {{code}}",
+  "use": "Use promo",
+  "see_plans": "See plans",
+  "see_all": "See {{count}} promos",
+  "see_all_short": "See promos",
+  "strip_overline": "Running now",
+  "strip_title": "Promos you can use today",
+  "empty_title": "No active promos",
+  "empty_body": "New promos will show up here. The Free plan works without a code.",
+  "error_title": "Promos could not load",
+  "error_body": "Check your connection and try again.",
+  "how_title": "How to use a promo",
+  "how_body": "One code per purchase. If an automatic promo applies, the biggest discount wins.",
+  "how": {
+   "copy_title": "Copy or press \"Use promo\"",
+   "copy_body": "The code is saved, even if you need to sign in or sign up first.",
+   "choose_title": "Pick a plan",
+   "choose_body": "Open Subscription and choose a plan and cycle that match the promo terms.",
+   "apply_title": "Check the discount at checkout",
+   "apply_body": "The code is prefilled. Price, discount and VAT are shown before you pay."
+  },
+  "fine_print": "Promos do not apply to balance top-ups and cannot be combined. Full terms follow the",
+  "available_for_item": "Promos available for this purchase",
+  "save": "save {{amount}}",
+  "applied": "Code {{code}} applied",
+  "remove": "Remove promo code",
+  "ready": "Code {{code}} is ready — pick a plan below and it is filled in at checkout."
  }
 }

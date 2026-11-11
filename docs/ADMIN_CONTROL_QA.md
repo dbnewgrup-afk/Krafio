@@ -50,3 +50,24 @@ php artisan krafio:test-account --email=qa2@krafio.test --credits=500000 --balan
 | Prakiraan kredit habis | Pemakaian → Kuota | `Ops::creditForecast`: rata-rata pemakaian 14 hari → perkiraan tanggal habis & peringatan bila sebelum reset |
 | Perlu tindakan | Dashboard admin | `Ops::attention`: job macet, job gagal 24 jam, langganan menunggak/segera habis, approval, penarikan, pembayaran gagal, tiket lewat SLA, akun menunggu — urut kritis dulu |
 | Pemulihan job macet | Scheduler tiap 5 menit + tombol di dashboard | `Ops::recoverStuckJobs`: job "processing" > 30 menit → gagal + refund sekali + notifikasi user |
+
+## 5. Promo & kode diskon
+
+**Admin → Billing → Kupon & promo.** Setiap kupon bisa:
+- dipakai lewat **kode** (diketik pengguna, huruf besar/kecil sama saja) atau **otomatis** (`auto_apply`, kodenya tidak pernah ditampilkan);
+- dibatasi paket, siklus, minimal pembelian, maks. potongan, kuota total & per user, pembelian pertama, periode tanggal;
+- **ditayangkan** (`Tampil di halaman Promo`) dengan judul, deskripsi, gambar, dan urutan. Mematikan tayang tidak menghapus kupon.
+
+Default switch saat membuat kupon kini **mati** (sebelumnya semua switch default menyala — kupon baru otomatis menjadi promo otomatis).
+
+Tampil di:
+| Tempat | Isi |
+|---|---|
+| `/promo` (menu **Promo** di navbar & footer) | Promo unggulan + grid promo, syarat sebagai chip, salin kode, hitung mundur ≤ 7 hari, sisa kuota bila menipis, langkah cara pakai |
+| Beranda (di bawah hero) | 2 promo teratas; section otomatis hilang bila tidak ada promo |
+| Checkout | Kolom kode + chip **"Promo tersedia untuk pembelian ini"** (hanya promo yang lolos validasi untuk user & item, urut hemat terbesar) |
+| Langganan (user) | Banner "Kode X siap dipakai" bila datang dari halaman Promo |
+
+Alur: **Pakai promo** di `/promo` → kode disimpan (7 hari, bertahan lewat login/daftar) → Langganan → pilih paket → checkout dengan kode terisi → bayar → pemakaian tercatat di **Pemakaian kupon**; kode yang sudah mencapai batas per user hilang dari chip & ditolak.
+
+API: `GET /api/public/promos`, `POST /api/app/orders/promos {kind, code, cycle}`. Kupon tidak berlaku untuk top-up.
