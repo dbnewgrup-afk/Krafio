@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Crown, Lock, Sparkles } from 'lucide-react'
 import type { TemplateItem } from '@/api-client/types'
 import { cn } from '@/shared/lib/cn'
-import { img } from '@/shared/lib/assets'
+import { img, templatePhoto } from '@/shared/lib/assets'
 
 const RATIO: Record<string, number> = { '1:1': 1, '4:5': 0.8, '9:16': 0.5625, '16:9': 1.7778, '4:3': 1.3333 }
 
@@ -29,14 +29,15 @@ export type CardPreviewState = 'default' | 'hover' | 'locked' | 'featured'
 /** Bagian kartu yang bisa diklik di pratinjau untuk memfokuskan field form. */
 export type CardField = 'image' | 'title' | 'badge' | 'price' | 'type'
 
-/** Isi visual template (konten milik template, tidak ikut tema — §4.3): cover unggahan → ilustrasi bawaan → bentuk palet. */
+/** Isi visual template (konten milik template, tidak ikut tema — §4.3): cover unggahan → foto desain resmi → ilustrasi vektor → bentuk palet. */
 function Art({ item }: { item: TemplateItem }) {
-  const [broken, setBroken] = useState(false)
+  const [failed, setFailed] = useState(0)
   const [a, b, c] = item.palette.length >= 3 ? item.palette : ['#E2E8F0', '#94A3B8', '#0F172A']
   const layout = item.id % 3
-  const src = item.cover_url || (item.art ? img(`templates/${item.art}.svg`) : null)
-  if (src && !broken)
-    return <img src={src} alt="" draggable={false} loading="lazy" onError={() => setBroken(true)} className="h-full w-full object-cover" style={item.focus ? { objectPosition: `${item.focus.x}% ${item.focus.y}%` } : undefined} />
+  const sources = [item.cover_url, item.art ? templatePhoto(item.art) : null, item.art ? img(`templates/${item.art}.svg`) : null].filter((x): x is string => !!x)
+  const src = sources[failed]
+  if (src)
+    return <img key={src} src={src} alt="" draggable={false} loading="lazy" onError={() => setFailed((n) => n + 1)} className="h-full w-full object-cover" style={item.focus ? { objectPosition: `${item.focus.x}% ${item.focus.y}%` } : undefined} />
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ background: a }}>
       {layout === 0 && (

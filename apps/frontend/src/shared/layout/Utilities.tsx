@@ -8,8 +8,16 @@ import { cn } from '@/shared/lib/cn'
 import { http } from '@/api-client/http'
 import { useAuth } from '@/shared/context/AuthContext'
 
-/** Mark Krafio: K geometris dengan lengan atas berujung sparkle (sumber: public/assets/img/brand/logo-mark.svg). */
-export function LogoMark({ size = 28, bg = 'var(--primary)', fg = 'var(--primary-contrast)', className }: { size?: number; bg?: string; fg?: string; className?: string }) {
+/**
+ * Mark Krafio. Tanpa warna kustom → logo resmi (badge K + sparkle, public/assets/img/brand/logo-mark*.png).
+ * Dengan `bg`/`fg` (kartu dompet, loader) → versi vektor yang mengikuti warna konteks.
+ */
+export function LogoMark({ size = 28, bg, fg, className }: { size?: number; bg?: string; fg?: string; className?: string }) {
+  if (!bg && !fg) {
+    return <img src={size > 64 ? '/assets/img/brand/logo-mark.png' : '/assets/img/brand/logo-mark-96.png'} width={size} height={size} alt="" aria-hidden draggable={false} className={cn('shrink-0 select-none', className)} />
+  }
+  bg ??= 'var(--primary)'
+  fg ??= 'var(--primary-contrast)'
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden className={className}>
       <rect width="64" height="64" rx="16" fill={bg} />

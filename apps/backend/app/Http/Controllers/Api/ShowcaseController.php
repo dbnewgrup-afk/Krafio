@@ -29,25 +29,39 @@ class ShowcaseController extends Controller
     {
         if ($audience === 'admin') {
             return [
-                ['id' => 'a1', 'enabled' => true, 'badge' => 'Inbox', 'title' => 'Balas pelanggan tanpa pindah halaman', 'body' => 'Pesan baru muncul sebagai notifikasi dengan kolom balas cepat di seluruh panel admin.', 'cta_label' => 'Buka Inbox', 'cta_url' => '/admin/support/inbox', 'image' => '/assets/img/pages/contact.svg', 'alt' => 'Ilustrasi percakapan dukungan pelanggan'],
-                ['id' => 'a2', 'enabled' => true, 'badge' => 'Template', 'title' => 'Kurasi template dengan pratinjau langsung', 'body' => 'Ubah judul, harga akses, dan cover — kartu di homepage ikut berubah saat Anda mengetik.', 'cta_label' => 'Buka Template Studio', 'cta_url' => '/admin/templates/studio', 'image' => '/assets/img/features/templates.svg', 'alt' => 'Ilustrasi kumpulan template'],
-                ['id' => 'a3', 'enabled' => true, 'badge' => 'Keuangan', 'title' => 'Pantau kewajiban saldo pengguna', 'body' => 'Saldo top-up, komisi, dan withdrawal dalam proses selalu terhitung dari ledger.', 'cta_label' => 'Laporan keuangan', 'cta_url' => '/admin/finance/reports', 'image' => '/assets/img/auth/b.svg', 'alt' => 'Ilustrasi dua kartu saldo'],
+                ['id' => 'a1', 'enabled' => true, 'badge' => 'Inbox', 'title' => 'Balas pelanggan tanpa pindah halaman', 'body' => 'Pesan baru muncul sebagai notifikasi dengan kolom balas cepat di seluruh panel admin.', 'cta_label' => 'Buka Inbox', 'cta_url' => '/admin/support/inbox', 'image' => '/assets/img/photos/admin-hero-inbox.jpg', 'alt' => 'Inbox admin dengan percakapan pelanggan'],
+                ['id' => 'a2', 'enabled' => true, 'badge' => 'Template', 'title' => 'Kurasi template dengan pratinjau langsung', 'body' => 'Ubah judul, harga akses, dan cover — kartu di homepage ikut berubah saat Anda mengetik.', 'cta_label' => 'Buka Template Studio', 'cta_url' => '/admin/templates/studio', 'image' => '/assets/img/photos/admin-hero-templates.jpg', 'alt' => 'Template Studio dengan badge Gratis, Premium, dan Terbit'],
+                ['id' => 'a3', 'enabled' => true, 'badge' => 'Keuangan', 'title' => 'Pantau kewajiban saldo pengguna', 'body' => 'Saldo top-up, komisi, dan withdrawal dalam proses selalu terhitung dari ledger.', 'cta_label' => 'Laporan keuangan', 'cta_url' => '/admin/finance/reports', 'image' => '/assets/img/photos/admin-login-wallet.jpg', 'alt' => 'Kartu saldo top-up dan komisi terpisah'],
             ];
         }
 
         return [
-            ['id' => 'u1', 'enabled' => true, 'badge' => 'Baru', 'title' => 'Foto produk siap jual dari satu prompt', 'body' => 'Tulis deskripsi produk Anda, pilih rasio, dan lihat biaya kredit sebelum Generate.', 'cta_label' => 'Buat foto', 'cta_url' => '/app/create/photo', 'image' => '/assets/img/samples/product-kopi.svg', 'alt' => 'Kopi susu gula aren di gelas kaca'],
-            ['id' => 'u2', 'enabled' => true, 'badge' => '24 template', 'title' => 'Mulai lebih cepat dengan template', 'body' => 'Feed Instagram, menu digital, sampai company profile — tinggal ganti teks dan gambar.', 'cta_label' => 'Lihat template', 'cta_url' => '/app/templates', 'image' => '/assets/img/templates/menu-digital.svg', 'alt' => 'Template menu digital'],
-            ['id' => 'u3', 'enabled' => true, 'badge' => 'Website', 'title' => 'Website bisnis tanpa ngoding', 'body' => 'Isi formulir singkat, sunting blok, lalu terbitkan. Validasi SEO dasar dijalankan sebelum terbit.', 'cta_label' => 'Buat website', 'cta_url' => '/app/websites', 'image' => '/assets/img/samples/site-cafe.svg', 'alt' => 'Mock website kafe'],
+            ['id' => 'u1', 'enabled' => true, 'badge' => 'Baru', 'title' => 'Foto produk siap jual dari satu prompt', 'body' => 'Tulis deskripsi produk Anda, pilih rasio, dan lihat biaya kredit sebelum Generate.', 'cta_label' => 'Buat foto', 'cta_url' => '/app/create/photo', 'image' => '/assets/img/photos/member-hero-photo.jpg', 'alt' => 'Prompt dan hasil foto kopi susu gula aren'],
+            ['id' => 'u2', 'enabled' => true, 'badge' => '24 template', 'title' => 'Mulai lebih cepat dengan template', 'body' => 'Feed Instagram, menu digital, sampai company profile — tinggal ganti teks dan gambar.', 'cta_label' => 'Lihat template', 'cta_url' => '/app/templates', 'image' => '/assets/img/photos/member-hero-templates.jpg', 'alt' => 'Template feed Instagram, menu digital, dan company profile'],
+            ['id' => 'u3', 'enabled' => true, 'badge' => 'Website', 'title' => 'Website bisnis tanpa ngoding', 'body' => 'Isi formulir singkat, sunting blok, lalu terbitkan. Validasi SEO dasar dijalankan sebelum terbit.', 'cta_label' => 'Buat website', 'cta_url' => '/app/websites', 'image' => '/assets/img/photos/member-hero-website.jpg', 'alt' => 'Website UMKM dengan analitik pengunjung'],
         ];
     }
 
     private static function slides(string $audience): array
     {
         $v = Settings::get("dashboard.hero.{$audience}");
+        if (! is_array($v) || ! count($v)) {
+            return self::defaults($audience);
+        }
 
-        return is_array($v) && count($v) ? array_values($v) : self::defaults($audience);
+        // Slide tersimpan yang masih memakai ilustrasi bawaan lama ikut memakai foto resmi yang baru.
+        return array_map(fn ($s) => isset($s['image'], self::LEGACY_IMAGES[$s['image']]) ? ['image' => self::LEGACY_IMAGES[$s['image']]] + $s : $s, array_values($v));
     }
+
+    /** Ilustrasi vektor bawaan versi lama → foto/mockup resmi Krafio. */
+    private const LEGACY_IMAGES = [
+        '/assets/img/pages/contact.svg' => '/assets/img/photos/admin-hero-inbox.jpg',
+        '/assets/img/features/templates.svg' => '/assets/img/photos/admin-hero-templates.jpg',
+        '/assets/img/auth/b.svg' => '/assets/img/photos/admin-login-wallet.jpg',
+        '/assets/img/samples/product-kopi.svg' => '/assets/img/photos/member-hero-photo.jpg',
+        '/assets/img/templates/menu-digital.svg' => '/assets/img/photos/member-hero-templates.jpg',
+        '/assets/img/samples/site-cafe.svg' => '/assets/img/photos/member-hero-website.jpg',
+    ];
 
     public function hero(Request $r)
     {

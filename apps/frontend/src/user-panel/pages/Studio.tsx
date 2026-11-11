@@ -18,7 +18,7 @@ import { EmptyState, Skeleton } from '@/shared/ui/States'
 import { Modal } from '@/shared/ui/Modal'
 import { FEATURES } from '@/shared/features'
 import { number, relative } from '@/shared/lib/format'
-import { previewStyle } from '@/shared/lib/assets'
+import { PHOTO, previewStyle } from '@/shared/lib/assets'
 import { cn } from '@/shared/lib/cn'
 import { NotFoundPage } from '@/public-site/pages/Catalog'
 
@@ -468,7 +468,17 @@ function JobResults({ jobs, onPreview, onCancel, onRetry, textMode }: { jobs: Ai
         ))}
       </div>
     )
-  if (jobs.length === 0) return <EmptyState title={t('studio.no_results')} body={t('studio.no_results_body')} />
+  if (jobs.length === 0)
+    return textMode ? (
+      <EmptyState title={t('studio.no_results')} body={t('studio.no_results_body')} />
+    ) : (
+      // Panel hasil kosong: pratinjau 4 kotak "Hasil" (mockup resmi) agar user tahu hasil akan muncul di sini
+      <div className="grid justify-items-center gap-3 rounded-lg border border-dashed border-line px-6 py-8 text-center">
+        <img src={PHOTO.studioPlaceholder} alt="" width={640} height={640} loading="lazy" className="w-full max-w-[260px] rounded-lg" />
+        <h3 className="t-h3 text-fg">{t('studio.no_results')}</h3>
+        <p className="t-small max-w-sm text-muted">{t('studio.no_results_body')}</p>
+      </div>
+    )
   return (
     <ul className={cn('grid gap-3', textMode ? 'grid-cols-1' : 'grid-cols-2')}>
       {jobs.map((j) => (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, Check, Image as ImageIcon, Sparkles, Wallet, HandCoins, Globe, SearchCheck } from 'lucide-react'
+import { ArrowRight, Check, Sparkles, Wallet, HandCoins } from 'lucide-react'
 import { Carousel } from '@/shared/ui/Carousel'
 import { ButtonLink } from '@/shared/ui/Button'
 import { Accordion, Tabs } from '@/shared/ui/Misc'
@@ -15,7 +15,7 @@ import { TemplateCard } from '../components/TemplateCard'
 import { PlanCard } from '../components/PlanCard'
 import { useDocTitle } from '@/shared/hooks/useDocTitle'
 import { cn } from '@/shared/lib/cn'
-import { img } from '@/shared/lib/assets'
+import { PHOTO, featurePhoto } from '@/shared/lib/assets'
 
 export default function Home() {
   const { t } = useTranslation()
@@ -36,9 +36,9 @@ export default function Home() {
 function Hero() {
   const { t } = useTranslation()
   const slides = [
-    { key: 'photo', visual: <PhotoPanelVisual /> },
-    { key: 'website', visual: <WebsiteVisual /> },
-    { key: 'seo', visual: <SeoVisual /> },
+    { key: 'photo', visual: <HeroPhoto first src={PHOTO.heroGenerate} alt={t('home.hero_alt.photo')} /> },
+    { key: 'website', visual: <HeroPhoto src={PHOTO.heroTemplates} alt={t('home.hero_alt.website')} /> },
+    { key: 'seo', visual: <HeroPhoto src={PHOTO.heroSeo} alt={t('home.hero_alt.seo')} /> },
   ]
   return (
     <section className="border-b border-line bg-bg-subtle">
@@ -69,87 +69,9 @@ function Hero() {
   )
 }
 
-/** Visual hero = antarmuka produk sesungguhnya (panel Generate) dalam versi statis, bukan ilustrasi. */
-function PhotoPanelVisual() {
-  const { t } = useTranslation()
-  return (
-    <div aria-hidden className="grid gap-3 rounded-xl border border-line-strong bg-surface p-4 shadow-k-md md:p-5">
-      <div className="flex items-center gap-2">
-        <span className="grid size-8 place-items-center rounded-md bg-primary-soft text-primary">
-          <ImageIcon className="size-4" />
-        </span>
-        <p className="font-semibold text-fg">{t('features.photo_generate')}</p>
-      </div>
-      <div className="rounded-md border border-line bg-surface-2 p-3 text-sm text-fg">{t('home.visual.prompt')}</div>
-      <div className="grid grid-cols-3 gap-2 text-[12px]">
-        {['1:1', '4:5', '9:16'].map((r, i) => (
-          <span key={r} className={cn('rounded-md border px-2 py-1.5 text-center font-semibold', i === 0 ? 'border-primary bg-primary-soft text-primary' : 'border-line text-muted')}>
-            {r}
-          </span>
-        ))}
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md bg-bg-subtle p-3">
-        <div className="text-[13px] leading-5">
-          <p className="text-muted">{t('generate.estimate')}</p>
-          <p className="font-semibold text-fg">{t('home.visual.estimate')}</p>
-        </div>
-        <span className="rounded-md bg-primary px-3 py-2 text-[13px] font-semibold text-primary-contrast">{t('home.visual.cta')}</span>
-      </div>
-      <img src={img('samples/product-kopi.svg')} alt="" width={480} height={480} className="aspect-[4/3] w-full rounded-lg object-cover object-[50%_40%]" />
-      <p className="t-small text-muted">{t('home.visual.note')}</p>
-    </div>
-  )
-}
-
-function WebsiteVisual() {
-  const { t } = useTranslation()
-  const blocks = ['hero', 'about', 'services', 'contact']
-  return (
-    <div aria-hidden className="grid gap-3 rounded-xl border border-line-strong bg-surface p-4 shadow-k-md md:grid-cols-[150px_minmax(0,1fr)] md:p-5">
-      <div className="grid content-start gap-1.5">
-        <p className="t-label text-muted">{t('home.visual.structure')}</p>
-        {blocks.map((b, i) => (
-          <span key={b} className={cn('rounded-md px-2.5 py-2 text-[13px] font-medium', i === 0 ? 'bg-primary-soft text-primary' : 'text-fg')}>
-            {t(`home.visual.blocks.${b}`)}
-          </span>
-        ))}
-      </div>
-      <img src={img('samples/site-cafe.svg')} alt="" width={960} height={540} className="w-full rounded-lg border border-line" />
-      <div className="flex items-center gap-2 md:col-span-2">
-        <Globe className="size-4 text-primary" />
-        <span className="t-small text-muted">{t('home.visual.publish_check')}</span>
-      </div>
-    </div>
-  )
-}
-
-function SeoVisual() {
-  const { t } = useTranslation()
-  const rows = [
-    { sev: 'danger', key: 'meta' },
-    { sev: 'warning', key: 'alt' },
-    { sev: 'success', key: 'heading' },
-  ]
-  return (
-    <div aria-hidden className="grid gap-3 rounded-xl border border-line-strong bg-surface p-4 shadow-k-md md:p-5">
-      <div className="flex items-center gap-2">
-        <span className="grid size-8 place-items-center rounded-md bg-primary-soft text-primary">
-          <SearchCheck className="size-4" />
-        </span>
-        <p className="font-semibold text-fg">{t('seo.score_title')}</p>
-      </div>
-      <p className="t-small text-muted">{t('seo.score_note')}</p>
-      <ul className="grid gap-2">
-        {rows.map((r) => (
-          <li key={r.key} className="flex items-center gap-3 rounded-md border border-line px-3 py-2.5">
-            <span className={cn('size-2.5 shrink-0 rounded-full', r.sev === 'danger' ? 'bg-danger' : r.sev === 'warning' ? 'bg-warning' : 'bg-success')} />
-            <span className="flex-1 text-sm text-fg">{t(`home.visual.seo.${r.key}`)}</span>
-            <span className="t-small text-muted">{t(`home.visual.seo_sev.${r.sev}`)}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
+/** Visual hero = mockup antarmuka Krafio (foto resmi), satu per slide dan tidak berulang di beranda. */
+function HeroPhoto({ src, alt, first }: { src: string; alt: string; first?: boolean }) {
+  return <img src={src} alt={alt} width={1200} height={896} fetchPriority={first ? "high" : "low"} loading={first ? "eager" : "lazy"} className="aspect-[4/3] w-full rounded-xl border border-line-strong bg-surface object-cover shadow-k-md" />
 }
 
 /* ---------- Fitur: tab per kelompok + grid (anti vertical sprawl) ---------- */
@@ -185,7 +107,7 @@ function FeatureWorkbench() {
         {items.map((f, i) => (
           <li key={f.slug} className={cn(i === 0 && 'col-span-2 lg:row-span-2')}>
             <Link to={`/features/${f.slug}`} className={cn('group grid h-full content-start gap-2 rounded-lg border border-line bg-surface p-4 transition-[border-color] duration-[120ms] hover:border-primary/50', i === 0 && 'gap-3 bg-bg-subtle p-5 lg:p-6')}>
-              {i === 0 && <img src={img(`features/${f.slug}.svg`)} alt="" width={480} height={360} className="mb-1 w-full max-w-md rounded-lg" />}
+              {i === 0 && <img src={featurePhoto(f.slug)} alt="" width={1280} height={714} loading="lazy" className="mb-1 aspect-video w-full rounded-lg border border-line object-cover" />}
               <span className={cn('grid place-items-center rounded-md bg-primary-soft text-primary', i === 0 ? 'size-12' : 'size-10')}>
                 <f.icon className={i === 0 ? 'size-6' : 'size-5'} aria-hidden />
               </span>
@@ -261,8 +183,9 @@ function MoneySplit() {
             {t('home.affiliate_link')}
             <ArrowRight className="size-4" aria-hidden />
           </Link>
+          <img src={PHOTO.walletCards} alt={t('home.money_alt')} width={1280} height={714} loading="lazy" className="mt-3 aspect-video w-full rounded-lg border border-line object-cover" />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid content-start gap-3 sm:grid-cols-2">
           <div className="grid content-start gap-2 rounded-lg border border-line border-t-4 border-t-wallet-topup bg-surface p-5">
             <Wallet className="size-6 text-wallet-topup" aria-hidden />
             <h3 className="t-h3 text-fg">{t('wallet.topup')}</h3>

@@ -15,7 +15,7 @@ import { LegalBody, useLegalDoc, type LegalType } from '@/shared/layout/Legal'
 import { useAuth } from '@/shared/context/AuthContext'
 import { dateTime, rupiah } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
-import { img } from '@/shared/lib/assets'
+import { PHOTO } from '@/shared/lib/assets'
 
 const wrap = 'mx-auto max-w-[1360px] px-4 py-8 md:px-6 md:py-12 lg:px-8'
 
@@ -31,7 +31,7 @@ export function AffiliatePage() {
   const statuses = ['pending', 'approved', 'available', 'reversed', 'paid']
   return (
     <>
-      <PageIntro title={t('affiliate_page.title')} body={t('affiliate_page.body')} art={img('pages/affiliate.svg')}>
+      <PageIntro title={t('affiliate_page.title')} body={t('affiliate_page.body')} art={PHOTO.affiliate}>
         <div className="flex flex-wrap gap-2 pt-2">
           <ButtonLink to="/register">{t('affiliate_page.join')}</ButtonLink>
           <ButtonLink to="/affiliate-terms" variant="secondary">
@@ -90,7 +90,7 @@ export function FaqPage() {
   const list = (items ?? []).filter((f) => (cat === 'all' || f.category === cat) && (!q || `${f.question} ${f.answer}`.toLowerCase().includes(q.toLowerCase())))
   return (
     <>
-      <PageIntro title={t('faq_page.title')} body={t('faq_page.body')} art={img('pages/faq.svg')}>
+      <PageIntro title={t('faq_page.title')} body={t('faq_page.body')} art={PHOTO.faq}>
         <div className="relative max-w-xl pt-2">
           <Search className="pointer-events-none absolute left-3 top-[calc(50%+4px)] size-4 -translate-y-1/2 text-muted" aria-hidden />
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('faq_page.search')} aria-label={t('faq_page.search')} className={cn(inputCls, 'pl-9')} />
@@ -139,7 +139,7 @@ export function ContactPage() {
   }
   return (
     <>
-      <PageIntro title={t('contact.title')} body={t('contact.body')} art={img('pages/contact.svg')} />
+      <PageIntro title={t('contact.title')} body={t('contact.body')} art={PHOTO.adminHeroInbox} />
       <div className={cn(wrap, 'grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:gap-12')}>
         <Card>
           {done ? (
@@ -185,7 +185,7 @@ export function AboutPage() {
   useDocTitle(t('footer.about'))
   return (
     <>
-      <PageIntro title={t('about.title')} body={t('about.body')} art={img('pages/about.svg')} />
+      <PageIntro title={t('about.title')} body={t('about.body')} art={PHOTO.memberHeroPhoto} />
       <div className={cn(wrap, 'grid gap-4 md:grid-cols-3')}>
         {['p1', 'p2', 'p3'].map((k) => (
           <div key={k} className="rounded-lg border border-line bg-surface p-5">

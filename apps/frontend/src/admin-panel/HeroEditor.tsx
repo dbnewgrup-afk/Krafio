@@ -14,7 +14,14 @@ import { cn } from '@/shared/lib/cn'
 import { img } from '@/shared/lib/assets'
 
 type Audience = 'user' | 'admin'
-const LIBRARY = ['samples/product-kopi.svg', 'samples/product-skincare.svg', 'samples/product-sambal.svg', 'samples/site-cafe.svg', 'templates/menu-digital.svg', 'templates/story-giveaway.svg', 'features/website-builder.svg', 'features/seo-tools.svg', 'pages/contact.svg', 'auth/b.svg']
+// Pustaka gambar siap pakai: foto & mockup resmi Krafio (public/assets/img)
+const LIBRARY = [
+  'photos/member-hero-photo.jpg', 'photos/member-hero-templates.jpg', 'photos/member-hero-website.jpg',
+  'photos/admin-hero-inbox.jpg', 'photos/admin-hero-templates.jpg', 'photos/admin-login-wallet.jpg',
+  'photos/hero-generate.jpg', 'photos/hero-seo.jpg', 'photos/wallet-cards.jpg',
+  'samples/kopi-susu-meja-kayu.jpg', 'templates/menu-digital.jpg', 'templates/story-giveaway.jpg',
+  'features/website-builder.jpg', 'features/seo-tools.jpg', 'features/video-clipper.jpg', 'features/social-integration.jpg',
+]
 
 /** Kelola slide Hero Showcase untuk dashboard User dan Admin dengan pratinjau langsung. */
 export function HeroEditor() {

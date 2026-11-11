@@ -1,20 +1,22 @@
 import type { ReactNode } from 'react'
-import { Link, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ShieldCheck, Wallet, Sparkles } from 'lucide-react'
 import { Logo, LangMenu, ThemeMenu } from '@/shared/layout/Utilities'
 import { Carousel } from '@/shared/ui/Carousel'
 import { ContentLoader } from '@/shared/layout/PageLoader'
-import { img } from '@/shared/lib/assets'
+import { PHOTO } from '@/shared/lib/assets'
 
 // Layout halaman auth (§9.1): desktop split 2 kolom (panel visual carousel + kartu form ≤440px),
 // tablet kartu tengah ≤480px, mobile form layar penuh tanpa kartu.
 export function AuthLayout() {
   const { t } = useTranslation()
+  // Panel admin memakai mockup panel admin; area user memakai mockup sisi pengguna (tidak berulang dalam satu halaman).
+  const isAdmin = useLocation().pathname.startsWith('/admin')
   const slides = [
-    { icon: Sparkles, key: 'a' },
-    { icon: Wallet, key: 'b' },
-    { icon: ShieldCheck, key: 'c' },
+    { icon: Sparkles, key: 'a', src: isAdmin ? PHOTO.adminLoginControl : PHOTO.loginCredit },
+    { icon: Wallet, key: 'b', src: isAdmin ? PHOTO.adminLoginWallet : PHOTO.walletCards },
+    { icon: ShieldCheck, key: 'c', src: PHOTO.adminLoginMfa },
   ]
   return (
     <div className="grid min-h-[100dvh] bg-bg md:bg-bg-subtle lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:bg-bg">
@@ -23,7 +25,7 @@ export function AuthLayout() {
         <Carousel label={t('auth.visual_label')} itemClass="basis-full" autoplay interval={6000} loop gap="gap-0" variant="hero" tone="dark">
           {slides.map((s) => (
             <div key={s.key} className="grid max-w-md gap-4 pb-2">
-              <img src={img(`auth/${s.key}.svg`)} alt="" width={480} height={360} className="w-full max-w-sm rounded-xl bg-white/4" />
+              <img src={s.src} alt="" width={1200} height={896} className="aspect-[4/3] w-full max-w-md rounded-xl bg-white/4 object-cover object-left shadow-k-md" />
               <span className="grid size-12 place-items-center rounded-lg bg-white/8 text-[var(--on-dark-accent)]">
                 <s.icon className="size-6" aria-hidden />
               </span>

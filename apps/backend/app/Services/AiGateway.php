@@ -112,10 +112,11 @@ class AiGateway
             $palette[] = sprintf('#%06X', ($seed * ($i + 7) * 2654435761) & 0xFFFFFF);
         }
         // Gambar sampel deterministik (ilustrasi vektor di frontend/public/assets/img/samples) agar pratinjau terlihat nyata.
-        $samples = ['product-kopi', 'product-roti', 'product-batik', 'product-sepatu', 'product-skincare', 'product-sambal'];
+        // Foto produk studio resmi (frontend/public/assets/img) — semua file benar-benar ada.
+        $samples = ['samples/kopi-susu-meja-kayu.jpg', 'templates/roti-artisan-pagi.jpg', 'templates/batik-modern-flatlay.jpg', 'templates/sepatu-kanvas-lokal.jpg', 'templates/skincare-botol-kaca.jpg', 'templates/sambal-kemasan.jpg'];
         $images = [];
         for ($i = 0; $i < $count; $i++) {
-            $images[] = '/assets/img/samples/'.$samples[($seed + $i * 7) % count($samples)].'.svg';
+            $images[] = '/assets/img/'.$samples[($seed + $i * 7) % count($samples)];
         }
         $job->update(['status' => 'completed', 'progress' => 100, 'completed_at' => now(), 'result' => [
             'preview_palette' => $palette,

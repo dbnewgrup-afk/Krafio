@@ -25,6 +25,11 @@ export type IllustrationKind = 'empty' | 'filter' | 'locked' | 'error' | 'clock'
 
 /** Ilustrasi vektor ringan (public/assets/img/states), warna mid-tone agar aman di light & dark (§3.5, §17.3) */
 export function Illustration({ kind, className }: { kind: IllustrationKind; className?: string }) {
+  // "Belum ada data": ilustrasi folder resmi — versi admin (penyimpanan media) di /admin, versi member di area lain.
+  if (kind === 'empty') {
+    const admin = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
+    return <img src={img(`states/empty-${admin ? 'admin' : 'user'}.jpg`)} alt="" width={120} height={120} draggable={false} loading="lazy" className={cn('size-28 select-none rounded-xl object-cover', className)} />
+  }
   return <img src={img(`states/${kind}.svg`)} alt="" width={160} height={120} draggable={false} className={cn('select-none', className)} />
 }
 
