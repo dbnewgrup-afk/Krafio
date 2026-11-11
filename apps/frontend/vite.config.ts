@@ -11,7 +11,7 @@ const proxy = {
   '/sanctum': { target: backend, changeOrigin: false },
 }
 // Tunnel sementara (Cloudflare Quick Tunnel) untuk uji dari perangkat lain
-const allowedHosts = ['.trycloudflare.com']
+const allowedHosts = ['.trycloudflare.com', '.ngrok-free.app', '.ngrok.app', '.lhr.life', '.localhost.run']
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
