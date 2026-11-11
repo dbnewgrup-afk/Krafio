@@ -88,6 +88,9 @@ export interface TemplateItem {
   description: string
   /** Slug gambar pratinjau di /assets/img/templates/<art>.svg (opsional) */
   art?: string
+  cover_url?: string | null
+  focus?: { x: number; y: number } | null
+  badges?: string[]
 }
 
 export interface LegalDoc {

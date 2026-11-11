@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ResourcePage } from './ResourcePage'
+import { InboxPage } from '@/shared/messages/InboxPage'
+import { TemplateStudio } from './TemplateStudio'
+import { HeroEditor } from './HeroEditor'
 import { IntegrationPage, FinanceReportPage, BackupPage } from './OpsPages'
 import { AdminApprovals, AdminDashboard, AdminEntitlements, AdminInfoPage, AdminSettings, AdminSystem, AdminUsers, AdminWithdrawals, AdminAiUsage, type SettingField } from './AdminPages'
 
@@ -95,6 +98,7 @@ export const ADMIN_NAV: Group[] = [
     { key: 'fallback_settings', path: '/admin/ai/fallback', el: () => <R resource="ai-models" k="fallback_settings" g="g_ai" preset={{ is_fallback: 'true' }} /> },
   ] },
   { key: 'g_templates', children: [
+    { key: 'template_studio', path: '/admin/templates/studio', el: () => <TemplateStudio /> },
     { key: 'template_dashboard', path: '/admin/templates', el: () => <R resource="templates" k="template_dashboard" g="g_templates" preset={{ sort: '-usage_count' }} /> },
     { key: 'all_templates', path: '/admin/templates/all', el: () => <R resource="templates" k="all_templates" g="g_templates" /> },
     { key: 'create_template', path: '/admin/templates/create', el: () => <R resource="templates" k="create_template" g="g_templates" preset={{ status: 'draft' }} /> },
@@ -153,6 +157,7 @@ export const ADMIN_NAV: Group[] = [
     { key: 'notification_center', path: '/admin/communication/notifications', el: () => <R resource="banners" k="notification_center" g="g_communication" /> },
   ] },
   { key: 'g_content', children: [
+    { key: 'dashboard_hero', path: '/admin/content/hero', el: () => <HeroEditor /> },
     { key: 'frontpage', path: '/admin/content/frontpage', el: () => <S k="frontpage" g="g_content" fields={[{ key: 'general.app_name', type: 'text' }, { key: 'cs.hours', type: 'text' }, { key: 'cs.reply_estimate', type: 'text' }, { key: 'social.links', type: 'json' }, { key: 'maintenance.active', type: 'bool' }, { key: 'maintenance.message', type: 'textarea' }]} /> },
     { key: 'banners', path: '/admin/content/banners', el: () => <R resource="banners" k="banners" g="g_content" /> },
     { key: 'blog', path: '/admin/content/blog', el: () => <R resource="blog-posts" k="blog" g="g_content" /> },
@@ -171,12 +176,13 @@ export const ADMIN_NAV: Group[] = [
     { key: 'audit_logs', path: '/admin/system/audit-logs', el: () => <R resource="audit-logs" k="audit_logs" g="g_system" /> },
   ] },
   { key: 'g_support', children: [
+    { key: 'inbox', path: '/admin/support/inbox', el: () => <InboxPage area="admin" /> },
     { key: 'support_tickets', path: '/admin/support/tickets', el: () => <R resource="tickets" k="support_tickets" g="g_support" /> },
     { key: 'help_center', path: '/admin/support/help-center', el: () => <R resource="faqs" k="help_center" g="g_support" /> },
   ] },
   { key: 'g_settings', children: [
     { key: 'general_settings', path: '/admin/settings/general', el: () => <S k="general_settings" g="g_settings" fields={[{ key: 'general.app_name', type: 'text' }, { key: 'general.environment_label', type: 'text' }, { key: 'wallet.topup_min', type: 'number' }, { key: 'wallet.topup_max', type: 'number' }, { key: 'wallet.withdraw_min', type: 'number' }, { key: 'affiliate.active', type: 'bool' }, { key: 'affiliate.rate_percent', type: 'number' }, { key: 'affiliate.hold_days', type: 'number' }, { key: 'subscription.grace_days', type: 'number' }, { key: 'billing.ppn_percent', type: 'number' }, { key: 'billing.price_includes_ppn', type: 'bool' }, { key: 'payment.gateway', type: 'select', options: ['manual', 'midtrans', 'xendit', 'tripay'] }]} /> },
-    { key: 'admin_security', path: '/admin/settings/security', el: () => <S k="admin_security" g="g_settings" fields={[{ key: 'security.login_max_attempts', type: 'number' }, { key: 'security.admin_session_minutes', type: 'number' }, { key: 'sso.google', type: 'bool' }]} info="admin.info.admin_security" /> },
+    { key: 'admin_security', path: '/admin/settings/security', el: () => <S k="admin_security" g="g_settings" fields={[{ key: 'security.admin_mfa_required', type: 'bool' }, { key: 'security.login_max_attempts', type: 'number' }, { key: 'security.admin_session_minutes', type: 'number' }, { key: 'sso.google', type: 'bool' }]} info="admin.info.admin_security" /> },
     { key: 'feature_flags', path: '/admin/settings/feature-flags', el: () => <R resource="feature-flags" k="feature_flags" g="g_settings" /> },
     { key: 'system_configuration', path: '/admin/settings/system', el: () => <S k="system_configuration" g="g_settings" fields={[{ key: 'billing.margin_alert_percent', type: 'number' }, { key: 'payment.webhook_secret.manual', type: 'secret' }]} /> },
   ] },

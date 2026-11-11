@@ -170,7 +170,7 @@ class PublicController extends Controller
                 'subject' => $data['subject'],
                 'page' => $data['page'] ?? null,
             ]);
-            $t->messages()->create(['user_id' => $u?->id, 'from' => 'user', 'body' => $data['message']]);
+            AppServicesInbox::post($t, 'user', $data['message'], $u);
 
             return $t;
         });

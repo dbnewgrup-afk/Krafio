@@ -410,9 +410,7 @@ class AdminController extends Controller
 
     public function replyTicket(Request $r, Ticket $ticket)
     {
-        $ticket->messages()->create(['user_id' => $r->user()->id, 'from' => 'admin', 'body' => $r->validate(['body' => 'required|string|max:5000'])['body']]);
-        $ticket->update(['status' => 'pending']);
-        $ticket->user?->notify(new Notice('Balasan tiket '.$ticket->number, $ticket->subject, 'support', '/app/support/'.$ticket->id));
+        AppServicesInbox::post($ticket, 'admin', $r->validate(['body' => 'required|string|max:5000'])['body'], $r->user());
         Audit::log('admin.ticket.replied', $ticket);
 
         return response()->noContent();
@@ -420,7 +418,9 @@ class AdminController extends Controller
 
     public function updateTicket(Request $r, Ticket $ticket)
     {
-        $ticket->update($r->validate(['status' => 'required|in:open,pending,resolved,closed']));
+        $to = $r->validate(['status' => 'required|in:open,pending,resolved,closed'])['status'];
+        AppServicesInbox::activity($ticket, 'status', ['from' => $ticket->status, 'to' => $to]);
+        $ticket->update(['status' => $to] + (in_array($to, ['resolved', 'closed'], true) ? ['sla_due_at' => null] : []));
         Audit::log('admin.ticket.status', $ticket, ['status' => $ticket->status]);
 
         return response()->noContent();

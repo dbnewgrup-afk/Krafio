@@ -18,6 +18,7 @@ import { Modal } from '@/shared/ui/Modal'
 import { AuthHeading, FormAlert } from './AuthLayout'
 import { cn } from '@/shared/lib/cn'
 import { maskEmail } from '@/shared/lib/format'
+import { startIntro } from '@/shared/motion/intro'
 
 /** Validasi ?next= hanya same-origin path (§9.2) */
 export function safeNext(next: string | null, fallback: string): string {
@@ -97,9 +98,16 @@ export function LoginPage() {
       const s = login.trim()
       const r = await http.post<{ data: Me }>('/auth/login', { login: s.includes('@') ? s.toLowerCase() : s, password, remember, turnstile_token: captcha })
       setMe(r.data)
-      block(t('loader.signing_in'))
-      nav(routeForStatus(r.data, params.get('next')), { replace: true })
-      window.setTimeout(unblock, 450)
+      const dest = routeForStatus(r.data, params.get('next'))
+      if (dest.startsWith('/app')) {
+        // Animasi tirai Login → Dashboard diputar oleh AppShell (tanpa loader gelap)
+        startIntro('user')
+        nav(dest, { replace: true })
+      } else {
+        block(t('loader.signing_in'))
+        nav(dest, { replace: true })
+        window.setTimeout(unblock, 450)
+      }
     } catch (err) {
       setPassword('')
       if (err instanceof ApiError) {

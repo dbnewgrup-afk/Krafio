@@ -15,6 +15,8 @@ class Template extends Model
         return [
             'palette' => 'array',
             'structure' => 'array',
+            'focus' => 'array',
+            'badges' => 'array',
             'is_premium' => 'boolean',
             'is_featured' => 'boolean',
         ];

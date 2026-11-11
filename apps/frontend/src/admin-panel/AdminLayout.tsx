@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  LayoutDashboard, Users, ClipboardCheck, Package, Landmark, Cpu, LayoutTemplate, Images, Globe, SearchCheck, Share2, Mail, FileText, ShieldCheck, LifeBuoy, Settings, Ticket, Activity,
+  LayoutDashboard, Users, ClipboardCheck, Package, Landmark, Cpu, LayoutTemplate, Images, Globe, SearchCheck, Share2, Mail, FileText, ShieldCheck, LifeBuoy, Settings, Activity,
 } from 'lucide-react'
 import { AppShell, PanelFooter, type NavSection, type ShellConfig } from '@/shared/layout/AppShell'
 import { FabStack } from '@/shared/layout/Fab'
@@ -13,6 +13,8 @@ import { Button } from '@/shared/ui/Button'
 import { StatusChip } from '@/shared/ui/Status'
 import { AdminProvider } from './AdminContext'
 import { ADMIN_NAV } from './adminRoutes'
+import { MessagesProvider } from '@/shared/messages/MessagesProvider'
+import { MessagesMenu } from '@/shared/messages/MessagesMenu'
 
 const ICONS = [LayoutDashboard, Users, ClipboardCheck, Package, Landmark, Cpu, LayoutTemplate, Images, Globe, SearchCheck, Share2, Mail, FileText, ShieldCheck, LifeBuoy, Settings]
 
@@ -70,7 +72,8 @@ export default function AdminLayout() {
             key: c.path,
             label: t(`admin.nav.${c.key}`),
             to: c.path,
-            end: c.path === '/admin',
+            // Cocok persis bila ada saudara dengan path lebih panjang (mis. /admin/templates vs /admin/templates/studio)
+            end: c.path === '/admin' || g.children.some((x) => x.path !== c.path && x.path.startsWith(c.path + '/')),
             badge: c.key === 'pending_approvals' ? badges?.approvals : c.key === 'withdrawal_approval' ? badges?.withdrawals : c.key === 'support_tickets' ? badges?.tickets : c.key === 'media_jobs' ? badges?.failed_jobs : c.key === 'account_approval' ? badges?.account_approvals : undefined,
           })),
         })),
@@ -89,12 +92,7 @@ export default function AdminLayout() {
     home: '/admin',
     sections,
     topBanner: env !== 'production' ? <div className="bg-warning px-4 py-1 text-center text-[12px] font-bold uppercase text-black">{env === 'local' ? 'LOCAL' : 'STAGING'} — {t('admin.not_production')}</div> : null,
-    navbarExtra: (
-      <Link to="/admin/support/tickets" aria-label={t('admin.nav.support_tickets')} title={t('admin.nav.support_tickets')} className="relative grid size-11 place-items-center rounded-md text-fg hover:bg-surface-2 lg:size-10">
-        <Ticket className="size-5" aria-hidden />
-        {!!badges?.tickets && <span className="absolute right-1 top-1 min-w-[18px] rounded-full bg-danger px-1 text-center text-[11px] font-semibold leading-[18px] text-white dark:text-bg">{badges.tickets}</span>}
-      </Link>
-    ),
+    navbarExtra: <MessagesMenu />,
     sidebarFooter: (
       <div className="grid gap-1.5 rounded-md border border-line bg-surface p-3">
         <p className="t-small flex items-center gap-1.5 text-muted">
@@ -115,7 +113,9 @@ export default function AdminLayout() {
 
   return (
     <AdminProvider>
-      <AppShell config={config} />
+      <MessagesProvider area="admin">
+        <AppShell config={config} />
+      </MessagesProvider>
       <Modal
         open={warn !== null}
         onClose={() => setWarn(null)}

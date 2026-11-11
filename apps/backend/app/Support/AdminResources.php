@@ -64,10 +64,13 @@ class AdminResources
             ]],
             'ai-jobs' => ['model' => Models\AiJob::class, 'readonly' => true, 'with' => ['user'], 'search' => ['prompt'], 'filters' => ['status', 'type'], 'sort' => ['created_at', 'cost']],
             'uploads' => ['model' => Models\Upload::class, 'readonly' => true, 'search' => ['original_name', 'mime'], 'filters' => ['mime'], 'sort' => ['created_at', 'size']],
-            'templates' => ['model' => Models\Template::class, 'search' => ['title_id', 'category'], 'filters' => ['type', 'status', 'is_premium', 'is_featured'], 'sort' => ['usage_count', 'created_at', 'updated_at'], 'rules' => [
+            'templates' => ['model' => Models\Template::class, 'search' => ['title_id', 'category'], 'filters' => ['type', 'status', 'is_premium', 'is_featured'], 'sort' => ['usage_count', 'created_at', 'updated_at', 'sort'], 'rules' => [
                 'title_id' => 'required|string|max:160', 'title_en' => 'nullable|string|max:160', 'description_id' => 'nullable|string|max:1000', 'description_en' => 'nullable|string|max:1000',
                 'type' => 'required|in:photo,video,website,social,business', 'category' => 'nullable|string|max:60', 'ratio' => 'required|in:1:1,4:5,9:16,16:9,4:3',
                 'palette' => 'required|array|size:3', 'palette.*' => 'regex:/^#[0-9A-Fa-f]{6}$/', 'is_premium' => $bool, 'is_featured' => $bool, 'status' => 'required|in:draft,pending,active,archived',
+                'cover_url' => 'nullable|string|max:255', 'focus' => 'nullable|array', 'focus.x' => 'numeric|min:0|max:100', 'focus.y' => 'numeric|min:0|max:100',
+                'badges' => 'nullable|array|max:4', 'badges.*' => 'string|max:24', 'sort' => 'integer|min:0',
+                'structure' => 'nullable|array', 'structure.gallery' => 'nullable|array|max:8', 'structure.gallery.*' => 'string|max:255',
             ]],
             'template-categories' => ['model' => Models\TemplateCategory::class, 'search' => ['slug', 'name_id'], 'filters' => ['type'], 'sort' => ['sort'], 'rules' => [
                 'slug' => 'required|alpha_dash|max:60', 'name_id' => 'required|string|max:80', 'name_en' => 'nullable|string|max:80', 'type' => 'required|in:photo,video,website,social,business', 'sort' => 'integer|min:0',

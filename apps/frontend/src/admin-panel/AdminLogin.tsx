@@ -5,7 +5,7 @@ import { ShieldCheck, Copy } from 'lucide-react'
 import { http, ApiError } from '@/api-client/http'
 import type { Me } from '@/api-client/types'
 import { useAuth } from '@/shared/context/AuthContext'
-import { useLoader } from '@/shared/layout/PageLoader'
+import { startIntro } from '@/shared/motion/intro'
 import { useDocTitle } from '@/shared/hooks/useDocTitle'
 import { Button } from '@/shared/ui/Button'
 import { TextField } from '@/shared/ui/Field'
@@ -21,7 +21,6 @@ export default function AdminLogin() {
   const nav = useNavigate()
   const [params] = useSearchParams()
   const { setMe } = useAuth()
-  const { block, unblock } = useLoader()
   const [step, setStep] = useState<'password' | 'verify' | 'setup'>('password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -36,10 +35,17 @@ export default function AdminLogin() {
     setBusy(true)
     setErr(null)
     try {
-      const r = await http.post<{ data: { mfa: 'verify' | 'setup'; secret?: string; otpauth?: string } }>('/auth/admin/login', { email: email.trim().toLowerCase(), password })
+      const r = await http.post<{ data: { mfa: 'verify' | 'setup' | 'none'; secret?: string; otpauth?: string; me?: Me } }>('/auth/admin/login', { email: email.trim().toLowerCase(), password })
       setPassword('')
+      if (r.data.mfa === 'none' && r.data.me) {
+        // MFA sedang dinonaktifkan oleh pemilik (Pengaturan › Keamanan admin)
+        setMe(r.data.me)
+        startIntro('admin')
+        nav(safeNext(params.get('next'), '/admin'), { replace: true })
+        return
+      }
       if (r.data.mfa === 'setup') setSecret({ secret: r.data.secret!, otpauth: r.data.otpauth! })
-      setStep(r.data.mfa)
+      if (r.data.mfa !== 'none') setStep(r.data.mfa)
     } catch (e2) {
       setErr(e2 instanceof ApiError && e2.code === 'too_many_attempts' ? t('auth.errors.too_many', { time: `${(e2.data as any)?.retry_after ?? 60}s` }) : t('auth.errors.invalid'))
     } finally {
@@ -54,9 +60,8 @@ export default function AdminLogin() {
     try {
       const r = await http.post<{ data: Me }>('/auth/admin/mfa', { code: c })
       setMe(r.data)
-      block(t('loader.signing_in'))
+      startIntro('admin')
       nav(safeNext(params.get('next'), '/admin'), { replace: true })
-      window.setTimeout(unblock, 450)
     } catch {
       setCode('')
       setShake((s) => s + 1)

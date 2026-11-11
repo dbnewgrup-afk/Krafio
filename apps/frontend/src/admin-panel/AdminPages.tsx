@@ -20,6 +20,11 @@ import { useIsMobile } from '@/shared/hooks/useMediaQuery'
 import { ResourcePage, InfoCard } from './ResourcePage'
 import { useAdmin } from './AdminContext'
 import { cn } from '@/shared/lib/cn'
+import { CountUp } from '@/shared/motion/CountUp'
+import { RevealCard, GrowBar } from '@/shared/motion/Reveal'
+import { DashboardHero } from '@/shared/ui/DashboardHero'
+import { WalletShowcase } from '@/shared/ui/card-showcase/WalletShowcase'
+import { InboxPeek } from '@/shared/messages/InboxPeek'
 
 /* ===================== Dashboard (Spesifikasi Admin: pusat monitoring) ===================== */
 interface Dash {
@@ -36,25 +41,34 @@ export function AdminDashboard() {
   const isMobile = useIsMobile()
   const { data, error, reload } = useApi<Dash>('/admin/dashboard')
   if (error) return <EmptyState kind="error" title={t('errors.server_title')} action={<Button onClick={reload}>{t('common.retry')}</Button>} />
-  if (!data) return <Skeleton className="h-96" />
+  if (!data)
+    return (
+      <>
+        <PageHeader title={t('admin.nav.dashboard')} subtitle={t('admin.dash_sub')} />
+        <DashboardHero area="admin" />
+        <Skeleton className="h-96" />
+      </>
+    )
   const max = Math.max(1, ...data.signups_14d.map((d) => d.count))
   const kpis = [
-    <KpiCard key="u" label={t('admin.kpi.users')} value={number(data.users.total)} hint={t('admin.kpi.new_today', { n: data.users.new_today })} to="/admin/users" />,
-    <KpiCard key="p" label={t('admin.kpi.pending')} value={number(data.users.pending)} tone="warning" to="/admin/users/pending" />,
-    <KpiCard key="r" label={t('admin.kpi.revenue_month')} value={rupiah(data.finance.revenue_month)} tone="commission" to="/admin/finance/payments" />,
-    <KpiCard key="w" label={t('admin.kpi.withdraw_pending')} value={rupiah(data.finance.withdraw_pending)} tone="warning" to="/admin/approvals/withdrawals" />,
+    <KpiCard key="u" label={t('admin.kpi.users')} value={<CountUp to={data.users.total} overshoot />} hint={t('admin.kpi.new_today', { n: data.users.new_today })} to="/admin/users" />,
+    <KpiCard key="p" label={t('admin.kpi.pending')} value={<CountUp to={data.users.pending} delay={0.05} />} tone="warning" to="/admin/users/pending" />,
+    <KpiCard key="r" label={t('admin.kpi.revenue_month')} value={<CountUp to={data.finance.revenue_month} format={rupiah} delay={0.1} />} tone="commission" to="/admin/finance/payments" />,
+    <KpiCard key="w" label={t('admin.kpi.withdraw_pending')} value={<CountUp to={data.finance.withdraw_pending} format={rupiah} delay={0.15} />} tone="warning" to="/admin/approvals/withdrawals" />,
   ]
   return (
     <>
       <PageHeader title={t('admin.nav.dashboard')} subtitle={t('admin.dash_sub')} />
-      {isMobile ? <Carousel label={t('admin.kpi.label')} itemClass="basis-[78%]" variant="strip">{kpis}</Carousel> : <div className="grid grid-cols-4 gap-4">{kpis}</div>}
+      <DashboardHero area="admin" />
+      {isMobile ? <Carousel label={t('admin.kpi.label')} itemClass="basis-[78%]" variant="strip">{kpis}</Carousel> : <div className="grid grid-cols-4 gap-4">{kpis.map((k, i) => <RevealCard key={k.key} order={i + 1}>{k}</RevealCard>)}</div>}
       <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <RevealCard order={5}>
         <Card>
           <CardTitle>{t('admin.signups_14d')}</CardTitle>
           <div className="flex h-40 items-end gap-1.5" role="img" aria-label={t('admin.signups_14d')}>
-            {data.signups_14d.map((d) => (
+            {data.signups_14d.map((d, di) => (
               <div key={d.date} className="group relative flex h-full flex-1 flex-col justify-end">
-                <div className="rounded-t-sm bg-primary/80" style={{ height: `${Math.max(3, (d.count / max) * 100)}%` }} />
+                <GrowBar index={di} pct={Math.max(3, (d.count / max) * 100)} className="rounded-t-sm bg-primary/80" />
                 <span className="pointer-events-none absolute -top-6 left-1/2 hidden -translate-x-1/2 rounded bg-fg px-1.5 text-[11px] text-bg group-hover:block">{d.count}</span>
               </div>
             ))}
@@ -64,6 +78,8 @@ export function AdminDashboard() {
             <span>{dateTime(data.signups_14d.at(-1)?.date, false)}</span>
           </div>
         </Card>
+        </RevealCard>
+        <RevealCard order={6}>
         <Card>
           <CardTitle action={<Link to="/admin/approvals" className="t-label text-primary hover:underline">{t('common.see_all')}</Link>}>{t('admin.nav.pending_approvals')}</CardTitle>
           {data.recent_approvals.length === 0 ? (
@@ -82,8 +98,10 @@ export function AdminDashboard() {
             </ul>
           )}
         </Card>
+        </RevealCard>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <RevealCard order={7}>
         <Card>
           <CardTitle>{t('admin.ai_overview')}</CardTitle>
           <dl className="grid gap-2 text-sm">
@@ -93,6 +111,8 @@ export function AdminDashboard() {
             <Row k={t('admin.kpi.tokens_month')} v={number(data.ai.tokens_month)} />
           </dl>
         </Card>
+        </RevealCard>
+        <RevealCard order={8}>
         <Card>
           <CardTitle>{t('admin.finance_overview')}</CardTitle>
           <dl className="grid gap-2 text-sm">
@@ -101,6 +121,8 @@ export function AdminDashboard() {
             <Row k={t('admin.kpi.suspended')} v={number(data.users.suspended)} />
           </dl>
         </Card>
+        </RevealCard>
+        <RevealCard order={9}>
         <Card>
           <CardTitle>{t('admin.system_overview')}</CardTitle>
           <dl className="grid gap-2 text-sm">
@@ -110,6 +132,16 @@ export function AdminDashboard() {
           </dl>
           <Link to="/admin/system/server" className="t-label mt-3 inline-block text-primary hover:underline">{t('admin.nav.server')}</Link>
         </Card>
+        </RevealCard>
+      </div>
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <WalletShowcase area="admin" order={10} title={t('cards.platform_title')} />
+        <RevealCard order={11}>
+          <Card>
+            <CardTitle action={<Link to="/admin/support/inbox" className="t-label text-primary hover:underline">{t('common.see_all')}</Link>}>{t('inbox.admin_title')}</CardTitle>
+            <InboxPeek />
+          </Card>
+        </RevealCard>
       </div>
     </>
   )

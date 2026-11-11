@@ -217,6 +217,7 @@ html[data-overlays]:not([data-overlays="0"]) .fab-stack * { pointer-events: none
   .legal-print, .legal-print * { visibility: visible; }
   .legal-print { position: absolute; inset: 0; overflow: visible; color: #000; }
 }
+@keyframes k-flash { 0% { box-shadow: 0 0 0 0 var(--primary-soft); background-color: var(--primary-soft); } 100% { box-shadow: 0 0 0 6px transparent; background-color: transparent; } }
 @keyframes k-drawer { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 
 /* Fokus programatik (pindah halaman, back-to-top) tidak menampilkan ring; ring tetap untuk elemen interaktif */

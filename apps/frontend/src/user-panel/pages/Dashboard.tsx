@@ -15,6 +15,11 @@ import { dateTime, number, relative, rupiah } from '@/shared/lib/format'
 import type { AiJob, Entitlement } from '@/api-client/types'
 import { cn } from '@/shared/lib/cn'
 import { useIsMobile } from '@/shared/hooks/useMediaQuery'
+import { motion } from 'framer-motion'
+import { CountUp } from '@/shared/motion/CountUp'
+import { RevealCard } from '@/shared/motion/Reveal'
+import { useIntro } from '@/shared/motion/intro'
+import { DashboardHero } from '@/shared/ui/DashboardHero'
 
 interface DashData {
   jobs_summary: Record<'queued' | 'processing' | 'completed' | 'failed', number>
@@ -26,15 +31,16 @@ interface DashData {
 export function QuotaBar({ e }: { e: Entitlement }) {
   const { t } = useTranslation()
   const pct = e.quota ? Math.min(100, Math.round(((e.quota - (e.remaining ?? 0)) / e.quota) * 100)) : 0
+  const { base } = useIntro()
   return (
     <div className="grid gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <span className="t-small truncate text-fg">{t(`features.${e.key.replace('.', '_')}`)}</span>
-        <span className="t-small tabular-nums text-muted">{e.quota ? `${number(e.remaining ?? 0)} / ${number(e.quota)}` : t('user.dash.unlimited')}</span>
+        <span className="t-small tabular-nums text-muted">{e.quota ? <><CountUp to={e.remaining ?? 0} duration={1.1} /> / {number(e.quota)}</> : t('user.dash.unlimited')}</span>
       </div>
       {e.quota ? (
         <div className="h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={t('user.dash.quota_used', { pct })}>
-          <div className={cn('h-full rounded-full', pct > 85 ? 'bg-danger' : pct > 60 ? 'bg-warning' : 'bg-primary')} style={{ width: `${pct}%` }} />
+          <motion.div className={cn('h-full origin-left rounded-full', pct > 85 ? 'bg-danger' : pct > 60 ? 'bg-warning' : 'bg-primary')} style={{ width: `${pct}%` }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ type: 'spring', stiffness: 120, damping: 18, delay: base + 0.2 }} />
         </div>
       ) : null}
     </div>
@@ -52,30 +58,30 @@ export default function Dashboard() {
   const ents = Object.values(me.entitlements).filter((e) => e.enabled && e.quota)
 
   const summaryCards = [
-    <div key="plan" className="grid h-full content-start gap-1 rounded-lg border border-line bg-surface p-4">
+    <RevealCard key="plan" order={1} className="grid h-full content-start gap-1 rounded-lg border border-line bg-surface p-4">
       <span className="t-small text-muted">{t('user.dash.plan')}</span>
       <span className="text-[22px] font-bold leading-7 text-fg">{me.plan?.name ?? t('locked.no_plan')}</span>
       <span className="t-small text-muted">{me.plan?.ends_at ? t('user.dash.active_until', { date: dateTime(me.plan.ends_at, false) }) : t('user.dash.no_expiry')}</span>
       <Link to="/app/subscription" className="t-label mt-1 text-primary hover:underline">
         {t('user.dash.manage_plan')}
       </Link>
-    </div>,
-    <div key="topup" className="grid h-full content-start gap-1 rounded-lg border border-line border-l-4 border-l-wallet-topup bg-surface p-4">
+    </RevealCard>,
+    <RevealCard key="topup" order={2} className="grid h-full content-start gap-1 rounded-lg border border-line border-l-4 border-l-wallet-topup bg-surface p-4">
       <span className="t-small text-muted">{t('wallet.topup')}</span>
-      <span className="text-[22px] font-bold leading-7 tabular-nums text-fg">{rupiah(me.balances.topup)}</span>
+      <span className="text-[22px] font-bold leading-7 tabular-nums text-fg"><CountUp to={me.balances.topup} format={rupiah} overshoot /></span>
       <span className="t-small text-muted">{t('wallet.not_withdrawable')}</span>
       <Link to="/app/wallet/topup" className="t-label mt-1 text-primary hover:underline">
         {t('user.nav.topup')}
       </Link>
-    </div>,
-    <div key="comm" className="grid h-full content-start gap-1 rounded-lg border border-line border-l-4 border-l-wallet-commission bg-surface p-4">
+    </RevealCard>,
+    <RevealCard key="comm" order={3} className="grid h-full content-start gap-1 rounded-lg border border-line border-l-4 border-l-wallet-commission bg-surface p-4">
       <span className="t-small text-muted">{t('wallet.commission')}</span>
-      <span className="text-[22px] font-bold leading-7 tabular-nums text-fg">{rupiah(me.balances.commission)}</span>
+      <span className="text-[22px] font-bold leading-7 tabular-nums text-fg"><CountUp to={me.balances.commission} format={rupiah} delay={0.1} /></span>
       <span className="t-small text-muted">{t('wallet.withdrawable_min', { min: rupiah(100000) })}</span>
       <Link to="/app/wallet/withdrawals" className="t-label mt-1 text-primary hover:underline">
         {t('user.nav.withdrawals')}
       </Link>
-    </div>,
+    </RevealCard>,
   ]
 
   return (
@@ -90,6 +96,8 @@ export default function Dashboard() {
         }
       />
 
+      <DashboardHero area="user" />
+
       {/* Mobile: kartu ringkas horizontal scroll (§8 butir 3); desktop: 3 kolom */}
       {isMobile ? (
         <Carousel label={t('user.dash.summary')} itemClass="basis-[80%]" variant="strip">
@@ -101,6 +109,7 @@ export default function Dashboard() {
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="grid content-start gap-4">
+          <RevealCard order={4}>
           <Card>
             <CardTitle action={<Link to="/app/usage" className="t-label text-primary hover:underline">{t('user.dash.see_usage')}</Link>}>{t('user.dash.recent_jobs')}</CardTitle>
             {error ? (
@@ -116,7 +125,7 @@ export default function Dashboard() {
                 <div className="mb-3 grid grid-cols-4 gap-2">
                   {(['queued', 'processing', 'completed', 'failed'] as const).map((k) => (
                     <div key={k} className="rounded-md bg-surface-2 px-2 py-2 text-center">
-                      <p className="text-lg font-bold tabular-nums text-fg">{number(data.jobs_summary[k] ?? 0)}</p>
+                      <p className="text-lg font-bold tabular-nums text-fg"><CountUp to={data.jobs_summary[k] ?? 0} /></p>
                       <p className="t-small truncate text-muted">{t(`status.${k}`)}</p>
                     </div>
                   ))}
@@ -141,6 +150,9 @@ export default function Dashboard() {
               </>
             )}
           </Card>
+          </RevealCard>
+
+          <RevealCard order={5}>
 
           <Card>
             <CardTitle>{t('user.dash.shortcuts')}</CardTitle>
@@ -171,13 +183,17 @@ export default function Dashboard() {
               })}
             </ul>
           </Card>
+          </RevealCard>
         </div>
 
         <div className="grid content-start gap-4">
+          <RevealCard order={6}>
           <Card>
             <CardTitle>{t('user.dash.quota')}</CardTitle>
             {ents.length === 0 ? <p className="t-small text-muted">{t('user.dash.no_quota')}</p> : <div className="grid gap-3">{ents.map((e) => <QuotaBar key={e.key} e={e} />)}</div>}
           </Card>
+          </RevealCard>
+          <RevealCard order={7}>
           <Card>
             <CardTitle action={<Link to="/app/projects" className="t-label text-primary hover:underline">{t('common.see_all')}</Link>}>{t('user.dash.recent_projects')}</CardTitle>
             {!data ? (
@@ -197,6 +213,8 @@ export default function Dashboard() {
               </ul>
             )}
           </Card>
+          </RevealCard>
+          <RevealCard order={8}>
           <Card>
             <CardTitle action={<Link to="/app/notifications" className="t-label text-primary hover:underline">{t('common.see_all')}</Link>}>{t('user.dash.notices')}</CardTitle>
             {!data ? (
@@ -218,6 +236,7 @@ export default function Dashboard() {
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </Card>
+          </RevealCard>
         </div>
       </div>
     </>

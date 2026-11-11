@@ -257,8 +257,7 @@ class WorkspaceController extends Controller
     public function replyTicket(Request $r, Ticket $ticket)
     {
         abort_unless($ticket->user_id === $r->user()->id, 404);
-        $ticket->messages()->create(['user_id' => $r->user()->id, 'from' => 'user', 'body' => $r->validate(['body' => 'required|string|max:5000'])['body']]);
-        $ticket->update(['status' => 'open']);
+        AppServicesInbox::post($ticket, 'user', $r->validate(['body' => 'required|string|max:5000'])['body'], $r->user());
 
         return response()->noContent();
     }

@@ -27,6 +27,7 @@ class Settings
         'security.turnstile_secret' => null,
         'security.login_max_attempts' => 5,
         'security.admin_session_minutes' => 30,
+        'security.admin_mfa_required' => true,
         'otp.ttl_minutes' => 5,
         'otp.resend_seconds' => 60,
         'otp.max_attempts' => 5,

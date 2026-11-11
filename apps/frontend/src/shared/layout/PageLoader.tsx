@@ -29,6 +29,12 @@ export function areaOf(path: string): 'admin' | 'user' | 'auth' | 'public' {
 }
 
 function pickScheme(from: string, to: string): Scheme {
+  // Setelah login, animasi tirai (AppShell) menggantikan loader gelap
+  try {
+    if (sessionStorage.getItem('krafio.intro')) return 'A'
+  } catch {
+    /* noop */
+  }
   const pref = getPref('krafio.loader')
   if (pref === 'transparent') return 'A'
   if (pref === 'dark') return 'B'

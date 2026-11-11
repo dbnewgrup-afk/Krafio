@@ -16,6 +16,9 @@ import type { NotificationItem } from '@/api-client/types'
 import { relative } from '@/shared/lib/format'
 import { useLocked } from './Locked'
 import { Modal } from '@/shared/ui/Modal'
+import { motion } from 'framer-motion'
+import { IntroProvider, useIntro, TIMELINE } from '@/shared/motion/intro'
+import { LoginCurtain } from '@/shared/motion/LoginCurtain'
 
 export interface NavLeaf {
   key: string
@@ -68,6 +71,15 @@ function groupActive(pathname: string, g: NavGroup) {
  * Desktop: penuh 272px ↔ rail ikon 76px (flyout sub-menu saat hover/fokus). Tablet: rail. Mobile: drawer.
  */
 export function AppShell({ config }: { config: ShellConfig }) {
+  return (
+    <IntroProvider area={config.area}>
+      <ShellInner config={config} />
+    </IntroProvider>
+  )
+}
+
+function ShellInner({ config }: { config: ShellConfig }) {
+  const { intro } = useIntro()
   const { t } = useTranslation()
   const isDesktop = useIsDesktop()
   const isMobile = useIsMobile()
@@ -151,7 +163,7 @@ export function AppShell({ config }: { config: ShellConfig }) {
 
       {/* NAVBAR — sticky, tidak auto-hide di panel (§6.2) */}
       <header ref={headerRef} className={cn('sticky top-0 z-navbar border-b border-line bg-surface pt-[var(--safe-t)] transition-[box-shadow] duration-[120ms]', scrolled && 'shadow-k-sm')}>
-        <div className="flex h-[var(--nav-h)] items-center gap-1 px-2 md:gap-2 md:px-3">
+        <motion.div className="flex h-[var(--nav-h)] items-center gap-1 px-2 md:gap-2 md:px-3" initial={intro ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: TIMELINE.easeOut, delay: TIMELINE.header }}>
           <button
             ref={menuBtn}
             type="button"
@@ -181,7 +193,7 @@ export function AppShell({ config }: { config: ShellConfig }) {
           <ThemeMenu className="hidden md:grid" />
           <NotificationsMenu area={config.area} />
           <ProfileMenu config={config} />
-        </div>
+        </motion.div>
         {config.topBanner}
       </header>
 
@@ -206,6 +218,7 @@ export function AppShell({ config }: { config: ShellConfig }) {
       {config.bottomNav && isMobile && <BottomNav items={config.bottomNav} />}
       {config.fab}
       {search && <SearchOverlay groups={groups} onClose={() => setSearch(false)} />}
+      <LoginCurtain />
     </div>
   )
 }
@@ -234,6 +247,9 @@ function Count({ n }: { n?: number }) {
 /** Sidebar: grup berlabel yang dapat dilipat; item induk membuka sub-menu inline (tree dengan garis panduan). */
 function SidebarNav({ config, compact, onNavigate }: { config: ShellConfig; compact: boolean; onNavigate?: () => void }) {
   const { t } = useTranslation()
+  const { intro } = useIntro()
+  // Urutan item level 1 untuk stagger intro (dihitung sekali, tanpa mutasi saat render)
+  const order = useMemo(() => new Map(config.sections.flatMap((x) => x.groups).map((g, i) => [g.key, i])), [config.sections])
   const loc = useLocation()
   const { openLocked } = useLocked()
   const [folded, setFolded] = useState<string[]>(() => readFolded())
@@ -291,7 +307,7 @@ function SidebarNav({ config, compact, onNavigate }: { config: ShellConfig; comp
 
                   if (compact)
                     return (
-                      <li key={g.key} className="group/rail relative">
+                      <NavLi key={g.key} i={order.get(g.key) ?? 0} intro={intro} className="group/rail relative">
                         {hasKids ? (
                           <button type="button" aria-label={g.label} aria-haspopup="true" className={cn(itemCls(act), 'justify-center px-0')}>
                             <Icon className="size-[18px] shrink-0" aria-hidden />
@@ -314,11 +330,11 @@ function SidebarNav({ config, compact, onNavigate }: { config: ShellConfig; comp
                             {hasKids ? <SubList group={g} onNavigate={onNavigate} /> : null}
                           </div>
                         </div>
-                      </li>
+                      </NavLi>
                     )
 
                   return (
-                    <li key={g.key}>
+                    <NavLi key={g.key} i={order.get(g.key) ?? 0} intro={intro}>
                       {hasKids ? (
                         <button type="button" aria-expanded={expanded} onClick={() => setOpen((o) => (expanded ? o.filter((x) => x !== g.key) : [...o, g.key]))} className={cn(itemCls(act && !expanded), act && expanded && 'text-fg')}>
                           <Icon className={cn('size-[18px] shrink-0', act ? 'text-primary' : 'text-muted group-hover/item:text-fg')} aria-hidden />
@@ -344,7 +360,7 @@ function SidebarNav({ config, compact, onNavigate }: { config: ShellConfig; comp
                           <SubList group={g} onNavigate={onNavigate} />
                         </div>
                       )}
-                    </li>
+                    </NavLi>
                   )
                 })}
               </ul>
@@ -353,6 +369,16 @@ function SidebarNav({ config, compact, onNavigate }: { config: ShellConfig; comp
         )
       })}
     </nav>
+  )
+}
+
+/** Item sidebar level 1: saat intro login muncul satu per satu dari atas (stagger 0.05 dtk). */
+function NavLi({ i, intro, className, children }: { i: number; intro: boolean; className?: string; children: ReactNode }) {
+  if (!intro) return <li className={className}>{children}</li>
+  return (
+    <motion.li className={className} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: TIMELINE.easeOut, delay: TIMELINE.sidebar + i * TIMELINE.sidebarStagger }}>
+      {children}
+    </motion.li>
   )
 }
 

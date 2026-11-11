@@ -20,6 +20,7 @@ import { LegalModal } from '@/shared/layout/Legal'
 import { useLoader } from '@/shared/layout/PageLoader'
 import { dateTime, rupiah } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
+import { WalletShowcase } from '@/shared/ui/card-showcase/WalletShowcase'
 
 function BalanceCards() {
   const { t } = useTranslation()
@@ -62,7 +63,10 @@ export function WalletPage() {
   return (
     <>
       <PageHeader title={t('user.nav.balance')} subtitle={t('wallet.subtitle')} crumbs={[{ label: t('user.nav.wallet') }, { label: t('user.nav.balance') }]} />
-      <BalanceCards />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <WalletShowcase area="user" />
+        <div className="grid content-start gap-4"><BalanceCards /></div>
+      </div>
       <section className="mt-6 grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="t-h2 text-fg">{t('wallet.history')}</h2>

@@ -10,6 +10,8 @@ import { FabStack } from '@/shared/layout/Fab'
 import { TopBanner } from '@/shared/layout/Banners'
 import { useAuth } from '@/shared/context/AuthContext'
 import { LegalModal } from '@/shared/layout/Legal'
+import { MessagesProvider } from '@/shared/messages/MessagesProvider'
+import { MessagesMenu } from '@/shared/messages/MessagesMenu'
 import { http } from '@/api-client/http'
 import { number, dateTime } from '@/shared/lib/format'
 import { Link } from 'react-router-dom'
@@ -85,7 +87,7 @@ export default function UserLayout() {
         title: t('user.nav.section_more'),
         groups: [
           { key: 'notif', label: t('user.nav.notifications'), icon: Bell, to: '/app/notifications', badge: me?.unread_notifications },
-          { key: 'help', label: t('user.nav.support'), icon: LifeBuoy, to: '/app/support' },
+          { key: 'help', label: t('user.nav.messages'), icon: LifeBuoy, to: '/app/support' },
           { key: 'settings', label: t('user.nav.settings'), icon: Settings, to: '/app/settings' },
         ],
       },
@@ -116,6 +118,7 @@ export default function UserLayout() {
     home: '/app',
     sections,
     topBanner: <TopBanner subscription={subBanner} />,
+    navbarExtra: <MessagesMenu />,
     sidebarFooter: (
       <div className="grid gap-2">
         <div className="rounded-md border border-line bg-surface p-3">
@@ -160,7 +163,9 @@ export default function UserLayout() {
   const pending = me.pending_terms?.[0]
   return (
     <>
-      <AppShell config={config} />
+      <MessagesProvider area="user">
+        <AppShell config={config} />
+      </MessagesProvider>
       {pending && !rejectedTerms && (
         <LegalModal
           type={pending.type}

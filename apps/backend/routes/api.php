@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\Admin\OpsController;
 use App\Http\Controllers\Api\Admin\ResourceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BillingController;
+use App\Http\Controllers\Api\InboxController;
+use App\Http\Controllers\Api\ShowcaseController;
 use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\StudioController;
@@ -26,6 +28,7 @@ Route::prefix('public')->middleware('throttle:120,1,r1')->group(function () {
 });
 
 Route::post('support/tickets', [PublicController::class, 'ticket']);
+Route::get('media/{media}/{name?}', [ShowcaseController::class, 'serve'])->where('name', '.*');
 Route::post('webhooks/payment/{gateway}', [BillingController::class, 'webhook'])->middleware('throttle:300,1,r3');
 
 Route::prefix('auth')->group(function () {
@@ -78,6 +81,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('projects', [StudioController::class, 'createProject']);
         Route::get('projects/{project}', [StudioController::class, 'showProject']);
         Route::delete('projects/{project}', [StudioController::class, 'deleteProject']);
+        Route::put('projects/{project}', [StudioController::class, 'updateProject']);
+        Route::post('projects/{project}/duplicate', [StudioController::class, 'duplicateProject']);
+        Route::post('projects/{id}/restore', [StudioController::class, 'restoreProject']);
         Route::get('assistant', [StudioController::class, 'assistant']);
         Route::post('assistant', [StudioController::class, 'ask'])->middleware('throttle:30,1,r15');
 
@@ -95,6 +101,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('tickets', [WorkspaceController::class, 'tickets']);
         Route::get('tickets/{ticket}', [WorkspaceController::class, 'ticket']);
         Route::post('tickets/{ticket}/messages', [WorkspaceController::class, 'replyTicket']);
+        // Pusat pesan pengguna (inbox + balas cepat)
+        Route::get('inbox', [InboxController::class, 'userIndex']);
+        Route::post('inbox', [InboxController::class, 'userCreate'])->middleware('throttle:10,1,inb1');
+        Route::get('inbox/feed', [InboxController::class, 'userFeed']);
+        Route::get('inbox/{ticket}', [InboxController::class, 'userShow']);
+        Route::post('inbox/{ticket}/messages', [InboxController::class, 'userReply'])->middleware('throttle:30,1,inb2');
+        Route::post('inbox/{ticket}/typing', [InboxController::class, 'userTyping'])->middleware('throttle:60,1,inb3');
+        Route::post('inbox/{ticket}/read', [InboxController::class, 'userRead']);
+        Route::post('inbox-attachments', [ShowcaseController::class, 'upload'])->middleware('throttle:20,1,inb5');
+        Route::get('hero', [ShowcaseController::class, 'hero']);
+        Route::get('wallet/cards', [ShowcaseController::class, 'walletCards']);
 
         Route::get('subscription', [BillingController::class, 'subscription']);
         Route::post('orders/quote', [BillingController::class, 'quote'])->middleware('throttle:60,1,r17');
@@ -144,6 +161,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('tickets/{ticket}/messages', [AdminController::class, 'replyTicket']);
         Route::patch('tickets/{ticket}', [AdminController::class, 'updateTicket']);
         Route::post('custom-packages/{package}/offer', [AdminController::class, 'offerCustomPackage']);
+
+        // Inbox admin, hero showcase, media, template studio, kartu dompet platform
+        Route::get('inbox', [InboxController::class, 'adminIndex']);
+        Route::get('inbox/feed', [InboxController::class, 'adminFeed']);
+        Route::get('inbox/canned', [InboxController::class, 'cannedReplies']);
+        Route::post('inbox/bulk', [InboxController::class, 'adminBulk']);
+        Route::get('inbox/{ticket}', [InboxController::class, 'adminShow']);
+        Route::patch('inbox/{ticket}', [InboxController::class, 'adminUpdate']);
+        Route::post('inbox/{ticket}/messages', [InboxController::class, 'adminReply']);
+        Route::post('inbox/{ticket}/notes', [InboxController::class, 'adminNote']);
+        Route::post('inbox/{ticket}/typing', [InboxController::class, 'adminTyping'])->middleware('throttle:60,1,inb4');
+        Route::post('inbox/{ticket}/read', [InboxController::class, 'adminRead']);
+        Route::get('inbox/{ticket}/export', [InboxController::class, 'adminExport']);
+        Route::get('hero', [ShowcaseController::class, 'heroAdmin']);
+        Route::get('hero/live', [ShowcaseController::class, 'hero']);
+        Route::put('hero', [ShowcaseController::class, 'saveHero']);
+        Route::post('media', [ShowcaseController::class, 'upload'])->middleware('throttle:30,1,med1');
+        Route::post('templates/reorder', [ShowcaseController::class, 'reorderTemplates']);
+        Route::post('templates/{template}/duplicate', [ShowcaseController::class, 'duplicateTemplate']);
+        Route::get('wallet/cards', [ShowcaseController::class, 'walletCards']);
 
         Route::get('integrations/{kind}', [OpsController::class, 'integration']);
         Route::put('integrations/{kind}', [OpsController::class, 'saveIntegration']);

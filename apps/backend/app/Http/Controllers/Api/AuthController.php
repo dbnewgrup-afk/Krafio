@@ -310,6 +310,16 @@ class AuthController extends Controller
         Auth::guard('web')->login($u);
         $r->session()->regenerate();
         session()->forget('admin_mfa_passed');
+        // MFA dapat dinonaktifkan sementara oleh pemilik (Settings: security.admin_mfa_required).
+        // Secret TOTP yang sudah terdaftar TIDAK dihapus, sehingga saat diaktifkan lagi kode di aplikasi autentikator tetap berlaku.
+        if (! Settings::get('security.admin_mfa_required', true)) {
+            session(['admin_mfa_passed' => true, 'admin_last_seen' => time()]);
+            $u->forceFill(['last_login_at' => now(), 'last_login_ip' => $r->ip()])->save();
+            Audit::log('admin.login', $u, ['mfa' => 'disabled'], $u->id);
+            Audit::security('admin_login_without_mfa', $u->id, 'warning');
+
+            return ['data' => ['mfa' => 'none', 'me' => Present::me($u)]];
+        }
         if ($u->mfa_enabled && $u->mfa_secret) {
             return ['data' => ['mfa' => 'verify']];
         }

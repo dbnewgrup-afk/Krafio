@@ -131,6 +131,9 @@ class Present
             'is_featured' => $t->is_featured,
             'palette' => $t->palette ?? [],
             'art' => \Illuminate\Support\Str::slug((string) $t->title_id),
+            'cover_url' => $t->cover_url,
+            'focus' => $t->focus,
+            'badges' => $t->badges ?? [],
             'usage_count' => $t->usage_count,
             'description' => self::tr($t, 'description') ?? '',
         ];

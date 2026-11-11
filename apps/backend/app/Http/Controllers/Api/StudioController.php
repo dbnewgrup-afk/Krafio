@@ -256,7 +256,8 @@ class StudioController extends Controller
     private function project(Project $p, bool $jobs = false): array
     {
         return [
-            'id' => $p->id, 'name' => $p->name, 'type' => $p->type, 'status' => $p->status, 'updated_at' => $p->updated_at->toIso8601String(),
+            'id' => $p->id, 'name' => $p->name, 'type' => $p->type, 'status' => $p->status, 'updated_at' => $p->updated_at->toIso8601String(), 'created_at' => $p->created_at?->toIso8601String(),
+            'description' => $p->data['description'] ?? null, 'tags' => $p->data['tags'] ?? [], 'pinned' => (bool) ($p->data['pinned'] ?? false), 'jobs_count' => $p->jobs()->count(),
             'template' => $p->template ? Present::template($p->template) : null,
             'jobs' => $jobs ? $p->jobs()->latest()->get()->map(fn ($j) => Present::job($j)) : null,
         ];
@@ -280,6 +281,52 @@ class StudioController extends Controller
         abort_unless($project->user_id === $r->user()->id, 404);
 
         return ['data' => $this->project($project->load('template'), true)];
+    }
+
+    public function updateProject(Request $r, Project $project)
+    {
+        abort_unless($project->user_id === $r->user()->id, 404);
+        $d = $r->validate(['name' => 'sometimes|required|string|max:120', 'type' => 'sometimes|in:photo,video,website,social,business', 'template_id' => 'sometimes|nullable|integer', 'status' => 'sometimes|in:active,archived', 'description' => 'sometimes|nullable|string|max:300', 'tags' => 'sometimes|array|max:6', 'tags.*' => 'string|max:24', 'pinned' => 'sometimes|boolean']);
+        if (array_key_exists('template_id', $d)) {
+            $tpl = $d['template_id'] ? Template::where('id', $d['template_id'])->where('status', 'active')->first() : null;
+            if ($tpl && $tpl->is_premium) {
+                Entitlements::ensure($r->user(), 'templates.premium', 0);
+            }
+            $project->template_id = $tpl?->id;
+        }
+        foreach (['name', 'type', 'status'] as $f) {
+            if (isset($d[$f])) {
+                $project->{$f} = $d[$f];
+            }
+        }
+        $data = $project->data ?? [];
+        foreach (['description', 'tags', 'pinned'] as $f) {
+            if (array_key_exists($f, $d)) {
+                $data[$f] = $d[$f];
+            }
+        }
+        $project->data = $data;
+        $project->save();
+
+        return ['data' => $this->project($project->load('template'))];
+    }
+
+    public function duplicateProject(Request $r, Project $project)
+    {
+        abort_unless($project->user_id === $r->user()->id, 404);
+        $copy = $project->replicate();
+        $copy->name = mb_substr($project->name.' (salinan)', 0, 120);
+        $copy->save();
+
+        return response()->json(['data' => $this->project($copy->load('template'))], 201);
+    }
+
+    public function restoreProject(Request $r, int $id)
+    {
+        $p = Project::onlyTrashed()->where('user_id', $r->user()->id)->findOrFail($id);
+        $p->restore();
+
+        return ['data' => $this->project($p->load('template'))];
     }
 
     public function deleteProject(Request $r, Project $project)
