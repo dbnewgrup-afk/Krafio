@@ -1152,7 +1152,10 @@
   "no_custom_body": "Ajukan kebutuhan Anda; Admin akan menyiapkan penawaran.",
   "request_note": "Jelaskan kebutuhan (jumlah kredit, pengguna, fitur)",
   "request_sent": "Pengajuan terkirim.",
-  "go_to_payment": "Lanjut ke pembayaran"
+  "go_to_payment": "Lanjut ke pembayaran",
+  "waiting_payment": "Menunggu pembayaran. Halaman ini diperbarui otomatis setelah pembayaran dikonfirmasi.",
+  "payment_failed": "Pembayaran gagal atau ditolak. Silakan buat pesanan baru.",
+  "payment_expired": "Tagihan kedaluwarsa. Silakan buat pesanan baru."
  },
  "affiliate_user": {
   "subtitle": "Bagikan tautan dan pantau komisi Anda.",
@@ -1464,7 +1467,8 @@
    "inbox": "Inbox pesan",
    "template_studio": "Kelola & pratinjau",
    "dashboard_hero": "Hero dashboard",
-   "admin_accounts": "Akun admin"
+   "admin_accounts": "Akun admin",
+   "payment_approval": "Approval pembayaran"
   },
   "login_title": "Masuk Admin",
   "login_sub": "Khusus Super Admin. Setiap percobaan tercatat.",
@@ -1516,7 +1520,8 @@
    "withdrawal": "Withdrawal",
    "refund": "Refund",
    "integration": "Integrasi",
-   "template": "Template"
+   "template": "Template",
+   "payment": "Pembayaran"
   },
   "approvals_sub": "Setujui, tolak, atau minta revisi. Setiap keputusan tercatat.",
   "approve": "Setujui",
@@ -1864,6 +1869,11 @@
    "whatsapp_templates": "Template pesan WhatsApp dikelola dan disetujui di WhatsApp Manager. Setelah integrasi aktif, daftar template disinkronkan ke sini.",
    "cloudflare": "Turnstile tampil di login setelah 3 kali gagal dan di registrasi. DNS, WAF, dan cache diatur di dashboard Cloudflare.",
    "admin_security": "MFA TOTP wajib untuk semua Admin. Tindakan keuangan meminta kata sandi ulang bila sesi lebih dari 15 menit."
+  },
+  "gateway_status": {
+   "sent": "Belum dibayar",
+   "paid": "Lunas di JualKirim",
+   "amount_mismatch": "Nominal tidak cocok"
   }
  },
  "ops": {
@@ -1924,7 +1934,11 @@
    "business_account_id": "WhatsApp Business Account ID",
    "access_token": "Access token (system user)",
    "api_version": "Versi Graph API (mis. v21.0)",
-   "webhook_verify_token": "Webhook verify token"
+   "webhook_verify_token": "Webhook verify token",
+   "settlement_type": "Dana masuk ke (wallet JualKirim / rekening bank)",
+   "bank_account_id": "ID rekening bank JualKirim (wajib bila BANK)",
+   "admin_fee_paid_by": "Biaya admin ditanggung",
+   "confirmation": "Konfirmasi pembayaran (AUTO = langsung aktif, MANUAL = lewat Approval)"
   },
   "finance_title": "Laporan keuangan",
   "finance_sub": "Penjualan, top-up, withdrawal, dan komisi per periode. Data dibaca dari ledger dan pembayaran.",
@@ -1982,7 +1996,8 @@
    "retention_otp_days": "Kode OTP (hari)"
   },
   "file_count": "{{count}} berkas",
-  "driver_manual": "Manual / simulasi (tanpa gateway)"
+  "driver_manual": "Manual / simulasi (tanpa gateway)",
+  "driver_jualkirim": "JualKirim Invoice"
  },
  "cards": {
   "title": "Kartu dompet",

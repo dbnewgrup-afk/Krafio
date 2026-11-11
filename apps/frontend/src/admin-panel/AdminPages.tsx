@@ -414,7 +414,16 @@ export function AdminApprovals({ type, history, title }: { type?: string; histor
           { key: 'title', header: t('admin.f.title'), primary: true },
           { key: 'type', header: t('admin.f.type'), mobile: true, render: (r) => t(`admin.approval_types.${r.type}`) },
           { key: 'user', header: t('admin.f.user'), render: (r) => (r.user ? <Link to={`/admin/users/${r.user.id}`} className="text-primary hover:underline">{r.user.name}</Link> : '—') },
-          { key: 'payload', header: t('admin.f.detail'), render: (r) => <span className="t-small line-clamp-2 text-muted">{r.payload?.amount ? rupiah(r.payload.amount) : r.payload?.note ?? r.payload?.email ?? '—'}</span> },
+          { key: 'payload', header: t('admin.f.detail'), render: (r) => (
+            <span className="t-small line-clamp-2 text-muted">
+              {r.payload?.amount ? rupiah(r.payload.amount) : r.payload?.note ?? r.payload?.email ?? '—'}
+              {r.type === 'payment' && r.payload?.gateway_status && (
+                <span className={cn('ml-2 font-semibold', r.payload.gateway_status === 'paid' ? 'text-success' : r.payload.gateway_status === 'amount_mismatch' ? 'text-danger' : 'text-muted')}>
+                  {t(`admin.gateway_status.${r.payload.gateway_status}`, { defaultValue: r.payload.gateway_status })}
+                </span>
+              )}
+            </span>
+          ) },
           { key: 'status', header: t('common.status'), mobile: true, render: (r) => <StatusChip status={r.status} /> },
           { key: 'created_at', header: t('admin.f.created_at'), render: (r) => relative(r.created_at) },
           ...(history ? [{ key: 'decider', header: t('admin.f.decider'), render: (r: ApprovalRow) => `${r.decider ?? '—'}${r.reason ? ` — ${r.reason}` : ''}` }] : []),

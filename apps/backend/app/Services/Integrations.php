@@ -30,6 +30,14 @@ class Integrations
                 ['key' => 'default_method', 'type' => 'text'],
                 ['key' => 'is_production', 'type' => 'bool'],
             ]],
+            // Kredensial JualKirim dibaca dari .env (JUALKIRIM_*), bukan disimpan di sini.
+            'jualkirim' => ['label' => 'JualKirim Invoice', 'fields' => [
+                ['key' => 'settlement_type', 'type' => 'select', 'options' => ['wallet', 'bank']],
+                ['key' => 'bank_account_id', 'type' => 'text'],
+                ['key' => 'admin_fee_paid_by', 'type' => 'select', 'options' => ['merchant', 'customer']],
+                // auto = aktif begitu lunas (polling/webhook); manual = admin menyetujui di Approval → Pembayaran
+                ['key' => 'confirmation', 'type' => 'select', 'options' => ['auto', 'manual']],
+            ]],
         ],
         'smtp' => [
             'smtp' => ['label' => 'SMTP', 'fields' => [

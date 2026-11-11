@@ -131,6 +131,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('wallet/ledger', [BillingController::class, 'ledger']);
         Route::post('wallet/topups', [BillingController::class, 'topup'])->middleware('throttle:10,1,r21');
         Route::post('wallet/topups/{payment}/simulate-paid', [BillingController::class, 'simulatePaid']);
+        Route::get('payments/{payment}', [BillingController::class, 'paymentStatus'])->middleware('throttle:60,1,jk1');
         Route::get('wallet/destinations', [BillingController::class, 'destinations']);
         Route::post('wallet/destinations', [BillingController::class, 'addDestination']);
         Route::delete('wallet/destinations/{destination}', [BillingController::class, 'deleteDestination']);

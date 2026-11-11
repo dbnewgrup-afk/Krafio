@@ -1152,7 +1152,10 @@
   "no_custom_body": "Describe your needs; an Admin will prepare an offer.",
   "request_note": "Describe your needs (credits, users, features)",
   "request_sent": "Request sent.",
-  "go_to_payment": "Continue to payment"
+  "go_to_payment": "Continue to payment",
+  "waiting_payment": "Waiting for payment. This page updates automatically once payment is confirmed.",
+  "payment_failed": "Payment failed or was rejected. Please place a new order.",
+  "payment_expired": "The invoice has expired. Please place a new order."
  },
  "affiliate_user": {
   "subtitle": "Share your link and track your commission.",
@@ -1464,7 +1467,8 @@
    "inbox": "Message inbox",
    "template_studio": "Manage & preview",
    "dashboard_hero": "Dashboard hero",
-   "admin_accounts": "Admin accounts"
+   "admin_accounts": "Admin accounts",
+   "payment_approval": "Payment approval"
   },
   "login_title": "Admin sign in",
   "login_sub": "Super Admin only. Every attempt is logged.",
@@ -1516,7 +1520,8 @@
    "withdrawal": "Withdrawal",
    "refund": "Refund",
    "integration": "Integration",
-   "template": "Template"
+   "template": "Template",
+   "payment": "Payment"
   },
   "approvals_sub": "Approve, reject, or request changes. Every decision is logged.",
   "approve": "Approve",
@@ -1864,6 +1869,11 @@
    "whatsapp_templates": "WhatsApp message templates are managed and approved in WhatsApp Manager. Once the integration is active, templates sync here.",
    "cloudflare": "Turnstile appears on sign-in after 3 failed attempts and on sign-up. DNS, WAF, and cache are managed in the Cloudflare dashboard.",
    "admin_security": "TOTP MFA is required for all Admins. Financial actions ask for the password again when the session is older than 15 minutes."
+  },
+  "gateway_status": {
+   "sent": "Unpaid",
+   "paid": "Paid on JualKirim",
+   "amount_mismatch": "Amount mismatch"
   }
  },
  "ops": {
@@ -1924,7 +1934,11 @@
    "business_account_id": "WhatsApp Business Account ID",
    "access_token": "Access token (system user)",
    "api_version": "Graph API version (e.g. v21.0)",
-   "webhook_verify_token": "Webhook verify token"
+   "webhook_verify_token": "Webhook verify token",
+   "settlement_type": "Funds go to (JualKirim wallet / bank account)",
+   "bank_account_id": "JualKirim bank account ID (required for BANK)",
+   "admin_fee_paid_by": "Admin fee paid by",
+   "confirmation": "Payment confirmation (AUTO = activate immediately, MANUAL = via Approval)"
   },
   "finance_title": "Financial report",
   "finance_sub": "Sales, top-ups, withdrawals, and commissions per period, read from the ledger and payments.",
@@ -1982,7 +1996,8 @@
    "retention_otp_days": "OTP codes (days)"
   },
   "file_count": "{{count}} files",
-  "driver_manual": "Manual / simulation (no gateway)"
+  "driver_manual": "Manual / simulation (no gateway)",
+  "driver_jualkirim": "JualKirim Invoice"
  },
  "cards": {
   "title": "Wallet cards",

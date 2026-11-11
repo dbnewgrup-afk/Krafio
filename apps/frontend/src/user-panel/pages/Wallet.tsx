@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Plus, ArrowDownLeft, ArrowUpRight, Check, Banknote, Trash2 } from 'lucide-react'
@@ -21,6 +21,8 @@ import { useLoader } from '@/shared/layout/PageLoader'
 import { dateTime, rupiah } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
 import { WalletShowcase } from '@/shared/ui/card-showcase/WalletShowcase'
+import { usePaymentStatus } from '@/shared/billing/usePaymentStatus'
+import { PaymentWaitNote } from '@/shared/billing/PaymentWaitNote'
 
 function BalanceCards() {
   const { t } = useTranslation()
@@ -120,6 +122,15 @@ export function TopupPage() {
   const quick = [50000, 100000, 250000, 500000, 1000000].filter((v) => v >= min && v <= max)
   const invalid = amount < min || amount > max
   const key = useState(() => newIdempotencyKey())[0]
+  const payStatus = usePaymentStatus(invoice?.id, !!invoice?.redirect_url && !invoice?.simulate)
+
+  // Gateway tanpa webhook (JualKirim): kembali ke saldo begitu top-up terkonfirmasi
+  useEffect(() => {
+    if (payStatus !== 'paid') return
+    void refresh()
+    toast.push('success', t('wallet.topup_success'))
+    nav('/app/wallet')
+  }, [payStatus]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const setFromRaw = (v: string) => {
     const digits = v.replace(/\D/g, '').slice(0, 9)
@@ -157,9 +168,12 @@ export function TopupPage() {
               <h2 className="t-h2">{t('wallet.invoice_created', { amount: rupiah(invoice.amount) })}</h2>
               <p className="t-body text-muted">{t('wallet.invoice_body')}</p>
               {invoice.redirect_url && (
-                <a href={invoice.redirect_url} className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-4 font-semibold text-primary-contrast hover:bg-primary-hover">
-                  {t('billing.go_to_payment')}
-                </a>
+                <>
+                  <a href={invoice.redirect_url} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-4 font-semibold text-primary-contrast hover:bg-primary-hover">
+                    {t('billing.go_to_payment')}
+                  </a>
+                  <PaymentWaitNote status={payStatus} />
+                </>
               )}
               {invoice.simulate && (
                 <div className="grid gap-2 rounded-md border border-warning/40 bg-warning/10 p-3">

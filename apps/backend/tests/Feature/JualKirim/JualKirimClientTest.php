@@ -96,10 +96,10 @@ class JualKirimClientTest extends TestCase
 
     public function test_token_is_reused_from_cache(): void
     {
-        $this->fake(['/api/v1/couriers' => $this->ok([['code' => 'jne', 'name' => 'JNE', 'logo' => '/x.png']])]);
+        $this->fake(['/api/v1/invoices' => $this->ok([['code' => 'jne', 'name' => 'JNE', 'logo' => '/x.png']])]);
 
-        JualKirim::couriers()->list();
-        JualKirim::couriers()->list();
+        JualKirim::invoices()->list();
+        JualKirim::invoices()->list();
         JualKirim::wallet(); // resource lain memakai client yang sama
 
         $this->assertSame(1, $this->logins, 'Login hanya sekali; request berikutnya memakai token dari cache');
@@ -108,9 +108,9 @@ class JualKirimClientTest extends TestCase
     public function test_token_ttl_uses_expires_at_minus_five_minutes(): void
     {
         $this->travelTo(now()->startOfMinute());
-        $this->fake(['/api/v1/couriers' => $this->ok([])], now()->addHours(2)->toIso8601String());
+        $this->fake(['/api/v1/invoices' => $this->ok([])], now()->addHours(2)->toIso8601String());
 
-        JualKirim::couriers()->list();
+        JualKirim::invoices()->list();
 
         $this->travel(114)->minutes();
         $this->assertNotNull(Cache::get('jualkirim.jwt'), 'Masih berlaku sebelum expires_at − 5 menit');
@@ -121,32 +121,32 @@ class JualKirimClientTest extends TestCase
     public function test_401_triggers_relogin_and_single_retry_then_success(): void
     {
         $calls = 0;
-        $this->fake(['/api/v1/addresses' => function (Request $r) use (&$calls) {
+        $this->fake(['/api/v1/invoices' => function (Request $r) use (&$calls) {
             $calls++;
 
             return $calls === 1 ? Http::response(['message' => 'Token tidak valid atau sudah kedaluwarsa', 'data' => null], 401) : $this->ok([['id' => 'a1', 'name' => 'Gudang', 'email' => 'g@x.test']]);
         }]);
 
-        $res = JualKirim::addresses()->list();
+        $res = JualKirim::invoices()->list();
 
         $this->assertSame('Gudang', $res['data'][0]['name']);
         $this->assertSame(2, $calls, 'Request diulang tepat satu kali');
         $this->assertSame(2, $this->logins, 'Login ulang setelah 401');
         $this->assertSame($this->jwt(2), Cache::get('jualkirim.jwt'), 'Token baru menggantikan yang lama');
-        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/api/v1/addresses') && $r->hasHeader('Authorization', 'Bearer '.$this->jwt(2)));
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/api/v1/invoices') && $r->hasHeader('Authorization', 'Bearer '.$this->jwt(2)));
     }
 
     public function test_repeated_401_throws_auth_exception(): void
     {
         $calls = 0;
-        $this->fake(['/api/v1/addresses' => function () use (&$calls) {
+        $this->fake(['/api/v1/invoices' => function () use (&$calls) {
             $calls++;
 
             return Http::response(['message' => 'X-API-KEY tidak cocok', 'data' => null], 401);
         }]);
 
         try {
-            JualKirim::addresses()->list();
+            JualKirim::invoices()->list();
             $this->fail('Seharusnya melempar JualKirimAuthException');
         } catch (JualKirimAuthException $e) {
             $this->assertSame(401, $e->status);
@@ -179,25 +179,25 @@ class JualKirimClientTest extends TestCase
     public function test_422_throws_validation_exception_with_details(): void
     {
         $detail = ['items' => [['row' => 1, 'valid' => false, 'errors' => ['bank tidak didukung']]], 'summary' => ['invalid_items' => 1, 'sufficient' => true], 'errors' => []];
-        $this->fake(['/api/v1/addresses' => Http::response(['message' => 'Gagal membuat alamat: nama duplikat', 'data' => $detail], 422)]);
+        $this->fake(['/api/v1/invoices' => Http::response(['message' => 'Gagal membuat alamat: nama duplikat', 'data' => $detail], 422)]);
 
         try {
-            JualKirim::addresses()->create(['name' => 'Gudang', 'email' => 'g@x.test']);
+            JualKirim::invoices()->create(['name' => 'Gudang', 'email' => 'g@x.test']);
             $this->fail('Seharusnya melempar JualKirimValidationException');
         } catch (JualKirimValidationException $e) {
             $this->assertSame(422, $e->status);
             $this->assertStringContainsString('nama duplikat', $e->getMessage());
             $this->assertSame($detail, $e->responseData);
-            $this->assertSame('POST /api/v1/addresses', $e->endpoint);
+            $this->assertSame('POST /api/v1/invoices', $e->endpoint);
         }
     }
 
     public function test_400_field_errors_are_exposed(): void
     {
-        $this->fake(['/api/v1/addresses' => Http::response(['message' => 'Validasi gagal', 'data' => ['email' => 'Email wajib diisi']], 400)]);
+        $this->fake(['/api/v1/invoices' => Http::response(['message' => 'Validasi gagal', 'data' => ['email' => 'Email wajib diisi']], 400)]);
 
         try {
-            JualKirim::addresses()->create(['name' => 'Gudang', 'email' => '']);
+            JualKirim::invoices()->create(['name' => 'Gudang', 'email' => '']);
             $this->fail();
         } catch (JualKirimValidationException $e) {
             $this->assertSame(['email' => 'Email wajib diisi'], $e->errors());
@@ -207,14 +207,14 @@ class JualKirimClientTest extends TestCase
     public function test_server_error_is_generic_exception_and_get_is_retried(): void
     {
         $calls = 0;
-        $this->fake(['/api/v1/couriers' => function () use (&$calls) {
+        $this->fake(['/api/v1/invoices' => function () use (&$calls) {
             $calls++;
 
             return Http::response(['message' => 'Kesalahan server', 'data' => null], 500);
         }]);
 
         try {
-            JualKirim::couriers()->list();
+            JualKirim::invoices()->list();
             $this->fail();
         } catch (JualKirimException $e) {
             $this->assertNotInstanceOf(JualKirimValidationException::class, $e);
@@ -246,13 +246,13 @@ class JualKirimClientTest extends TestCase
     {
         $this->fake([
             '/api/v1/me' => $this->ok(['user' => ['id' => 'u1', 'email' => 'ops@toko.test', 'first_name' => 'Budi', 'last_name' => 'S'], 'organizations' => []]),
-            '/api/v1/orders' => $this->ok(['orders' => [], 'pagination' => ['page' => 1, 'per_page' => 20, 'total' => 0, 'total_filtered' => 0]]),
-            '/api/v1/products' => $this->ok([]),
+            '/api/v1/invoices' => $this->ok(['invoices' => [], 'pagination' => ['page' => 1, 'per_page' => 20, 'total' => 0, 'total_filtered' => 0]]),
+            '/api/v1/wallet/balance' => $this->ok(['balance' => 0]),
         ]);
 
         JualKirim::me();
-        JualKirim::orders()->list();
-        JualKirim::products()->list();
+        JualKirim::invoices()->list();
+        JualKirim::wallet()->balance();
 
         $nonLogin = Http::recorded(fn (Request $r) => ! str_ends_with($r->url(), '/auth/login'));
         $this->assertCount(3, $nonLogin);
@@ -261,17 +261,6 @@ class JualKirimClientTest extends TestCase
             $this->assertTrue($req->hasHeader('X-API-KEY', self::API_KEY), $req->url());
             $this->assertTrue($req->hasHeader('Accept', 'application/json'));
         }
-    }
-
-    public function test_postal_codes_are_public_without_auth_headers(): void
-    {
-        $this->fake(['/api/v1/shipping/postal-codes' => Http::response(['success' => true, 'results' => [['id' => 'pc-uuid', 'text' => 'DKI Jakarta - Jakarta Selatan, Tebet, Tebet Barat (12810)', 'postal_code' => '12810']]], 200)]);
-
-        $res = JualKirim::shipping()->postalCodes('Tebet');
-
-        $this->assertSame('pc-uuid', $res['results'][0]['id']);
-        $this->assertSame(0, $this->logins);
-        Http::assertSent(fn (Request $r) => str_contains($r->url(), 'q=Tebet') && ! $r->hasHeader('Authorization') && ! $r->hasHeader('X-API-KEY'));
     }
 
     /* ---------------- Keamanan ---------------- */
@@ -306,7 +295,6 @@ class JualKirimClientTest extends TestCase
             fn () => JualKirim::payments()->checkout('pay-1', 'QRIS'),
             fn () => JualKirim::disbursements()->create([['bank_code' => 'BCA', 'account_number' => '1234567890', 'account_holder' => 'Budi', 'amount' => 50000]]),
             fn () => JualKirim::disbursements()->cancel('batch-1'),
-            fn () => JualKirim::orders()->create(['pickup' => ['type' => 'dropoff', 'volume' => '1-5'], 'orders' => [['payment_method' => 'NON_COD']]]),
         ] as $call) {
             try {
                 $call();
@@ -331,104 +319,19 @@ class JualKirimClientTest extends TestCase
         $this->assertNull($me->organizationForKey('ZZZZZZZZZZZZZZZZZZZZZZZ'));
     }
 
-    public function test_address_resource_crud_paths(): void
-    {
-        $this->fake([
-            'POST /api/v1/addresses' => Http::response(['message' => 'Alamat berhasil dibuat', 'data' => ['id' => 'a1']], 201),
-            'PUT /api/v1/addresses/a1' => $this->ok(['id' => 'a1']),
-            'DELETE /api/v1/addresses/a1' => $this->ok(null),
-        ]);
-
-        JualKirim::addresses()->create(['name' => 'Gudang Utama', 'email' => 'g@x.test', 'postal_code' => '40111']);
-        JualKirim::addresses()->update('a1', ['name' => 'Gudang 2', 'email' => 'g@x.test']);
-        JualKirim::addresses()->delete('a1');
-
-        Http::assertSent(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/api/v1/addresses') && $r['name'] === 'Gudang Utama');
-        Http::assertSent(fn (Request $r) => $r->method() === 'PUT' && str_ends_with($r->url(), '/api/v1/addresses/a1') && $r['name'] === 'Gudang 2');
-        Http::assertSent(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/api/v1/addresses/a1'));
-    }
-
     public function test_path_ids_are_encoded(): void
     {
-        $this->fake(['/api/v1/orders/..%2Fwallet%2Fbalance' => $this->ok([])]);
+        $this->fake(['/api/v1/invoices/..%2Fwallet%2Fbalance' => $this->ok([])]);
 
-        JualKirim::orders()->find('../wallet/balance');
+        JualKirim::invoices()->find('../wallet/balance');
 
-        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/api/v1/orders/..%2Fwallet%2Fbalance'));
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/api/v1/invoices/..%2Fwallet%2Fbalance'));
     }
 
     public function test_wallet_resource_balance(): void
     {
         $this->fake(['/api/v1/wallet/balance' => $this->ok(['organization_id' => 'org-1', 'balance' => 250000])]);
         $this->assertSame(250000, JualKirim::wallet()->balance()['data']['balance']);
-    }
-
-    public function test_courier_resource_list(): void
-    {
-        $this->fake(['/api/v1/couriers' => $this->ok([['code' => 'jne', 'name' => 'JNE', 'logo' => '/assets/couriers/jne.png']])]);
-        $this->assertSame('jne', JualKirim::couriers()->list()['data'][0]['code']);
-    }
-
-    public function test_shipping_check_cost_sends_auth_for_discount(): void
-    {
-        $this->fake(['/api/v1/shipping/check-cost' => Http::response(['success' => true, 'data' => [['courier_code' => 'jne', 'service_code' => 'REG', 'service_price' => 9000]]], 200)]);
-
-        $res = JualKirim::shipping()->checkCost(['weight' => 1000, 'postal_code_id' => 'pc-uuid', 'send_postal_id' => 'pc-asal']);
-
-        $this->assertSame(9000, $res['data'][0]['service_price']);
-        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/check-cost') && $r['weight'] === 1000 && $r->hasHeader('X-API-KEY', self::API_KEY));
-    }
-
-    public function test_shipping_check_cost_sends_integer_postal_ids_as_strings(): void
-    {
-        $this->fake(['/api/v1/shipping/check-cost' => Http::response(['success' => true, 'data' => []], 200)]);
-
-        JualKirim::shipping()->checkCost(['weight' => 1, 'postal_code_id' => 171797, 'send_postal_id' => 171104]);
-
-        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/check-cost') && $r['postal_code_id'] === '171797' && $r['send_postal_id'] === '171104');
-    }
-
-    public function test_order_resource_list_filters_find_cancel_and_cod_create(): void
-    {
-        $this->fake([
-            'GET /api/v1/orders' => $this->ok(['orders' => [['id' => 'o1', 'status' => 'PENDING']], 'pagination' => ['page' => 1, 'per_page' => 50, 'total' => 1, 'total_filtered' => 1]]),
-            'GET /api/v1/orders/o1' => $this->ok(['order' => ['id' => 'o1'], 'status' => 'IN_TRANSIT', 'pickup_order' => []]),
-            'POST /api/v1/orders/o1/cancel' => $this->ok(null),
-            'POST /api/v1/orders' => Http::response(['message' => 'Order berhasil dibuat', 'data' => ['pickup_order_id' => 'po-1']], 201),
-        ]);
-
-        JualKirim::orders()->list(['status' => 'PENDING', 'per_page' => 50, 'search' => '']);
-        $this->assertSame('IN_TRANSIT', JualKirim::orders()->find('o1')['data']['status']);
-        JualKirim::orders()->cancel('o1', 'Stok habis');
-        // Order COD tidak memotong saldo → tidak terkena kunci uang
-        $res = JualKirim::orders()->create(['pickup' => ['type' => 'dropoff', 'volume' => '1-5'], 'orders' => [['payment_method' => 'COD', 'customer_name' => 'Ani']]]);
-
-        $this->assertSame('po-1', $res['data']['pickup_order_id']);
-        Http::assertSent(fn (Request $r) => $r->method() === 'GET' && str_contains($r->url(), 'status=PENDING') && str_contains($r->url(), 'per_page=50') && ! str_contains($r->url(), 'search='));
-        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/orders/o1/cancel') && $r['remark'] === 'Stok habis');
-    }
-
-    public function test_product_resource_list_and_create(): void
-    {
-        $this->fake([
-            'GET /api/v1/products' => $this->ok([['id' => 'p1']]),
-            'POST /api/v1/products' => Http::response(['message' => 'Produk berhasil dibuat', 'data' => ['id' => 'p2']], 201),
-        ]);
-
-        JualKirim::products()->list('kopi');
-        $this->assertSame('p2', JualKirim::products()->create(['name' => 'Kopi', 'sku' => 'KP-1'])['data']['id']);
-        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/api/v1/products?search=kopi'));
-    }
-
-    public function test_category_resource_categories_and_subcategories(): void
-    {
-        $this->fake(['/api/v1/categories' => $this->ok([['code' => 'FNB']]), '/api/v1/subcategories' => $this->ok([['code' => 'KOPI']])]);
-
-        JualKirim::categories()->list(null, 100);
-        JualKirim::categories()->subcategories(['category_code' => 'FNB']);
-
-        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/api/v1/categories?limit=100'));
-        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/api/v1/subcategories?category_code=FNB'));
     }
 
     public function test_invoice_resource_crud(): void

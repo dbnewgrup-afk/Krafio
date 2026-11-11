@@ -2,6 +2,7 @@
 
 use App\Services\Backups;
 use App\Services\Billing;
+use App\Services\Payment\JualKirimInvoices;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
@@ -25,6 +26,7 @@ Artisan::command('krafio:prune', function () {
 // Scheduler tunggal
 Schedule::call(fn () => Billing::releaseCommissions())->hourly()->name('release-commissions')->withoutOverlapping();
 Schedule::call(fn () => Billing::releaseExpiredReservations())->everyFifteenMinutes()->name('expire-payments')->withoutOverlapping();
+Schedule::call(fn () => JualKirimInvoices::syncPending())->everyMinute()->name('jualkirim-invoice-sync')->withoutOverlapping(); // JualKirim tanpa webhook → polling
 Schedule::call(fn () => Billing::renewals())->hourly()->name('subscription-renewals')->withoutOverlapping();
 Schedule::call(function () {
     Backups::database();

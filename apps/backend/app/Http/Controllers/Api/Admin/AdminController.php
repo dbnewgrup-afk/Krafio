@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AiJob;
 use App\Models\AiProvider;
 use App\Models\Approval;
+use App\Models\CouponRedemption;
 use App\Models\CustomPackage;
 use App\Models\LedgerEntry;
 use App\Models\Payment;
@@ -20,6 +21,7 @@ use App\Models\Withdrawal;
 use App\Notifications\Notice;
 use App\Services\AiGateway;
 use App\Services\Audit;
+use App\Services\Billing;
 use App\Services\Entitlements;
 use App\Services\Settings;
 use App\Services\Wallet;
@@ -262,6 +264,20 @@ class AdminController extends Controller
                     break;
                 case 'template':
                     Template::whereKey($approval->subject_id)->update(['status' => $data['decision'] === 'approve' ? 'active' : 'draft']);
+                    break;
+                case 'payment':
+                    // Verifikasi manual pembayaran gateway tanpa webhook (JualKirim mode manual)
+                    $p = Payment::lockForUpdate()->findOrFail($approval->subject_id);
+                    if ($data['decision'] === 'approve') {
+                        if (in_array($p->status, ['pending', 'expired'], true)) {
+                            $p->update(['status' => 'pending', 'expires_at' => null]); // keputusan admin mengesampingkan batas waktu
+                            Billing::markPaid($p->id, array_merge($p->gateway_payload ?? [], ['confirmed_by' => 'admin', 'admin_id' => $r->user()->id, 'approval_id' => $approval->id]));
+                        }
+                    } elseif ($p->status === 'pending') {
+                        $p->update(['status' => 'failed']);
+                        Billing::finalizeCoupon(CouponRedemption::where('payment_id', $p->id)->where('status', 'reserved')->first(), false);
+                        $u?->notify(new Notice('Pembayaran tidak dapat diverifikasi', 'Pembayaran '.$p->reference.' ditolak: '.$data['reason'], 'transaction', '/app/subscription'));
+                    }
                     break;
                 case 'custom_package':
                     $u?->notify(new Notice('Permintaan custom package', $data['decision'] === 'approve' ? 'Permintaan disetujui; admin akan menawarkan paket.' : 'Permintaan belum dapat dipenuhi: '.$data['reason'], 'subscription', '/app/custom-packages'));

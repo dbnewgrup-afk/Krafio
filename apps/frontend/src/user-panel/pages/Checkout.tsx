@@ -13,6 +13,8 @@ import { Skeleton } from '@/shared/ui/States'
 import { inputCls } from '@/shared/ui/Field'
 import { dateTime, rupiah } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
+import { usePaymentStatus } from '@/shared/billing/usePaymentStatus'
+import { PaymentWaitNote } from '@/shared/billing/PaymentWaitNote'
 
 export interface CheckoutItem {
   kind: 'plan' | 'addon' | 'custom'
@@ -40,6 +42,16 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
   const [err, setErr] = useState<string | null>(null)
   const [pending, setPending] = useState<{ id: number; reference: string; amount: number; simulate: boolean; redirect_url?: string | null } | null>(null)
   const [key] = useState(() => newIdempotencyKey())
+  const payStatus = usePaymentStatus(pending?.id, !!pending?.redirect_url && !pending?.simulate)
+
+  // Gateway tanpa webhook (JualKirim): tutup modal otomatis begitu pembayaran terkonfirmasi
+  useEffect(() => {
+    if (payStatus !== 'paid' || !item) return
+    void refresh()
+    toast.push('success', t('billing.activated', { name: item.name }))
+    onDone()
+    onClose()
+  }, [payStatus]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!item) return
@@ -90,9 +102,12 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
           <p className="t-body text-muted">{t('billing.invoice_body', { amount: rupiah(pending.amount) })}</p>
           <p className="t-mono text-fg">{pending.reference}</p>
           {pending.redirect_url && (
-            <a href={pending.redirect_url} className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-4 font-semibold text-primary-contrast hover:bg-primary-hover">
-              {t('billing.go_to_payment')}
-            </a>
+            <>
+              <a href={pending.redirect_url} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-4 font-semibold text-primary-contrast hover:bg-primary-hover">
+                {t('billing.go_to_payment')}
+              </a>
+              <PaymentWaitNote status={payStatus} />
+            </>
           )}
           {pending.simulate && (
             <div className="grid gap-2 rounded-md border border-warning/40 bg-warning/10 p-3">

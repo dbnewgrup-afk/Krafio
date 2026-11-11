@@ -10,7 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Payment Gateway Adapter (PRD 31.4). Driver: manual (simulasi lokal), midtrans, xendit, tripay.
+ * Payment Gateway Adapter (PRD 31.4). Driver: manual (simulasi lokal), midtrans, xendit, tripay,
+ * jualkirim (Invoice JualKirim; tanpa webhook — status lewat polling, lihat JualKirimInvoices).
  * Credential dibaca dari Integrasi yang diatur Admin. Webhook diverifikasi per driver sebelum
  * Billing::markPaid dipanggil (idempoten).
  */
@@ -71,6 +72,9 @@ class PaymentGateway
             self::ensure($res);
 
             return ['redirect_url' => $res->json('data.checkout_url'), 'gateway_ref' => $res->json('data.reference')];
+        }
+        if ($c['driver'] === JualKirimInvoices::DRIVER) {
+            return JualKirimInvoices::open($p, $u, $description, $c);
         }
 
         return ['redirect_url' => null, 'gateway_ref' => null];
@@ -150,6 +154,9 @@ class PaymentGateway
                 $res = Http::timeout(15)->withToken((string) ($c['api_key'] ?? ''))->acceptJson()->get($base.'/merchant/payment-channel');
 
                 return $res->successful() && $res->json('success') ? [true, 'Terhubung ke Tripay ('.count((array) $res->json('data')).' kanal).'] : [false, 'Tripay menolak API key ('.$res->status().').'];
+            }
+            if ($c['driver'] === JualKirimInvoices::DRIVER) {
+                return JualKirimInvoices::test();
             }
 
             return [true, 'Mode manual: pembayaran disimulasikan (hanya lingkungan lokal).'];

@@ -8,16 +8,10 @@ use App\Services\JualKirim\Exceptions\JualKirimException;
 use App\Services\JualKirim\Exceptions\JualKirimForbiddenException;
 use App\Services\JualKirim\Exceptions\JualKirimMoneyLockedException;
 use App\Services\JualKirim\Exceptions\JualKirimValidationException;
-use App\Services\JualKirim\Resources\AddressResource;
 use App\Services\JualKirim\Resources\AuthResource;
-use App\Services\JualKirim\Resources\CategoryResource;
-use App\Services\JualKirim\Resources\CourierResource;
 use App\Services\JualKirim\Resources\DisbursementResource;
 use App\Services\JualKirim\Resources\InvoiceResource;
-use App\Services\JualKirim\Resources\OrderResource;
 use App\Services\JualKirim\Resources\PaymentResource;
-use App\Services\JualKirim\Resources\ProductResource;
-use App\Services\JualKirim\Resources\ShippingResource;
 use App\Services\JualKirim\Resources\WalletResource;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
@@ -48,9 +42,6 @@ class JualKirimClient
 
     public const AUTH_BEARER = 'bearer';
 
-    /** Kirim header auth bila kredensial tersedia; endpoint tetap jalan tanpa auth (mis. check-cost). */
-    public const AUTH_OPTIONAL = 'optional';
-
     public const AUTH_NONE = 'none';
 
     /** @var array<string, object> */
@@ -68,39 +59,9 @@ class JualKirimClient
         return $this->resource(AuthResource::class);
     }
 
-    public function addresses(): AddressResource
-    {
-        return $this->resource(AddressResource::class);
-    }
-
     public function wallet(): WalletResource
     {
         return $this->resource(WalletResource::class);
-    }
-
-    public function couriers(): CourierResource
-    {
-        return $this->resource(CourierResource::class);
-    }
-
-    public function shipping(): ShippingResource
-    {
-        return $this->resource(ShippingResource::class);
-    }
-
-    public function orders(): OrderResource
-    {
-        return $this->resource(OrderResource::class);
-    }
-
-    public function products(): ProductResource
-    {
-        return $this->resource(ProductResource::class);
-    }
-
-    public function categories(): CategoryResource
-    {
-        return $this->resource(CategoryResource::class);
     }
 
     public function invoices(): InvoiceResource
@@ -280,9 +241,6 @@ class JualKirimClient
     private function withAuth(PendingRequest $req, string $auth): PendingRequest
     {
         if ($auth === self::AUTH_NONE) {
-            return $req;
-        }
-        if ($auth === self::AUTH_OPTIONAL && ! $this->hasCredentials()) {
             return $req;
         }
         $req = $req->withToken($this->getToken());

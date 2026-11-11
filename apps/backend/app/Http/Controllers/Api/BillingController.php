@@ -19,7 +19,9 @@ use App\Services\Audit;
 use App\Services\Billing;
 use App\Services\Settings;
 use App\Services\Wallet;
+use App\Services\Payment\JualKirimInvoices;
 use App\Services\Payment\PaymentGateway;
+use Illuminate\Support\Facades\Cache;
 use App\Support\ApiException;
 use App\Support\Present;
 use Illuminate\Http\Request;
@@ -219,6 +221,22 @@ class BillingController extends Controller
         return $res;
     }
 
+    /** Status pembayaran untuk polling klien. Gateway tanpa webhook (JualKirim) dicek langsung, maks. sekali per 10 detik. */
+    public function paymentStatus(Request $r, Payment $payment)
+    {
+        abort_unless($payment->user_id === $r->user()->id, 404);
+        if ($payment->gateway === JualKirimInvoices::DRIVER && $payment->status === 'pending' && Cache::add("jualkirim:sync:{$payment->id}", 1, 10)) {
+            try {
+                JualKirimInvoices::sync($payment);
+                $payment->refresh();
+            } catch (\Throwable) {
+                // Status tetap pending; scheduler akan mencoba lagi.
+            }
+        }
+
+        return ['data' => ['id' => $payment->id, 'reference' => $payment->reference, 'purpose' => $payment->purpose, 'amount' => (int) $payment->amount, 'status' => $payment->status]];
+    }
+
     private function canSimulate(): bool
     {
         return app()->environment('local') && PaymentGateway::driver() === 'manual';
@@ -253,7 +271,9 @@ class BillingController extends Controller
             $log->update(['status' => 'mismatch']);
             throw new ApiException('payment_mismatch', 'Data pembayaran tidak cocok.', 422);
         }
-        if ($v['status'] === 'paid') {
+        if ($v['status'] === 'paid' && $p->gateway === JualKirimInvoices::DRIVER) {
+            JualKirimInvoices::confirmPaid($p, ['confirmed_by' => 'webhook', 'webhook_id' => $log->id]); // hormati mode auto/manual
+        } elseif ($v['status'] === 'paid') {
             Billing::markPaid($p->id, ['gateway' => $gateway, 'webhook_id' => $log->id]);
         } elseif (in_array($v['status'], ['failed', 'expired'], true) && $p->status === 'pending') {
             $p->update(['status' => $v['status']]);

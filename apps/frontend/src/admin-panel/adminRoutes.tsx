@@ -62,6 +62,7 @@ export const ADMIN_NAV: Group[] = [
     { key: 'account_approval', path: '/admin/approvals/accounts', el: () => <A k="account_approval" type="account" /> },
     { key: 'custom_package_approval', path: '/admin/approvals/custom-packages', el: () => <A k="custom_package_approval" type="custom_package" /> },
     { key: 'withdrawal_approval', path: '/admin/approvals/withdrawals', el: () => <A k="withdrawal_approval" type="withdrawal" /> },
+    { key: 'payment_approval', path: '/admin/approvals/payments', el: () => <A k="payment_approval" type="payment" /> },
     { key: 'refund_approval', path: '/admin/approvals/refunds', el: () => <A k="refund_approval" type="refund" /> },
     { key: 'integration_approval', path: '/admin/approvals/integrations', el: () => <A k="integration_approval" type="integration" /> },
     { key: 'template_approval', path: '/admin/approvals/templates', el: () => <A k="template_approval" type="template" /> },
