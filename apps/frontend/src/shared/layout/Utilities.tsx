@@ -8,13 +8,22 @@ import { cn } from '@/shared/lib/cn'
 import { http } from '@/api-client/http'
 import { useAuth } from '@/shared/context/AuthContext'
 
+/** Mark Krafio: K geometris dengan lengan atas berujung sparkle (sumber: public/assets/img/brand/logo-mark.svg). */
+export function LogoMark({ size = 28, bg = 'var(--primary)', fg = 'var(--primary-contrast)', className }: { size?: number; bg?: string; fg?: string; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden className={className}>
+      <rect width="64" height="64" rx="16" fill={bg} />
+      <rect x="17" y="15" width="8" height="34" rx="4" fill={fg} />
+      <path d="M23 33L40 49M23 31L31 23" stroke={fg} strokeWidth="8" strokeLinecap="round" />
+      <path d="M40.5 10C41.71 17.48 44.02 19.79 51.5 21 44.02 22.21 41.71 24.52 40.5 32 39.29 24.52 36.98 22.21 29.5 21 36.98 19.79 39.29 17.48 40.5 10Z" fill={fg} />
+    </svg>
+  )
+}
+
 export function Logo({ to = '/', compact, className, onDark }: { to?: string; compact?: boolean; className?: string; onDark?: boolean }) {
   return (
     <Link to={to} className={cn('inline-flex shrink-0 items-center gap-2 rounded-md', onDark ? 'text-[var(--on-dark)]' : 'text-fg', className)} aria-label="Krafio">
-      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden>
-        <rect width="32" height="32" rx="8" fill="var(--primary)" />
-        <path d="M10 8v16M10 16l9-8M13 13l7 11" stroke="var(--primary-contrast)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      </svg>
+      <LogoMark size={28} />
       {!compact && <span className="text-[19px] font-bold tracking-tight">Krafio</span>}
     </Link>
   )

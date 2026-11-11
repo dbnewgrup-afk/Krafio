@@ -111,8 +111,15 @@ class AiGateway
         for ($i = 0; $i < $count * 3; $i++) {
             $palette[] = sprintf('#%06X', ($seed * ($i + 7) * 2654435761) & 0xFFFFFF);
         }
+        // Gambar sampel deterministik (ilustrasi vektor di frontend/public/assets/img/samples) agar pratinjau terlihat nyata.
+        $samples = ['product-kopi', 'product-roti', 'product-batik', 'product-sepatu', 'product-skincare', 'product-sambal'];
+        $images = [];
+        for ($i = 0; $i < $count; $i++) {
+            $images[] = '/assets/img/samples/'.$samples[($seed + $i * 7) % count($samples)].'.svg';
+        }
         $job->update(['status' => 'completed', 'progress' => 100, 'completed_at' => now(), 'result' => [
             'preview_palette' => $palette,
+            'preview_images' => $images,
             'note' => 'Pratinjau simulasi: provider AI gambar/video belum dikonfigurasi. Hasil sungguhan muncul setelah Admin mengaktifkan provider (mis. ComfyUI) di AI Management.',
         ]]);
     }

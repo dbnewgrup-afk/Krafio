@@ -5,6 +5,7 @@ import { ArrowLeft, ShieldCheck, Wallet, Sparkles } from 'lucide-react'
 import { Logo, LangMenu, ThemeMenu } from '@/shared/layout/Utilities'
 import { Carousel } from '@/shared/ui/Carousel'
 import { ContentLoader } from '@/shared/layout/PageLoader'
+import { img } from '@/shared/lib/assets'
 
 // Layout halaman auth (§9.1): desktop split 2 kolom (panel visual carousel + kartu form ≤440px),
 // tablet kartu tengah ≤480px, mobile form layar penuh tanpa kartu.
@@ -22,6 +23,7 @@ export function AuthLayout() {
         <Carousel label={t('auth.visual_label')} itemClass="basis-full" autoplay interval={6000} loop gap="gap-0" variant="hero" tone="dark">
           {slides.map((s) => (
             <div key={s.key} className="grid max-w-md gap-4 pb-2">
+              <img src={img(`auth/${s.key}.svg`)} alt="" width={480} height={360} className="w-full max-w-sm rounded-xl bg-white/4" />
               <span className="grid size-12 place-items-center rounded-lg bg-white/8 text-[var(--on-dark-accent)]">
                 <s.icon className="size-6" aria-hidden />
               </span>

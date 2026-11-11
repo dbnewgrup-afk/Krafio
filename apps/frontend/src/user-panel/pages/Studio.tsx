@@ -18,6 +18,7 @@ import { EmptyState, Skeleton } from '@/shared/ui/States'
 import { Modal } from '@/shared/ui/Modal'
 import { FEATURES } from '@/shared/features'
 import { number, relative } from '@/shared/lib/format'
+import { previewStyle } from '@/shared/lib/assets'
 import { cn } from '@/shared/lib/cn'
 import { NotFoundPage } from '@/public-site/pages/Catalog'
 
@@ -448,8 +449,8 @@ export function JobPreview({ job }: { job: AiJob }) {
   return (
     <div className="grid gap-3">
       <div className="mx-auto grid w-full max-w-3xl gap-3 sm:grid-cols-2">
-        {(pal.length ? chunk(pal, 3) : [['#cbd5e1', '#64748b', '#0f172a']]).map((p, i) => (
-          <div key={i} className="aspect-square rounded-lg border border-line" style={{ background: `linear-gradient(150deg, ${p[0]}, ${p[1]} 55%, ${p[2]})` }} />
+        {Array.from({ length: Math.max(1, job.result?.preview_images?.length ?? Math.ceil(pal.length / 3)) }).map((_, i) => (
+          <div key={i} className="aspect-square rounded-lg border border-line bg-surface-2" style={previewStyle(job.result, i)} />
         ))}
       </div>
       {job.result?.note && <p className="t-small rounded-md bg-info/10 p-3 text-info">{job.result.note}</p>}
@@ -457,12 +458,6 @@ export function JobPreview({ job }: { job: AiJob }) {
     </div>
   )
 }
-function chunk<T>(a: T[], n: number): T[][] {
-  const out: T[][] = []
-  for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n))
-  return out
-}
-
 function JobResults({ jobs, onPreview, onCancel, onRetry, textMode }: { jobs: AiJob[] | null; onPreview: (j: AiJob) => void; onCancel: (j: AiJob) => void; onRetry: (j: AiJob) => void; textMode: boolean }) {
   const { t } = useTranslation()
   if (!jobs)
@@ -485,8 +480,8 @@ function JobResults({ jobs, onPreview, onCancel, onRetry, textMode }: { jobs: Ai
             </button>
           ) : (
             <button type="button" disabled={j.status !== 'completed'} onClick={() => onPreview(j)} aria-label={t('studio.view')} className="relative aspect-square overflow-hidden rounded-md bg-surface-2 disabled:cursor-default">
-              {j.status === 'completed' && j.result?.preview_palette ? (
-                <span className="absolute inset-0" style={{ background: `linear-gradient(150deg, ${j.result.preview_palette[0]}, ${j.result.preview_palette[1]} 55%, ${j.result.preview_palette[2]})` }} />
+              {j.status === 'completed' && (j.result?.preview_images || j.result?.preview_palette) ? (
+                <span className="absolute inset-0" style={previewStyle(j.result)} />
               ) : j.status === 'queued' || j.status === 'processing' ? (
                 <span className="absolute inset-0 grid place-items-center">
                   <span className="grid w-3/4 gap-2">

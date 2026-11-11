@@ -15,6 +15,7 @@ import { TemplateCard } from '../components/TemplateCard'
 import { PlanCard } from '../components/PlanCard'
 import { useDocTitle } from '@/shared/hooks/useDocTitle'
 import { cn } from '@/shared/lib/cn'
+import { img } from '@/shared/lib/assets'
 
 export default function Home() {
   const { t } = useTranslation()
@@ -94,14 +95,7 @@ function PhotoPanelVisual() {
         </div>
         <span className="rounded-md bg-primary px-3 py-2 text-[13px] font-semibold text-primary-contrast">{t('home.visual.cta')}</span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          ['var(--preview-1)', 'var(--preview-2)'],
-          ['var(--preview-3)', 'var(--preview-4)'],
-        ].map(([a, b], i) => (
-          <div key={i} className="aspect-square rounded-lg" style={{ background: `linear-gradient(160deg, ${a}, ${b})` }} />
-        ))}
-      </div>
+      <img src={img('samples/product-kopi.svg')} alt="" width={480} height={480} className="aspect-[16/10] w-full rounded-lg object-cover" />
       <p className="t-small text-muted">{t('home.visual.note')}</p>
     </div>
   )
@@ -120,17 +114,7 @@ function WebsiteVisual() {
           </span>
         ))}
       </div>
-      <div className="grid gap-2 rounded-lg border border-line bg-bg-subtle p-3">
-        <div className="h-24 rounded-md bg-[linear-gradient(135deg,var(--preview-4),var(--preview-5))]" />
-        <div className="h-3 w-2/3 rounded-full bg-fg/80" />
-        <div className="h-2.5 w-full rounded-full bg-line" />
-        <div className="h-2.5 w-5/6 rounded-full bg-line" />
-        <div className="mt-1 grid grid-cols-3 gap-2">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-14 rounded-md bg-surface" />
-          ))}
-        </div>
-      </div>
+      <img src={img('samples/site-cafe.svg')} alt="" width={960} height={540} className="w-full rounded-lg border border-line" />
       <div className="flex items-center gap-2 md:col-span-2">
         <Globe className="size-4 text-primary" />
         <span className="t-small text-muted">{t('home.visual.publish_check')}</span>
@@ -201,6 +185,7 @@ function FeatureWorkbench() {
         {items.map((f, i) => (
           <li key={f.slug} className={cn(i === 0 && 'col-span-2 lg:row-span-2')}>
             <Link to={`/features/${f.slug}`} className={cn('group grid h-full content-start gap-2 rounded-lg border border-line bg-surface p-4 transition-[border-color] duration-[120ms] hover:border-primary/50', i === 0 && 'gap-3 bg-bg-subtle p-5 lg:p-6')}>
+              {i === 0 && <img src={img(`features/${f.slug}.svg`)} alt="" width={480} height={360} className="mb-1 w-full max-w-md rounded-lg" />}
               <span className={cn('grid place-items-center rounded-md bg-primary-soft text-primary', i === 0 ? 'size-12' : 'size-10')}>
                 <f.icon className={i === 0 ? 'size-6' : 'size-5'} aria-hidden />
               </span>

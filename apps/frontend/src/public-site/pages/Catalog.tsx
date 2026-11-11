@@ -8,8 +8,9 @@ import type { Addon, Plan, TemplateItem } from '@/api-client/types'
 import { useDocTitle } from '@/shared/hooks/useDocTitle'
 import { ButtonLink, Button } from '@/shared/ui/Button'
 import { Accordion, ChipRow, Segmented } from '@/shared/ui/Misc'
-import { EmptyState, Skeleton } from '@/shared/ui/States'
+import { EmptyState, Illustration, Skeleton } from '@/shared/ui/States'
 import { Modal } from '@/shared/ui/Modal'
+import { img } from '@/shared/lib/assets'
 import { Carousel } from '@/shared/ui/Carousel'
 import { inputCls } from '@/shared/ui/Field'
 import { PlanCard } from '../components/PlanCard'
@@ -18,15 +19,18 @@ import { rupiah, number } from '@/shared/lib/format'
 import { useAuth } from '@/shared/context/AuthContext'
 import { cn } from '@/shared/lib/cn'
 
-export function PageIntro({ title, body, children }: { title: string; body?: string; children?: React.ReactNode }) {
+export function PageIntro({ title, body, children, art }: { title: string; body?: string; children?: React.ReactNode; art?: string }) {
   return (
     <div className="border-b border-line bg-bg-subtle">
-      <div className="mx-auto grid max-w-[1360px] gap-3 px-4 py-8 md:px-6 md:py-12 lg:px-8">
-        <h1 className="t-h1 text-fg lg:text-[40px] lg:leading-[48px]" data-page-title tabIndex={-1}>
-          {title}
-        </h1>
-        {body && <p className="t-body max-w-[64ch] text-muted lg:text-lg lg:leading-7">{body}</p>}
-        {children}
+      <div className={cn('mx-auto max-w-[1360px] px-4 py-8 md:px-6 md:py-12 lg:px-8', art && 'grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_320px]')}>
+        <div className="grid gap-3">
+          <h1 className="t-h1 text-fg lg:text-[40px] lg:leading-[48px]" data-page-title tabIndex={-1}>
+            {title}
+          </h1>
+          {body && <p className="t-body max-w-[64ch] text-muted lg:text-lg lg:leading-7">{body}</p>}
+          {children}
+        </div>
+        {art && <img src={art} alt="" width={480} height={360} className="hidden w-full max-w-[320px] justify-self-end rounded-xl lg:block" />}
       </div>
     </div>
   )
@@ -42,7 +46,7 @@ export function FeaturesPage() {
   const list = FEATURES.filter((f) => group === 'all' || f.group === group)
   return (
     <>
-      <PageIntro title={t('features_page.title')} body={t('features_page.body')} />
+      <PageIntro title={t('features_page.title')} body={t('features_page.body')} art={img('features/generate-photo.svg')} />
       <div className={wrap}>
         <ChipRow
           label={t('features_page.title')}
@@ -59,6 +63,7 @@ export function FeaturesPage() {
           {list.map((f) => (
             <li key={f.slug}>
               <Link to={`/features/${f.slug}`} className="group grid h-full content-start gap-2 rounded-lg border border-line bg-surface p-4 transition-[border-color] duration-[120ms] hover:border-primary/50 md:p-5">
+                <img src={img(`features/${f.slug}.svg`)} alt="" width={480} height={360} className="mb-1 aspect-[4/3] w-full rounded-md bg-bg-subtle object-cover" loading="lazy" />
                 <span className="grid size-10 place-items-center rounded-md bg-primary-soft text-primary">
                   <f.icon className="size-5" aria-hidden />
                 </span>
@@ -87,7 +92,7 @@ export function FeatureDetailPage() {
   const points = ['p1', 'p2', 'p3']
   return (
     <>
-      <PageIntro title={t(`features.${f.key}`)} body={t(`features_desc.${f.key}`)}>
+      <PageIntro title={t(`features.${f.key}`)} body={t(`features_desc.${f.key}`)} art={img(`features/${f.slug}.svg`)}>
         <div className="flex flex-wrap gap-2 pt-2">
           <ButtonLink to={`/register?next=${encodeURIComponent(f.panel)}`}>{t('features_page.try', { name: t(`features.${f.key}`) })}</ButtonLink>
           <ButtonLink to="/pricing" variant="secondary">
@@ -150,7 +155,7 @@ export function PricingPage() {
   }, [])
   return (
     <>
-      <PageIntro title={t('pricing.title')} body={t('pricing.body')}>
+      <PageIntro title={t('pricing.title')} body={t('pricing.body')} art={img('pages/pricing.svg')}>
         <div className="pt-2">
           <Segmented
             label={t('pricing.cycle')}
@@ -238,7 +243,7 @@ export function AddonsPage() {
   }, [])
   return (
     <>
-      <PageIntro title={t('pricing.addons_title')} body={t('pricing.addons_body')} />
+      <PageIntro title={t('pricing.addons_title')} body={t('pricing.addons_body')} art={img('pages/pricing.svg')} />
       <div className={wrap}>{!addons ? <Skeleton className="h-60" /> : <AddonGrid addons={addons} />}</div>
     </>
   )
@@ -272,7 +277,7 @@ export function TemplatesPage() {
 
   return (
     <>
-      <PageIntro title={t('templates.title')} body={t('templates.body')} />
+      <PageIntro title={t('templates.title')} body={t('templates.body')} art={img('pages/templates.svg')} />
       <div className={wrap}>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
           <div className="relative">
@@ -372,6 +377,7 @@ export function NotFoundPage() {
   const [q, setQ] = useState('')
   return (
     <div className="mx-auto grid max-w-xl justify-items-center gap-4 px-4 py-16 text-center">
+      <Illustration kind="notfound" />
       <p className="t-mono text-muted">404</p>
       <h1 className="t-h1 text-fg" data-page-title tabIndex={-1}>
         {t('errors.not_found_title')}

@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useNavigation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getPref } from '@/shared/lib/prefs'
 import { cn } from '@/shared/lib/cn'
+import { LogoMark } from '@/shared/layout/Utilities'
 
 // Loading screen dua skema (Design Spec §12.2–12.3):
 // A Transparan: navigasi dalam panel yang sama, hanya menutup area konten.
@@ -160,10 +161,7 @@ export function DarkLoader({ elapsed, message, onRetry, onBack }: { elapsed: num
   return (
     <div className="anim-fade-in fixed inset-0 z-loader grid place-items-center bg-[var(--loader-solid)] text-[var(--on-dark)]" role="status" aria-busy="true" aria-live="polite">
       <div className="grid justify-items-center gap-4 px-6">
-        <svg width="48" height="48" viewBox="0 0 32 32" aria-hidden className={lightMode() ? '' : 'motion-safe:[animation:k-pulse_1.4s_ease-in-out_infinite]'}>
-          <rect width="32" height="32" rx="8" fill="var(--on-dark-accent)" />
-          <path d="M10 8v16M10 16l9-8M13 13l7 11" stroke="var(--loader-solid)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        </svg>
+        <LogoMark size={48} bg="var(--on-dark-accent)" fg="var(--loader-solid)" className={lightMode() ? '' : 'motion-safe:[animation:k-pulse_1.4s_ease-in-out_infinite]'} />
         <div className="h-[3px] w-40 overflow-hidden rounded-full bg-white/10" aria-hidden>
           <span className="block h-full w-2/5 rounded-full bg-[var(--on-dark-accent)] motion-safe:[animation:k-bar_1.1s_ease-in-out_infinite]" />
         </div>

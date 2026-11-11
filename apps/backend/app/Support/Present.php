@@ -130,6 +130,7 @@ class Present
             'status' => $t->status,
             'is_featured' => $t->is_featured,
             'palette' => $t->palette ?? [],
+            'art' => \Illuminate\Support\Str::slug((string) $t->title_id),
             'usage_count' => $t->usage_count,
             'description' => self::tr($t, 'description') ?? '',
         ];

@@ -18,6 +18,7 @@ import { EmptyState, Skeleton } from '@/shared/ui/States'
 import { Modal } from '@/shared/ui/Modal'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { TemplateCard, TemplatePreview } from '@/public-site/components/TemplateCard'
+import { previewStyle } from '@/shared/lib/assets'
 import { JobPreview } from './Studio'
 import { dateTime, relative } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
@@ -202,7 +203,7 @@ export function ProjectDetailPage() {
               <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 {p.data.jobs.map((j) => (
                   <li key={j.id} className="grid gap-2 rounded-lg border border-line bg-surface p-2">
-                    <button type="button" onClick={() => setPreview(j)} className="aspect-square rounded-md" style={j.result?.preview_palette ? { background: `linear-gradient(150deg, ${j.result.preview_palette[0]}, ${j.result.preview_palette[1]} 55%, ${j.result.preview_palette[2]})` } : undefined} aria-label={t('studio.view')} />
+                    <button type="button" onClick={() => setPreview(j)} className="aspect-square rounded-md bg-surface-2" style={previewStyle(j.result)} aria-label={t('studio.view')} />
                     <StatusChip status={j.status} />
                   </li>
                 ))}
@@ -247,7 +248,7 @@ export function AssetsPage() {
           <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
             {list.data.map((a) => (
               <li key={a.id} className="grid gap-1.5 rounded-lg border border-line bg-surface p-2">
-                <button type="button" disabled={!a.job} onClick={() => a.job && setPreview(a.job)} className="aspect-square rounded-md bg-surface-2" style={a.job?.result?.preview_palette ? { background: `linear-gradient(150deg, ${a.job.result.preview_palette[0]}, ${a.job.result.preview_palette[1]} 55%, ${a.job.result.preview_palette[2]})` } : undefined} aria-label={a.name} />
+                <button type="button" disabled={!a.job} onClick={() => a.job && setPreview(a.job)} className="aspect-square rounded-md bg-surface-2" style={previewStyle(a.job?.result)} aria-label={a.name} />
                 <p className="t-small truncate font-semibold text-fg">{a.name}</p>
                 <p className="t-small text-muted">{relative(a.created_at)}</p>
               </li>

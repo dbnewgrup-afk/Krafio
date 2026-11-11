@@ -1,15 +1,19 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Crown } from 'lucide-react'
 import type { TemplateItem } from '@/api-client/types'
 import { cn } from '@/shared/lib/cn'
+import { img } from '@/shared/lib/assets'
 
 const RATIO: Record<string, number> = { '1:1': 1, '4:5': 0.8, '9:16': 0.5625, '16:9': 1.7778, '4:3': 1.3333 }
 
-/** Isi visual template (konten milik template, tidak ikut tema — §4.3). */
+/** Isi visual template (konten milik template, tidak ikut tema — §4.3): gambar pratinjau bila tersedia, bentuk palet bila tidak. */
 function Art({ item }: { item: TemplateItem }) {
+  const [broken, setBroken] = useState(false)
   const [a, b, c] = item.palette.length >= 3 ? item.palette : ['#E2E8F0', '#94A3B8', '#0F172A']
   const layout = item.id % 3
+  if (item.art && !broken) return <img src={img(`templates/${item.art}.svg`)} alt="" draggable={false} loading="lazy" onError={() => setBroken(true)} className="h-full w-full object-cover" />
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ background: a }}>
       {layout === 0 && (

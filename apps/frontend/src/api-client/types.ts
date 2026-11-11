@@ -86,6 +86,8 @@ export interface TemplateItem {
   palette: string[]
   usage_count: number
   description: string
+  /** Slug gambar pratinjau di /assets/img/templates/<art>.svg (opsional) */
+  art?: string
 }
 
 export interface LegalDoc {
@@ -113,7 +115,7 @@ export interface AiJob {
   status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled'
   progress: number
   cost: number
-  result: { preview_palette?: string[]; text?: string; items?: string[]; note?: string } | null
+  result: { preview_palette?: string[]; preview_images?: string[]; text?: string; items?: string[]; note?: string } | null
   error: string | null
   created_at: string
   completed_at: string | null

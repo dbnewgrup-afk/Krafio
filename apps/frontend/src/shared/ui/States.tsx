@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { cn } from '@/shared/lib/cn'
+import { img } from '@/shared/lib/assets'
 import { Button } from './Button'
 
 export function Skeleton({ className }: { className?: string }) {
@@ -20,34 +21,11 @@ export function SkeletonRows({ rows = 8 }: { rows?: number }) {
   )
 }
 
-export type IllustrationKind = 'empty' | 'filter' | 'locked' | 'error' | 'clock' | 'notfound'
+export type IllustrationKind = 'empty' | 'filter' | 'locked' | 'error' | 'clock' | 'notfound' | 'offline' | 'maintenance'
 
-/** Ilustrasi SVG ringan mengikuti token warna (§3.5, §17.3) */
-export function Illustration({ kind }: { kind: IllustrationKind }) {
-  return (
-    <svg width="96" height="72" viewBox="0 0 96 72" aria-hidden className="text-primary">
-      <rect x="8" y="14" width="80" height="50" rx="10" fill="currentColor" opacity=".1" />
-      <rect x="18" y="24" width="38" height="6" rx="3" fill="currentColor" opacity=".35" />
-      <rect x="18" y="36" width="56" height="5" rx="2.5" fill="currentColor" opacity=".18" />
-      <rect x="18" y="46" width="44" height="5" rx="2.5" fill="currentColor" opacity=".18" />
-      {kind === 'locked' && <path d="M66 6a8 8 0 0 1 8 8v4h2a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H56a3 3 0 0 1-3-3V21a3 3 0 0 1 3-3h2v-4a8 8 0 0 1 8-8Zm0 5a3 3 0 0 0-3 3v4h6v-4a3 3 0 0 0-3-3Z" fill="currentColor" />}
-      {kind === 'filter' && <path d="M60 4h28l-11 13v11l-6 4V17L60 4Z" fill="currentColor" opacity=".8" />}
-      {kind === 'error' && <path d="M72 4 90 34H54L72 4Zm-2 11v9h4v-9h-4Zm0 12v4h4v-4h-4Z" fill="currentColor" opacity=".85" />}
-      {kind === 'clock' && (
-        <g>
-          <circle cx="72" cy="20" r="14" fill="currentColor" opacity=".85" />
-          <path d="M72 12v9l6 4" stroke="var(--surface)" strokeWidth="3" fill="none" strokeLinecap="round" />
-        </g>
-      )}
-      {kind === 'notfound' && (
-        <g>
-          <circle cx="70" cy="18" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-          <path d="m77 25 9 9" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-        </g>
-      )}
-      {kind === 'empty' && <rect x="62" y="6" width="22" height="22" rx="5" fill="currentColor" opacity=".7" />}
-    </svg>
-  )
+/** Ilustrasi vektor ringan (public/assets/img/states), warna mid-tone agar aman di light & dark (§3.5, §17.3) */
+export function Illustration({ kind, className }: { kind: IllustrationKind; className?: string }) {
+  return <img src={img(`states/${kind}.svg`)} alt="" width={160} height={120} draggable={false} className={cn('select-none', className)} />
 }
 
 export function EmptyState({ kind = 'empty', title, body, action, className }: { kind?: IllustrationKind; title: string; body?: ReactNode; action?: ReactNode; className?: string }) {
