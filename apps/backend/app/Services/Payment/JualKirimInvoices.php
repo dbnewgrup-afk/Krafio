@@ -184,6 +184,26 @@ class JualKirimInvoices
         Billing::markPaid($p->id, array_merge($p->gateway_payload ?? [], $meta));
     }
 
+    /**
+     * Hapus invoice di JualKirim saat pelanggan membatalkan tagihan (spec: hanya draft/cancelled yang bisa dihapus;
+     * invoice buatan API berstatus draft). Gagal hapus → tagihan tidak dibatalkan agar uang tidak tersangkut.
+     */
+    public static function cancelRemote(Payment $p): void
+    {
+        $ref = $p->gateway_payload['gateway_ref'] ?? null;
+        if (! $ref) {
+            return;
+        }
+        try {
+            JualKirim::invoices()->delete($ref);
+        } catch (JualKirimException $e) {
+            if ($e->status === 404) {
+                return; // sudah tidak ada di JualKirim
+            }
+            throw new ApiException('not_cancellable', 'Tagihan tidak dapat dibatalkan di payment gateway saat ini. Coba lagi nanti.', 422);
+        }
+    }
+
     /** Dipanggil scheduler tiap menit. Kegagalan satu invoice tidak menghentikan yang lain. */
     public static function syncPending(): int
     {

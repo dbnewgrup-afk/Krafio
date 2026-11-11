@@ -23,6 +23,8 @@ import { cn } from '@/shared/lib/cn'
 import { WalletShowcase } from '@/shared/ui/card-showcase/WalletShowcase'
 import { usePaymentStatus } from '@/shared/billing/usePaymentStatus'
 import { PaymentWaitNote } from '@/shared/billing/PaymentWaitNote'
+import { CancelInvoiceButton } from '@/shared/billing/CancelInvoiceButton'
+import { PendingInvoices } from '@/shared/billing/PendingInvoices'
 
 function BalanceCards() {
   const { t } = useTranslation()
@@ -65,6 +67,7 @@ export function WalletPage() {
   return (
     <>
       <PageHeader title={t('user.nav.balance')} subtitle={t('wallet.subtitle')} crumbs={[{ label: t('user.nav.wallet') }, { label: t('user.nav.balance') }]} />
+      <PendingInvoices />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <WalletShowcase area="user" />
         <div className="grid content-start gap-4"><BalanceCards /></div>
@@ -173,6 +176,7 @@ export function TopupPage() {
                     {t('billing.go_to_payment')}
                   </a>
                   <PaymentWaitNote status={payStatus} />
+                  <CancelInvoiceButton paymentId={invoice.id} onDone={(st) => { if (st === 'paid') void refresh(); nav('/app/wallet') }} />
                 </>
               )}
               {invoice.simulate && (

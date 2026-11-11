@@ -65,10 +65,8 @@ class WorkspaceController extends Controller
             'name' => 'required|string|max:120', 'business' => 'required|string|max:1000', 'services' => 'nullable|string|max:1000',
             'subdomain' => ['required', 'regex:/^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$/', 'unique:websites,subdomain', 'not_in:www,admin,app,api,mail,status,assets'],
         ], ['subdomain.unique' => 'Subdomain sudah dipakai.', 'subdomain.regex' => 'Gunakan huruf kecil, angka, dan tanda hubung (3–63 karakter).']);
-        $limit = (int) (($u->activeSubscription()?->snapshot['limits']['websites'] ?? 1));
-        if (Website::where('user_id', $u->id)->count() >= max(1, $limit)) {
-            throw new ApiException('quota_exceeded', 'Batas jumlah website pada paket Anda tercapai.', 403, ['feature' => 'website.builder']);
-        }
+        // Paket + add-on "website-extra" (sebelumnya add-on tidak terhitung)
+        Entitlements::ensureCount($u, 'websites', Website::where('user_id', $u->id)->count(), 1, 'website.builder', 'jumlah website');
         $services = array_values(array_filter(array_map('trim', preg_split('/[\n,]/', (string) ($data['services'] ?? '')))));
         $w = Website::create([
             'user_id' => $u->id, 'name' => $data['name'], 'subdomain' => $data['subdomain'], 'status' => 'draft',
@@ -116,6 +114,11 @@ class WorkspaceController extends Controller
     public function publishWebsite(Request $r, Website $website)
     {
         abort_unless($website->user_id === $r->user()->id, 404);
+        Entitlements::ensure($r->user(), 'website.builder', 0);
+        // Paket Free: website builder hanya pratinjau (PRD 55.2.1 "Preview")
+        if (! empty(Entitlements::grants($r->user())['limits']['website_preview_only'])) {
+            throw new ApiException('plan_limit', 'Paket Anda hanya dapat membuat pratinjau website. Upgrade untuk mempublikasikan.', 403, ['feature' => 'website.builder']);
+        }
         $content = $this->validContent($r);
         $issues = [];
         $seoT = mb_strlen($content['seo']['title'] ?? '');
@@ -206,6 +209,10 @@ class WorkspaceController extends Controller
     {
         abort_unless(isset(self::PLATFORMS[$platform]), 404);
         Entitlements::ensure($r->user(), 'social.integrations', 0);
+        $connected = SocialAccount::where('user_id', $r->user()->id);
+        if (! (clone $connected)->where('platform', $platform)->exists()) { // menyambung ulang platform yang sama tidak menambah jumlah
+            Entitlements::ensureCount($r->user(), 'social_accounts', (clone $connected)->count(), 1, 'social.integrations', 'akun sosial');
+        }
         if (! Settings::get(self::PLATFORMS[$platform]['setting'], false)) {
             throw new ApiException('integration_not_available', 'Integrasi ini belum tersedia. Admin perlu mengonfigurasi aplikasi resmi platform terlebih dahulu.', 422);
         }

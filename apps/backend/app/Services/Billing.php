@@ -333,9 +333,22 @@ class Billing
                 Messenger::notify($u, 'topup_success', ['amount' => 'Rp'.number_format($p->amount, 0, ',', '.'), 'reference' => $p->reference], 'Top-up berhasil', 'Saldo top-up bertambah Rp'.number_format($p->amount, 0, ',', '.').'.', '/app/wallet');
             } else {
                 $kind = $p->purpose === 'subscription' ? 'plan' : $p->purpose;
-                $item = self::resolve($u, $kind, $p->purpose_code, $p->cycle);
-                self::activate($u, $item, (int) $p->amount, $p->id, $p->pricing['coupon'] ?? null);
-                self::finalizeCoupon($redemption, true);
+                try {
+                    DB::transaction(function () use ($u, $kind, $p) { // savepoint: aktivasi parsial ikut batal
+                        $item = self::resolve($u, $kind, $p->purpose_code, $p->cycle);
+                        self::activate($u, $item, (int) $p->amount, $p->id, $p->pricing['coupon'] ?? null);
+                    });
+                    self::finalizeCoupon($redemption, true);
+                } catch (ApiException|\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                    // Uang sudah diterima tetapi item tidak dapat diaktifkan (paket/add-on dinonaktifkan, konflik add-on, dll.)
+                    // → kompensasi otomatis ke saldo top-up dan tercatat (PRD 5.4).
+                    self::finalizeCoupon($redemption, false);
+                    Wallet::post($u->id, 'topup', 'credit', (int) $p->amount, 'Kompensasi '.$p->reference.' (aktivasi gagal)', ['payment_compensation', $p->id]);
+                    $p->update(['gateway_payload' => array_merge($p->gateway_payload ?? [], ['activation_failed' => $e instanceof ApiException ? $e->errorCode : 'item_unavailable'])]);
+                    $u->notify(new Notice('Pembayaran dialihkan ke saldo', 'Item pada '.$p->reference.' tidak dapat diaktifkan. Rp'.number_format($p->amount, 0, ',', '.').' dikembalikan ke saldo top-up Anda.', 'transaction', '/app/wallet'));
+                    \Illuminate\Support\Facades\Notification::send(User::where('role', 'admin')->get(), new Notice('Aktivasi pembayaran gagal', $p->reference.': dana dikembalikan ke saldo top-up pengguna.', 'billing', '/admin/finance/payments'));
+                    Audit::log('payment.activation_failed', $p, ['amount' => (int) $p->amount, 'reason' => $e->getMessage()], $u->id);
+                }
             }
             Audit::log('payment.paid', $p, ['amount' => $p->amount], $u->id);
         });
@@ -409,7 +422,8 @@ class Billing
                     continue;
                 }
                 try {
-                    $item = self::resolve($u, 'plan', $targetCode, $cycle);
+                    // Custom package (Enterprise) diperpanjang sebagai custom, bukan sebagai plan katalog
+                    $item = self::resolve($u, $s->source === 'custom' && ! $s->scheduled_plan_code ? 'custom' : 'plan', $targetCode, $cycle);
                     $price = $item['price'];
                     if ($s->promo && ($s->promo['duration'] === 'forever' || ($s->promo['months_left'] ?? 0) > 0)) {
                         $disc = $s->promo['type'] === 'percent' ? min((int) floor($price * $s->promo['value'] / 100), $s->promo['max_discount'] ?: PHP_INT_MAX) : ($s->promo['type'] === 'fixed' ? min($price, $s->promo['value']) : 0);
@@ -425,9 +439,11 @@ class Billing
                             $u->activeSubscription()?->update(['promo' => array_merge($s->promo, ['months_left' => max(0, ($s->promo['months_left'] ?? 0) - 1)])]);
                         }
                     });
-                } catch (ApiException $e) {
+                } catch (ApiException|\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                    // Saldo kurang, atau paket/custom package sudah tidak tersedia → past_due (satu langganan gagal tidak menghentikan yang lain)
                     $s->update(['status' => 'past_due']);
-                    $u->notify(new Notice('Perpanjangan gagal', 'Saldo top-up tidak cukup untuk memperpanjang '.$s->plan_name.'.', 'transaction', '/app/wallet/topup'));
+                    $insufficient = $e instanceof ApiException && $e->errorCode === 'insufficient_balance';
+                    $u->notify(new Notice('Perpanjangan gagal', $insufficient ? 'Saldo top-up tidak cukup untuk memperpanjang '.$s->plan_name.'.' : 'Paket '.$s->plan_name.' tidak dapat diperpanjang otomatis. Silakan pilih paket di halaman Langganan.', 'transaction', $insufficient ? '/app/wallet/topup' : '/app/subscription'));
                 }
             }
         }

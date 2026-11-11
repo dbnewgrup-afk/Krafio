@@ -15,6 +15,7 @@ class CustomPackage extends Model
         return [
             'features' => 'array',
             'quotas' => 'array',
+            'limits' => 'array',
         ];
     }
 }

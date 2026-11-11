@@ -1156,7 +1156,21 @@
   "waiting_payment": "Menunggu pembayaran. Halaman ini diperbarui otomatis setelah pembayaran dikonfirmasi.",
   "payment_failed": "Pembayaran gagal atau ditolak. Silakan buat pesanan baru.",
   "payment_expired": "Tagihan kedaluwarsa. Silakan buat pesanan baru.",
-  "renewed_hint": "Sudah diperpanjang. Periode berjalan sampai {{date}}."
+  "renewed_hint": "Sudah diperpanjang. Periode berjalan sampai {{date}}.",
+  "cancel_invoice": "Batalkan tagihan",
+  "cancel_confirm": "Batalkan tagihan ini? Link pembayarannya tidak bisa dipakai lagi.",
+  "cancel_yes": "Ya, batalkan",
+  "invoice_cancelled": "Tagihan dibatalkan.",
+  "already_paid": "Tagihan ini ternyata sudah dibayar.",
+  "pending_exists_title": "Masih ada tagihan paket",
+  "pending_exists_note": "Selesaikan pembayaran tagihan paket ini atau batalkan dulu sebelum memilih paket lain.",
+  "pending_title": "Tagihan belum dibayar",
+  "pay_now": "Bayar",
+  "pay_before": "bayar sebelum {{date}}",
+  "purpose_subscription": "Paket",
+  "purpose_addon": "Add-on",
+  "purpose_custom": "Custom package",
+  "purpose_topup": "Top-up saldo"
  },
  "affiliate_user": {
   "subtitle": "Bagikan tautan dan pantau komisi Anda.",
@@ -1791,7 +1805,7 @@
   },
   "hint": {
    "quotas_hint": "JSON. Contoh: {\"credits\": 300, \"chatbot.basic\": 30, \"content.brainstorm\": 30, \"seo.basic\": 20}",
-   "limits_hint": "JSON. Contoh: {\"projects\": 3, \"websites\": 1, \"storage_mb\": 5120, \"video_max_seconds\": 5, \"parallel_jobs\": 2}",
+   "limits_hint": "JSON batas Enterprise. Contoh: {\"projects\": 100, \"websites\": 20, \"social_accounts\": 30, \"storage_mb\": 204800, \"parallel_jobs\": 8, \"photo_max_px\": 4096, \"video_max_seconds\": 30, \"clipper_max_minutes\": 240}",
    "grants_hint": "JSON. Kredit: {\"credits\": 200}; batas: {\"limits.storage_mb\": 20480}; fitur: {\"seo.advanced\": 50}",
    "plan_codes_hint": "Pisahkan dengan koma. Kosongkan untuk semua paket.",
    "offered_to_hint": "Kosongkan agar tersedia untuk semua user.",

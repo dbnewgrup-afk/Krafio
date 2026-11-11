@@ -144,6 +144,8 @@ class DashboardShowcaseTest extends KrafioTestCase
         $this->actingUser($u);
         $cards = $this->json_('GET', '/app/wallet/cards')->assertOk();
         $this->assertSame([250000, 120000], collect($cards->json('data'))->pluck('amount')->all());
+        // Duplikat butuh slot proyek kedua → paket Starter (Free hanya 1 proyek, PRD 55.2)
+        $this->json_('POST', '/app/orders', ['kind' => 'plan', 'code' => 'starter', 'cycle' => 'monthly', 'source' => 'balance'])->assertOk();
 
         $p = $this->json_('POST', '/app/projects', ['name' => 'Katalog Lebaran', 'type' => 'photo'])->assertCreated();
         $id = $p->json('data.id');

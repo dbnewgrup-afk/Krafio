@@ -15,6 +15,7 @@ import { dateTime, rupiah } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
 import { usePaymentStatus } from '@/shared/billing/usePaymentStatus'
 import { PaymentWaitNote } from '@/shared/billing/PaymentWaitNote'
+import { CancelInvoiceButton } from '@/shared/billing/CancelInvoiceButton'
 
 export interface CheckoutItem {
   kind: 'plan' | 'addon' | 'custom'
@@ -40,7 +41,7 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
   const [quote, setQuote] = useState<Quote | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [pending, setPending] = useState<{ id: number; reference: string; amount: number; simulate: boolean; redirect_url?: string | null } | null>(null)
+  const [pending, setPending] = useState<{ id: number; reference: string; amount: number; simulate: boolean; redirect_url?: string | null; existing?: boolean } | null>(null)
   const [key] = useState(() => newIdempotencyKey())
   const payStatus = usePaymentStatus(pending?.id, !!pending?.redirect_url && !pending?.simulate)
 
@@ -88,6 +89,12 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
       onDone()
       onClose()
     } catch (e) {
+      // Masih ada tagihan paket lain yang belum dibayar → tampilkan tagihan itu (bayar atau batalkan)
+      const open = e instanceof ApiError && e.code === 'pending_payment_exists' ? (e.data as { payment?: { id: number; reference: string; amount: number; redirect_url?: string | null } } | undefined)?.payment : undefined
+      if (open) {
+        setPending({ ...open, simulate: false, existing: true })
+        return
+      }
       setErr(e instanceof ApiError ? (e.code === 'insufficient_balance' ? t('billing.insufficient') : e.fields.coupon?.[0] ?? e.message) : t('errors.server_body'))
     } finally {
       setBusy(false)
@@ -97,8 +104,9 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
 
   if (pending)
     return (
-      <Modal open onClose={() => { onDone(); onClose() }} size="confirm" title={t('billing.invoice_created')}>
+      <Modal open onClose={() => { onDone(); onClose() }} size="confirm" title={t(pending.existing ? 'billing.pending_exists_title' : 'billing.invoice_created')}>
         <div className="grid gap-3">
+          {pending.existing && <p className="t-small rounded-md bg-warning/10 p-3 text-fg">{t('billing.pending_exists_note')}</p>}
           <p className="t-body text-muted">{t('billing.invoice_body', { amount: rupiah(pending.amount) })}</p>
           <p className="t-mono text-fg">{pending.reference}</p>
           {pending.redirect_url && (
@@ -107,6 +115,7 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
                 {t('billing.go_to_payment')}
               </a>
               <PaymentWaitNote status={payStatus} />
+              <CancelInvoiceButton paymentId={pending.id} onDone={(st) => { if (st === 'paid') void refresh(); onDone(); onClose() }} />
             </>
           )}
           {pending.simulate && (

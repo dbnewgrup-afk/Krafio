@@ -122,6 +122,21 @@ class Entitlements
         return $e;
     }
 
+    /**
+     * Batas jumlah struktural (PRD 55.2: proyek, website, akun sosial, storage) dari paket + add-on.
+     * Item yang sudah ada saat downgrade tidak dihapus (BR-025); hanya penambahan baru yang ditolak.
+     */
+    public static function ensureCount(User $user, string $limitKey, int $current, int $adding, string $feature, string $label): void
+    {
+        $max = self::limit($user, $limitKey, 0);
+        if ($current + $adding > $max) {
+            $msg = $max <= 0
+                ? "{$label} belum termasuk paket Anda."
+                : "Batas {$label} pada paket Anda sudah tercapai (maks. {$max}). Upgrade paket atau beli add-on untuk menambah.";
+            throw new ApiException($max <= 0 ? 'feature_locked' : 'quota_exceeded', $msg, 403, ['feature' => $feature, 'limit' => $limitKey, 'max' => $max]);
+        }
+    }
+
     /** Konsumsi limit teks secara atomik (kredit media memakai Credits::consume). */
     public static function consume(User $user, string $key, int $amount): void
     {

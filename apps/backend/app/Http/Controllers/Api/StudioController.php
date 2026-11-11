@@ -226,6 +226,9 @@ class StudioController extends Controller
         if (str_starts_with($f->getMimeType(), 'image/') && $f->getSize() > 10 * 1024 * 1024) {
             throw new ApiException('validation_failed', 'Gambar maksimal 10 MB.', 422, [], ['file' => ['Gambar maksimal 10 MB.']]);
         }
+        // Kuota storage paket + add-on storage (PRD 55.2 "Storage"), dalam MB
+        $usedMb = (int) ceil(Upload::where('user_id', $r->user()->id)->sum('size') / 1048576);
+        Entitlements::ensureCount($r->user(), 'storage_mb', $usedMb, (int) ceil($f->getSize() / 1048576), 'storage', 'storage (MB)');
         $path = $f->store('uploads/'.$r->user()->id, 'local');
         $up = Upload::create(['user_id' => $r->user()->id, 'disk' => 'local', 'path' => $path, 'original_name' => mb_substr($f->getClientOriginalName(), 0, 200), 'mime' => $f->getMimeType(), 'size' => $f->getSize()]);
 
@@ -270,6 +273,7 @@ class StudioController extends Controller
         if ($tpl && $tpl->is_premium) {
             Entitlements::ensure($r->user(), 'templates.premium', 0);
         }
+        $this->ensureProjectSlot($r->user());
         $p = Project::create(['user_id' => $r->user()->id, 'name' => $data['name'], 'type' => $data['type'], 'template_id' => $tpl?->id]);
         $tpl?->increment('usage_count');
 
@@ -314,6 +318,7 @@ class StudioController extends Controller
     public function duplicateProject(Request $r, Project $project)
     {
         abort_unless($project->user_id === $r->user()->id, 404);
+        $this->ensureProjectSlot($r->user());
         $copy = $project->replicate();
         $copy->name = mb_substr($project->name.' (salinan)', 0, 120);
         $copy->save();
@@ -324,9 +329,16 @@ class StudioController extends Controller
     public function restoreProject(Request $r, int $id)
     {
         $p = Project::onlyTrashed()->where('user_id', $r->user()->id)->findOrFail($id);
+        $this->ensureProjectSlot($r->user());
         $p->restore();
 
         return ['data' => $this->project($p->load('template'))];
+    }
+
+    /** Batas jumlah proyek aktif per paket (PRD 55.2 "Proyek"); proyek di tempat sampah tidak dihitung. */
+    private function ensureProjectSlot(\App\Models\User $u): void
+    {
+        Entitlements::ensureCount($u, 'projects', Project::where('user_id', $u->id)->count(), 1, 'projects', 'jumlah proyek');
     }
 
     public function deleteProject(Request $r, Project $project)

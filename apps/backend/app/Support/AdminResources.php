@@ -27,7 +27,10 @@ class AdminResources
             ]],
             'custom-packages' => ['model' => Models\CustomPackage::class, 'search' => ['code', 'name'], 'filters' => ['status'], 'sort' => ['price', 'created_at'], 'rules' => [
                 'code' => 'required|alpha_dash|max:40', 'name' => 'required|string|max:120', 'description' => 'nullable|string|max:1000', 'price' => 'required|integer|min:0', 'duration_days' => 'required|integer|min:1',
-                'features' => 'array', 'quotas' => 'array', 'offered_to' => 'nullable|integer|exists:users,id', 'status' => 'required|in:draft,published,archived',
+                // Enterprise: fitur bebas dipilih admin, tetapi hanya dari daftar entitlement yang dikenal sistem
+                'features' => 'array', 'features.*' => 'string|in:'.implode(',', \App\Services\Entitlements::KEYS),
+                'quotas' => 'array', 'quotas.*' => 'integer|min:0', 'limits' => 'nullable|array',
+                'offered_to' => 'nullable|integer|exists:users,id', 'status' => 'required|in:draft,published,archived',
             ]],
             // Kupon & promo (PRD 55.4.2) — seluruh perubahan tercatat audit (55.4.3 butir 10)
             'coupons' => ['model' => Models\Coupon::class, 'search' => ['code', 'name'], 'filters' => ['is_active', 'type', 'auto_apply', 'campaign'], 'sort' => ['created_at', 'used', 'ends_at'], 'rules' => [

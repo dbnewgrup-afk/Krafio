@@ -65,7 +65,7 @@ export const RESOURCES: Record<string, ResourceDef> = {
     filters: [{ key: 'status', options: ['draft', 'published', 'archived'] }],
     fields: [
       { name: 'code', type: 'text', required: true }, { name: 'name', type: 'text', required: true }, { name: 'description', type: 'textarea' }, { name: 'price', type: 'money', required: true }, { name: 'duration_days', type: 'number', required: true },
-      { name: 'features', type: 'features', options: ENT }, { name: 'quotas', type: 'json', hint: 'quotas_hint' }, { name: 'offered_to', type: 'number', hint: 'offered_to_hint' }, { name: 'status', type: 'select', options: ['draft', 'published', 'archived'], required: true },
+      { name: 'features', type: 'features', options: ENT }, { name: 'quotas', type: 'json', hint: 'quotas_hint' }, { name: 'limits', type: 'json', hint: 'limits_hint' }, { name: 'offered_to', type: 'number', hint: 'offered_to_hint' }, { name: 'status', type: 'select', options: ['draft', 'published', 'archived'], required: true },
     ],
   },
   coupons: {

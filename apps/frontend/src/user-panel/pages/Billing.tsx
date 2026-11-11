@@ -17,6 +17,7 @@ import { EmptyState, Skeleton } from '@/shared/ui/States'
 import { Carousel } from '@/shared/ui/Carousel'
 import { PlanCard } from '@/public-site/components/PlanCard'
 import { CheckoutModal, type CheckoutItem } from './Checkout'
+import { PendingInvoices } from '@/shared/billing/PendingInvoices'
 import { dateTime, number, rupiah } from '@/shared/lib/format'
 
 /** Kredit, trial, perpanjangan otomatis, perubahan terjadwal (PRD 55.1, 55.4.1, 55.5). */
@@ -119,6 +120,7 @@ export function SubscriptionPage() {
   return (
     <>
       <PageHeader title={t('user.nav.my_plan')} subtitle={t('billing.sub_subtitle')} crumbs={[{ label: t('user.nav.subscription') }, { label: t('user.nav.my_plan') }]} />
+      <PendingInvoices onChange={sub.reload} />
       {!sub.data ? (
         <Skeleton className="h-28" />
       ) : cur ? (

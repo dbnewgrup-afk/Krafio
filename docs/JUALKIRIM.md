@@ -48,6 +48,14 @@ Tombol **Uji koneksi** memanggil `/me` dan mencocokkan API key, tanpa membuat tr
    - **`manual`**: setiap tagihan masuk **Approval → Approval pembayaran**. Polling tetap berjalan tetapi hanya memberi label "Lunas di JualKirim" di approval dan notifikasi admin. Admin mengecek dana di dashboard JualKirim lalu **Setujui** (aktif, termasuk bila tagihan Krafio sudah kedaluwarsa) atau **Tolak** dengan alasan (pembayaran gagal, kupon dilepas, pelanggan diberi notifikasi). Approval tertutup otomatis bila tagihan kedaluwarsa atau dibatalkan tanpa pembayaran.
 5. Webhook: spec belum menyediakan webhook. Rute `POST /api/webhooks/payment/jualkirim` sudah ada (verifikasi HMAC `X-Signature` dengan secret setting `payment.webhook_secret.jualkirim`, field `reference`/`status`/`amount`) dan **menghormati mode auto/manual**. Bila JualKirim kelak merilis webhook dengan format berbeda, cukup sesuaikan verifikasinya di `BillingController::webhook`.
 
+Aturan tagihan (berlaku untuk semua gateway):
+- Klik bayar berulang untuk item & nominal yang sama memakai tagihan yang sudah ada (tidak membuat invoice ganda). Top-up dengan nominal sama juga demikian.
+- Hanya **satu tagihan paket** (plan/custom) yang boleh terbuka per akun. Checkout paket lain saat masih ada tagihan paket → `409 pending_payment_exists`; modal menampilkan tagihan lama untuk dibayar atau dibatalkan. Add-on boleh dibeli terpisah.
+- Pelanggan bisa **membatalkan** tagihan (`POST /api/app/payments/{id}/cancel`, tombol di modal dan banner "Tagihan belum dibayar" di halaman Langganan & Saldo). Untuk JualKirim, status dicek dulu (bila ternyata sudah lunas → diaktifkan) lalu invoice dihapus agar link bayar mati; kupon yang di-reserve dilepas.
+- Gateway menolak saat membuat tagihan (mis. HP kosong, < Rp25.000) → payment ditandai `failed` dan kupon dilepas; tidak ada tagihan yatim.
+- Pembayaran masuk tetapi item tidak bisa diaktifkan (paket/add-on dinonaktifkan, konflik add-on) → **kompensasi otomatis** ke saldo top-up, notifikasi ke user & admin, audit `payment.activation_failed` (PRD 5.4).
+- Pembayaran yang masuk setelah tagihan dibatalkan/kedaluwarsa tidak diaktifkan diam-diam; admin diberi notifikasi `payment.late_paid`.
+
 Pengaman:
 - Nominal invoice berbeda dari nominal Krafio → tidak pernah diaktifkan otomatis; dicatat di audit log `payment.mismatch` dan approval diberi label "Nominal tidak cocok".
 - Pelanggan membayar setelah tagihan Krafio kedaluwarsa (mode auto) → tidak diaktifkan otomatis; admin diberi notifikasi `payment.late_paid` untuk tindak lanjut manual.

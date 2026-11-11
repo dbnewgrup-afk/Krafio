@@ -89,6 +89,18 @@ class BillingController extends Controller
         $final = $q['final'];
 
         if ($data['source'] === 'gateway' && $final > 0) {
+            $open = Payment::where('user_id', $u->id)->where('status', 'pending')->where('purpose', '!=', 'topup')
+                ->where(fn ($w) => $w->whereNull('expires_at')->orWhere('expires_at', '>', now()))->latest('id')->get();
+            // Klik "bayar" berulang untuk item & nominal yang sama → pakai tagihan yang sudah ada (tanpa invoice ganda)
+            $same = $open->first(fn ($o) => $o->purpose === $purpose && $o->purpose_code === $data['code'] && $o->cycle === $item['cycle'] && (int) $o->amount === $final && ! empty($o->gateway_payload['redirect_url']));
+            if ($same) {
+                return ['data' => ['status' => 'pending_payment', 'payment' => self::paymentData($same), 'simulate' => $this->canSimulate(), 'reused' => true]];
+            }
+            // Satu tagihan paket (plan/custom) terbuka per akun: hindari dua paket berbeda sama-sama dibayar
+            $plan = in_array($purpose, ['subscription', 'custom'], true) ? $open->first(fn ($o) => in_array($o->purpose, ['subscription', 'custom'], true)) : null;
+            if ($plan) {
+                throw new ApiException('pending_payment_exists', 'Masih ada tagihan paket yang belum dibayar ('.$plan->reference.'). Selesaikan atau batalkan dulu.', 409, ['payment' => self::paymentData($plan)]);
+            }
             $p = Billing::newPayment($u, $purpose, $data['code'], $item['cycle'], $final, 'gateway', $idem, $q);
             Billing::reserveCoupon($u, $q['coupon'], $q['discount'], $p->id); // BR-031
             $gw = $this->openGateway($p, $u, 'Krafio '.$item['name']);
@@ -206,6 +218,12 @@ class BillingController extends Controller
         $data = $r->validate(['amount' => "required|integer|min:{$min}|max:{$max}", 'method' => 'required|in:va,ewallet,qris'], [
             'amount.min' => 'Minimal top-up Rp'.number_format($min, 0, ',', '.').'.', 'amount.max' => 'Maksimal top-up Rp'.number_format($max, 0, ',', '.').' per transaksi.',
         ]);
+        // Top-up nominal sama yang masih menunggu dibayar → pakai tagihan yang ada (hindari invoice ganda)
+        $same = Payment::where('user_id', $r->user()->id)->where('purpose', 'topup')->where('status', 'pending')->where('amount', (int) $data['amount'])
+            ->where(fn ($w) => $w->whereNull('expires_at')->orWhere('expires_at', '>', now()))->latest('id')->first();
+        if ($same && ! empty($same->gateway_payload['redirect_url'])) {
+            return response()->json(['data' => ['id' => $same->id, 'reference' => $same->reference, 'amount' => (int) $same->amount, 'status' => $same->status, 'redirect_url' => $same->gateway_payload['redirect_url'], 'simulate' => $this->canSimulate(), 'reused' => true]], 200);
+        }
         $p = Billing::newPayment($r->user(), 'topup', null, null, (int) $data['amount'], $data['method'], $r->header('Idempotency-Key'));
         Audit::log('wallet.topup_created', $p, ['amount' => $p->amount]);
         $gw = $this->openGateway($p, $r->user(), 'Top-up saldo Krafio');
@@ -213,16 +231,73 @@ class BillingController extends Controller
         return response()->json(['data' => ['id' => $p->id, 'reference' => $p->reference, 'amount' => (int) $p->amount, 'status' => $p->status, 'redirect_url' => $gw['redirect_url'], 'simulate' => $this->canSimulate()]], 201);
     }
 
-    /** Buat tagihan di gateway aktif (sekali per payment; idempoten lewat gateway_payload). */
+    /**
+     * Buat tagihan di gateway aktif (sekali per payment; idempoten lewat gateway_payload).
+     * Bila gateway menolak, payment ditandai gagal dan reservasi kupon dilepas — tidak ada tagihan yatim.
+     */
     private function openGateway(Payment $p, $u, string $desc): array
     {
         if (! empty($p->gateway_payload['redirect_url'])) {
             return ['redirect_url' => $p->gateway_payload['redirect_url']];
         }
-        $res = PaymentGateway::create($p, $u, $desc);
+        try {
+            $res = PaymentGateway::create($p, $u, $desc);
+        } catch (\Throwable $e) {
+            $p->update(['status' => 'failed', 'gateway_payload' => ['error' => $e instanceof ApiException ? $e->errorCode : 'gateway_error']]);
+            Billing::finalizeCoupon(\App\Models\CouponRedemption::where('payment_id', $p->id)->where('status', 'reserved')->first(), false);
+            throw $e;
+        }
         $p->update(['gateway' => PaymentGateway::driver(), 'gateway_payload' => $res]);
 
         return $res;
+    }
+
+    public static function paymentData(Payment $p): array
+    {
+        return [
+            'id' => $p->id, 'reference' => $p->reference, 'purpose' => $p->purpose, 'purpose_code' => $p->purpose_code, 'cycle' => $p->cycle,
+            'amount' => (int) $p->amount, 'status' => $p->status, 'redirect_url' => $p->gateway_payload['redirect_url'] ?? null,
+            'expires_at' => $p->expires_at?->toIso8601String(), 'created_at' => $p->created_at?->toIso8601String(),
+        ];
+    }
+
+    /** Tagihan gateway milik user yang masih bisa dibayar (untuk banner "tagihan belum dibayar"). */
+    public function pendingPayments(Request $r)
+    {
+        $list = Payment::where('user_id', $r->user()->id)->where('status', 'pending')->where('method', '!=', 'balance')
+            ->where(fn ($w) => $w->whereNull('expires_at')->orWhere('expires_at', '>', now()))->latest('id')->limit(10)->get()
+            ->filter(fn ($p) => ! empty($p->gateway_payload['redirect_url']) || $this->canSimulate());
+
+        return ['data' => $list->map(fn ($p) => self::paymentData($p))->values()];
+    }
+
+    /** Batalkan tagihan yang belum dibayar. JualKirim: invoice ikut dihapus agar link bayar mati. */
+    public function cancelPayment(Request $r, Payment $payment)
+    {
+        abort_unless($payment->user_id === $r->user()->id, 404);
+        if ($payment->gateway === JualKirimInvoices::DRIVER && $payment->status === 'pending') {
+            if (JualKirimInvoices::sync($payment) !== 'pending') { // ternyata sudah dibayar/batal di gateway
+                return ['data' => self::paymentData($payment->fresh())];
+            }
+            JualKirimInvoices::cancelRemote($payment);
+        }
+        $done = DB::transaction(function () use ($payment) {
+            $p = Payment::whereKey($payment->id)->lockForUpdate()->first();
+            if ($p->status !== 'pending') {
+                return false;
+            }
+            $p->update(['status' => 'cancelled']);
+            Billing::finalizeCoupon(\App\Models\CouponRedemption::where('payment_id', $p->id)->where('status', 'reserved')->first(), false);
+            Approval::where('type', 'payment')->where('subject_id', $p->id)->where('status', 'pending')->update(['status' => 'rejected', 'reason' => 'Dibatalkan pengguna.', 'decided_at' => now()]);
+
+            return true;
+        });
+        if (! $done) {
+            throw new ApiException('not_cancellable', 'Tagihan ini sudah tidak dapat dibatalkan.', 422);
+        }
+        Audit::log('payment.cancelled', $payment, ['by' => 'user']);
+
+        return ['data' => self::paymentData($payment->fresh())];
     }
 
     /** Status pembayaran untuk polling klien. Gateway tanpa webhook (JualKirim) dicek langsung, maks. sekali per 10 detik. */
@@ -275,7 +350,14 @@ class BillingController extends Controller
             $log->update(['status' => 'mismatch']);
             throw new ApiException('payment_mismatch', 'Data pembayaran tidak cocok.', 422);
         }
-        if ($v['status'] === 'paid' && $p->gateway === JualKirimInvoices::DRIVER) {
+        if ($v['status'] === 'paid' && in_array($p->status, ['cancelled', 'failed', 'expired'], true) && $p->gateway !== JualKirimInvoices::DRIVER) {
+            // Dibayar setelah dibatalkan/kedaluwarsa: jangan aktifkan diam-diam, minta admin menindaklanjuti
+            if (empty($p->gateway_payload['late_paid'])) {
+                $p->update(['gateway_payload' => array_merge($p->gateway_payload ?? [], ['late_paid' => true])]);
+                Audit::log('payment.late_paid', $p, ['gateway' => $gateway, 'amount' => (int) $p->amount], $p->user_id);
+                Notification::send(User::where('role', 'admin')->get(), new Notice('Pembayaran terlambat perlu dicek', $p->reference.' dibayar setelah tagihan '.$p->status.'.', 'billing', '/admin/finance/payments'));
+            }
+        } elseif ($v['status'] === 'paid' && $p->gateway === JualKirimInvoices::DRIVER) {
             JualKirimInvoices::confirmPaid($p, ['confirmed_by' => 'webhook', 'webhook_id' => $log->id]); // hormati mode auto/manual
         } elseif ($v['status'] === 'paid') {
             Billing::markPaid($p->id, ['gateway' => $gateway, 'webhook_id' => $log->id]);

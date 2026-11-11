@@ -1156,7 +1156,21 @@
   "waiting_payment": "Waiting for payment. This page updates automatically once payment is confirmed.",
   "payment_failed": "Payment failed or was rejected. Please place a new order.",
   "payment_expired": "The invoice has expired. Please place a new order.",
-  "renewed_hint": "Renewed. Current period runs until {{date}}."
+  "renewed_hint": "Renewed. Current period runs until {{date}}.",
+  "cancel_invoice": "Cancel invoice",
+  "cancel_confirm": "Cancel this invoice? Its payment link will stop working.",
+  "cancel_yes": "Yes, cancel",
+  "invoice_cancelled": "Invoice cancelled.",
+  "already_paid": "This invoice has already been paid.",
+  "pending_exists_title": "You have an unpaid plan invoice",
+  "pending_exists_note": "Pay or cancel this plan invoice before choosing another plan.",
+  "pending_title": "Unpaid invoices",
+  "pay_now": "Pay",
+  "pay_before": "pay before {{date}}",
+  "purpose_subscription": "Plan",
+  "purpose_addon": "Add-on",
+  "purpose_custom": "Custom package",
+  "purpose_topup": "Balance top-up"
  },
  "affiliate_user": {
   "subtitle": "Share your link and track your commission.",
@@ -1791,7 +1805,7 @@
   },
   "hint": {
    "quotas_hint": "JSON. Example: {\"credits\": 300, \"chatbot.basic\": 30, \"content.brainstorm\": 30, \"seo.basic\": 20}",
-   "limits_hint": "JSON. Example: {\"projects\": 3, \"websites\": 1, \"storage_mb\": 5120, \"video_max_seconds\": 5, \"parallel_jobs\": 2}",
+   "limits_hint": "Enterprise limits JSON. Example: {\"projects\": 100, \"websites\": 20, \"social_accounts\": 30, \"storage_mb\": 204800, \"parallel_jobs\": 8, \"photo_max_px\": 4096, \"video_max_seconds\": 30, \"clipper_max_minutes\": 240}",
    "grants_hint": "JSON. Credits: {\"credits\": 200}; limits: {\"limits.storage_mb\": 20480}; features: {\"seo.advanced\": 50}",
    "plan_codes_hint": "Comma-separated. Leave empty for all plans.",
    "offered_to_hint": "Leave empty to make it available to all users.",
