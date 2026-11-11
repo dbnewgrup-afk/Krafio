@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Krafio — platform produksi dan pemasaran konten berbasis AI untuk kreator, UMKM, dan brand." />
+    <meta name="theme-color" content="#0B1020" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" />
+    <title>Krafio</title>
+    <script>
+      // Cegah flash tema salah (Design Spec §4.3) + bahasa awal (§5.2)
+      (function () {
+        try {
+          var t = localStorage.getItem('krafio.theme')
+          var dark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+          var l = localStorage.getItem('krafio.lang')
+          if (!l) l = (navigator.language || 'id').toLowerCase().indexOf('en') === 0 ? 'en' : 'id'
+          document.documentElement.setAttribute('lang', l === 'en' ? 'en' : 'id')
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light')
+        }
+      })()
+    </script>
+    <style>
+      /* Splash inline (Design Spec §12.4) — tampil sebelum bundle JS selesai */
+      #krafio-splash { position: fixed; inset: 0; z-index: 110; display: grid; place-items: center; background: #0B1020; color: #E5E9F5; font-family: system-ui, sans-serif; }
+      #krafio-splash .box { display: grid; gap: 14px; justify-items: center; }
+      #krafio-splash .bar { width: 140px; height: 3px; border-radius: 3px; background: #1E2742; overflow: hidden; }
+      #krafio-splash .bar i { display: block; width: 40%; height: 100%; background: #818CF8; animation: ks 1.1s ease-in-out infinite; }
+      #krafio-splash small { font-size: 13px; color: #A3ADC8; }
+      @keyframes ks { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+      @media (prefers-reduced-motion: reduce) { #krafio-splash .bar i { animation: none; width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <div id="krafio-splash" role="status" aria-live="polite">
+      <div class="box">
+        <svg width="44" height="44" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#818CF8"/><path d="M10 8v16M10 16l9-8M13 13l7 11" stroke="#0B1020" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        <div class="bar"><i></i></div>
+        <small>Memuat…</small>
+      </div>
+    </div>
+    <div id="root"></div>
+    <noscript>Krafio membutuhkan JavaScript untuk berjalan.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

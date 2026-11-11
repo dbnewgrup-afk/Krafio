@@ -1,0 +1,221 @@
+/* Krafio design system — token sesuai Krafio_UIUX_Design_Spec §3, §4, §21.
+   Lapisan anti-slop tambahan diadopsi dari Nutlope/hallmark (MIT) "The Floor":
+   token-only color/font, tanpa `transition: all`, overflow-x: clip, :focus-visible instan,
+   fallback prefers-reduced-motion. Jika bertentangan, Design Spec Krafio yang berlaku. */
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --bg: #FFFFFF;
+  --bg-subtle: #F3F5F9;
+  --surface: #FFFFFF;
+  --surface-2: #EDF0F5;
+  --border: #D3DAE5;
+  --border-strong: #B7C1D1;
+  --text: #0F172A;
+  --text-muted: #475569;
+  --primary: #4338CA;
+  --primary-hover: #3730A3;
+  --primary-contrast: #FFFFFF;
+  --primary-soft: rgba(67, 56, 202, 0.12);
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --info: #2563EB;
+  --wallet-topup: #2563EB;
+  --wallet-commission: #16A34A;
+  --overlay-dark: rgba(15, 23, 42, 0.72);
+  --overlay-clear: rgba(255, 255, 255, 0.55);
+  --loader-solid: #0B1020;
+  --on-dark: #E5E9F5;
+  --on-dark-muted: #A3ADC8;
+  --on-dark-accent: #818CF8;
+  --preview-1: #E9D5B7;
+  --preview-2: #3F2E22;
+  --preview-3: #C8D9E6;
+  --preview-4: #1F3A4D;
+  --preview-5: #4F7A8C;
+  --shadow-color: 15 23 42;
+
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --nav-h: 56px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --ease-ui: cubic-bezier(.2, .8, .2, 1);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #0B1020;
+  --bg-subtle: #0F172A;
+  --surface: #141B30;
+  --surface-2: #1D2640;
+  --border: #313C61;
+  --border-strong: #46527C;
+  --text: #E5E9F5;
+  --text-muted: #A3ADC8;
+  --primary: #818CF8;
+  --primary-hover: #A5B4FC;
+  --primary-contrast: #0B1020;
+  --primary-soft: rgba(129, 140, 248, 0.14);
+  --success: #4ADE80;
+  --warning: #FBBF24;
+  --danger: #F87171;
+  --info: #60A5FA;
+  --wallet-topup: #60A5FA;
+  --wallet-commission: #4ADE80;
+  --overlay-dark: rgba(2, 6, 23, 0.80);
+  --overlay-clear: rgba(11, 16, 32, 0.55);
+  --loader-solid: #050814;
+  --shadow-color: 0 0 0;
+  color-scheme: dark;
+}
+
+@media (min-width: 768px) { :root { --nav-h: 60px; } }
+@media (min-width: 1024px) { :root { --nav-h: 64px; } }
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-muted: var(--text-muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-contrast: var(--primary-contrast);
+  --color-primary-soft: var(--primary-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-wallet-topup: var(--wallet-topup);
+  --color-wallet-commission: var(--wallet-commission);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@theme {
+  --breakpoint-sm: 30rem;   /* 480 mobile */
+  --breakpoint-md: 48rem;   /* 768 tablet */
+  --breakpoint-lg: 64rem;   /* 1024 desktop */
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 90rem;  /* 1440 wide */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+/* Shadow token (§3.4) — di dark mode dikurangi, diganti border */
+@utility shadow-k-sm { box-shadow: 0 1px 2px rgb(var(--shadow-color) / 0.06), 0 1px 3px rgb(var(--shadow-color) / 0.06); }
+@utility shadow-k-md { box-shadow: 0 6px 16px rgb(var(--shadow-color) / 0.10); }
+@utility shadow-k-lg { box-shadow: 0 18px 48px rgb(var(--shadow-color) / 0.18); }
+@utility shadow-k-fab { box-shadow: 0 8px 24px rgb(var(--shadow-color) / 0.22); }
+[data-theme="dark"] .shadow-k-sm, [data-theme="dark"] .shadow-k-md { box-shadow: none; }
+
+/* Z-index token (§21) — tidak ada z-index mentah di komponen */
+@utility z-sticky { z-index: 10; }
+@utility z-sidebar { z-index: 30; }
+@utility z-navbar { z-index: 40; }
+@utility z-fab { z-index: 50; }
+@utility z-consent { z-index: 55; }
+@utility z-popover { z-index: 60; }
+@utility z-scrim { z-index: 70; }
+@utility z-drawer { z-index: 80; }
+@utility z-modal { z-index: 90; }
+@utility z-modal2 { z-index: 95; }
+@utility z-toast { z-index: 100; }
+@utility z-loader { z-index: 110; }
+
+/* Tipografi (§3.3) — mobile → desktop */
+@utility t-display { font-size: 32px; line-height: 38px; font-weight: 700; letter-spacing: -0.02em; @media (min-width: 1024px) { font-size: 56px; line-height: 62px; } }
+@utility t-h1 { font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em; @media (min-width: 1024px) { font-size: 32px; line-height: 40px; } }
+@utility t-h2 { font-size: 20px; line-height: 26px; font-weight: 600; @media (min-width: 1024px) { font-size: 24px; line-height: 32px; } }
+@utility t-h3 { font-size: 17px; line-height: 24px; font-weight: 600; @media (min-width: 1024px) { font-size: 18px; line-height: 26px; } }
+@utility t-body { font-size: 15px; line-height: 22px; @media (min-width: 1024px) { font-size: 16px; line-height: 24px; } }
+@utility t-small { font-size: 13px; line-height: 18px; }
+@utility t-label { font-size: 13px; line-height: 16px; font-weight: 500; }
+@utility t-mono { font-family: var(--font-mono); font-size: 13px; line-height: 20px; }
+
+/* Animasi */
+@utility anim-fade-in { animation: k-fade 120ms ease both; }
+@utility anim-pop { animation: k-pop 180ms var(--ease-ui) both; }
+@utility anim-sheet { animation: k-sheet 240ms var(--ease-ui) both; }
+@utility anim-shake { animation: k-shake 320ms ease both; }
+@utility shimmer {
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--border) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: k-shimmer 1.4s linear infinite;
+}
+@utility no-scrollbar { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
+@utility snap-row { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; touch-action: pan-x pan-y; scrollbar-width: none; &::-webkit-scrollbar { display: none; } & > * { scroll-snap-align: start; flex-shrink: 0; } }
+@utility measure { max-width: 72ch; }
+
+@keyframes k-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes k-pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes k-sheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes k-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
+@keyframes k-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes k-spin { to { transform: rotate(360deg); } }
+@keyframes k-bar { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+@keyframes k-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+@layer base {
+  html, body { overflow-x: clip; }
+  /* Item grid tidak boleh melebar karena konten panjang (URL, nama berkas, kode) */
+  .grid > * { min-width: 0; }
+  html { -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--nav-h) + 12px); }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 22px;
+    -webkit-font-smoothing: antialiased;
+    transition-property: background-color, color;
+    transition-duration: 200ms;
+  }
+  @media (min-width: 1024px) { body { font-size: 16px; line-height: 24px; } }
+  h1, h2, h3, h4 { overflow-wrap: break-word; min-width: 0; }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; transition: none; }
+  ::selection { background: var(--primary-soft); }
+  /* Input ≥16px di mobile agar iOS tidak auto-zoom (§2.4) */
+  input, select, textarea { font-size: 16px; }
+  @media (min-width: 1024px) { input, select, textarea { font-size: 15px; } }
+  input::-ms-reveal, input::-ms-clear { display: none; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  img, video { max-width: 100%; height: auto; }
+  html.scroll-locked { overflow: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .shimmer { animation: none; background: var(--surface-2); }
+}
+
+/* FAB disembunyikan saat modal / sheet / loader B aktif (§15.3, §16.1) */
+html[data-overlays]:not([data-overlays="0"]) .fab-stack { opacity: 0; pointer-events: none; }
+html[data-overlays]:not([data-overlays="0"]) .fab-stack * { pointer-events: none !important; }
+
+/* Cetak dokumen hukum (§11.2 butir 4) */
+@media print {
+  body * { visibility: hidden; }
+  .legal-print, .legal-print * { visibility: visible; }
+  .legal-print { position: absolute; inset: 0; overflow: visible; color: #000; }
+}
+@keyframes k-drawer { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+
+/* Fokus programatik (pindah halaman, back-to-top) tidak menampilkan ring; ring tetap untuk elemen interaktif */
+[tabindex="-1"]:focus, [tabindex="-1"]:focus-visible { outline: none; }

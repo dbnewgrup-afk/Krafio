@@ -1,0 +1,10 @@
+{
+  "name": "Krafio",
+  "short_name": "Krafio",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#0B1020",
+  "theme_color": "#0B1020",
+  "lang": "id",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

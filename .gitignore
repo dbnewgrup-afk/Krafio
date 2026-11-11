@@ -1,0 +1,20 @@
+# Repository eksternal hasil clone (PRD Bab 53) — bukan bagian kode Krafio, punya .git & lisensi sendiri
+/repository-github/
+/skill/
+
+# Rahasia & lokal
+.env
+.env.*
+!.env.example
+*.local
+
+# Dependensi & build
+node_modules/
+vendor/
+dist/
+
+# Berkas sementara
+*.tmp.*
+*.log
+.DS_Store
+Thumbs.db
