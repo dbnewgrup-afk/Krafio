@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\JualKirim\JualKirimClient;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
@@ -10,7 +11,8 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // Integrasi JualKirim API v1 (docs/JUALKIRIM.md) — satu instance per proses
+        $this->app->singleton(JualKirimClient::class, fn ($app) => new JualKirimClient($app['config']->get('jualkirim')));
     }
 
     public function boot(): void

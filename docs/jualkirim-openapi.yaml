@@ -1,0 +1,2226 @@
+openapi: 3.0.3
+info:
+  title: JualKirim API v1
+  description: |
+    API v1 JualKirim untuk aplikasi eksternal.
+
+    Autentikasi memakai dua lapis:
+    1. **JWT** (`Authorization: Bearer <token>`) — identitas user, didapat dari endpoint login, berlaku 24 jam.
+    2. **API Key organisasi** (`X-API-KEY`) — menentukan organisasi mana yang menjadi konteks request.
+       Key harus milik salah satu organisasi user di dalam token (dicocokkan dengan claims JWT, tanpa query database).
+
+    Endpoint yang memindahkan uang (Multi Disbursement dan checkout pembayaran) juga mengecek
+    **permission role** user di organisasi tersebut langsung dari database. Jika role user tidak
+    memiliki permission yang disebut di tiap endpoint (atau user sudah dikeluarkan dari organisasi),
+    response-nya `403`.
+  version: 1.0.0
+servers:
+  - url: /
+    description: Server saat ini
+tags:
+  - name: Auth
+    description: Autentikasi API v1
+  - name: Address
+    description: Alamat pickup organisasi
+  - name: Wallet
+    description: Saldo wallet organisasi
+  - name: Courier
+    description: Daftar kurir aktif
+  - name: Shipping
+    description: Cek ongkir dan pencarian kode pos
+  - name: Orders
+    description: Pembuatan dan pengelolaan order
+  - name: Product
+    description: Produk organisasi
+  - name: Category
+    description: Kategori dan subkategori barang
+  - name: Invoice
+    description: Penagihan ke customer (tagihan)
+  - name: Payment
+    description: Pembayaran ke vendor
+  - name: Disbursement
+    description: Multi disbursement — kirim saldo wallet ke banyak rekening sekaligus
+
+paths:
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login dan dapatkan JWT
+      description: |
+        Login dengan email + password user terdaftar (wajib sudah verifikasi email).
+        Response memuat semua organisasi milik user beserta `api_key` masing-masing
+        (gunakan sebagai header `X-API-KEY`). Token JWT juga memuat data organisasi yang sama.
+      operationId: apiLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Email/password salah atau email belum diverifikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCredentials:
+                  value:
+                    message: Email atau kata sandi tidak valid
+                    data: null
+                notVerified:
+                  value:
+                    message: Email belum diverifikasi
+                    data: null
+        '500':
+          description: Kesalahan server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/me:
+    get:
+      tags: [Auth]
+      summary: Profil user dan semua organisasinya
+      description: |
+        Mengembalikan profil user beserta seluruh organisasi yang dia miliki,
+        dibaca sepenuhnya dari claims JWT (tanpa query database).
+        Hanya butuh Bearer token — tidak perlu `X-API-KEY`.
+      operationId: apiMe
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          description: Token tidak valid/kedaluwarsa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingToken:
+                  value:
+                    message: Token tidak ditemukan
+                    data: null
+                invalidToken:
+                  value:
+                    message: Token tidak valid atau sudah kedaluwarsa
+                    data: null
+
+  /api/v1/addresses:
+    get:
+      tags: [Address]
+      summary: Daftar alamat pickup organisasi
+      operationId: apiListAddresses
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Address'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Address]
+      summary: Buat alamat pickup baru
+      description: Alamat pertama organisasi otomatis menjadi default. Alamat juga didaftarkan sebagai pickup point di AutoKirim.
+      operationId: apiCreateAddress
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveAddressRequest'
+      responses:
+        '201':
+          description: Alamat berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Alamat berhasil dibuat }
+                  data:
+                    $ref: '#/components/schemas/Address'
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Gagal membuat alamat (mis. nama duplikat, kode pos tidak valid)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/addresses/{id}:
+    put:
+      tags: [Address]
+      summary: Perbarui alamat pickup
+      operationId: apiUpdateAddress
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveAddressRequest'
+      responses:
+        '200':
+          description: Alamat berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Alamat berhasil diperbarui }
+                  data:
+                    $ref: '#/components/schemas/Address'
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Alamat tidak ditemukan atau bukan milik organisasi aktif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Address]
+      summary: Hapus alamat pickup (soft delete)
+      operationId: apiDeleteAddress
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Alamat berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Alamat tidak ditemukan atau bukan milik organisasi aktif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/wallet/balance:
+    get:
+      tags: [Wallet]
+      summary: Saldo wallet organisasi
+      description: Order NON_COD memotong saldo wallet; pastikan saldo cukup sebelum membuat order.
+      operationId: apiWalletBalance
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      organization_id: { type: string, format: uuid }
+                      balance: { type: number, example: 150000 }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/couriers:
+    get:
+      tags: [Courier]
+      summary: Daftar kurir aktif
+      operationId: apiListCouriers
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { type: string, example: jne }
+                        name: { type: string, example: JNE }
+                        logo: { type: string, example: /assets/couriers/jne.png }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/shipping/postal-codes:
+    get:
+      tags: [Shipping]
+      summary: Cari kode pos (tujuan/asal pengiriman)
+      description: |
+        Mencari kode pos berdasarkan kata kunci. Dipakai untuk mendapatkan `postal_code_id`
+        (tujuan) dan `send_postal_id` (asal) yang dibutuhkan `POST /api/v1/shipping/check-cost`.
+
+        Pencarian mencocokkan kata kunci ke kolom kelurahan, kecamatan, kota, dan kode pos.
+        Endpoint ini tidak memerlukan autentikasi.
+
+        **Perhatian:** response memakai key `results` (format Select2), bukan `data` seperti
+        endpoint lain. Nilai yang dipakai sebagai `postal_code_id`/`send_postal_id` adalah
+        field `id` (UUID), **bukan** `postal_code` (5 digit angka).
+      operationId: apiSearchPostalCodes
+      security: []
+      parameters:
+        - name: q
+          in: query
+          description: Kata kunci. Jika kosong, mengembalikan 20 data pertama diurutkan kode pos menaik.
+          schema: { type: string, example: Tebet }
+      responses:
+        '200':
+          description: Berhasil (maksimal 20 hasil, tidak ada paging)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: Dipakai sebagai `postal_code_id` / `send_postal_id` di check-cost
+                        text:
+                          type: string
+                          description: Label siap tampil
+                          example: DKI Jakarta - Jakarta Selatan, Tebet, Tebet Barat (12810)
+                        postal_code: { type: string, example: '12810' }
+                        province: { type: string, example: DKI Jakarta }
+                        city: { type: string, example: Jakarta Selatan }
+                        sub_district: { type: string, example: Tebet }
+                        urban: { type: string, example: Tebet Barat }
+        '400':
+          description: Query gagal diproses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/shipping/check-cost:
+    post:
+      tags: [Shipping]
+      summary: Cek ongkir semua kurir
+      description: |
+        Menghitung ongkir dari titik asal ke kode pos tujuan. Hasilnya dipakai untuk mengisi
+        `courier_code`, `services_type`, `services_name`, dan `shipping_cost` saat membuat order.
+
+        **Asal** wajib salah satu:
+        - `pickup_address_id` — alamat pickup tersimpan (dipakai pada alur create order).
+        - `send_postal_id` — id kode pos dari `GET /api/v1/shipping/postal-codes` (cek ongkir publik).
+
+        **Autentikasi opsional.** Tanpa header apa pun endpoint tetap jalan dan mengembalikan harga
+        normal. Jika mengirim `Authorization: Bearer <jwt>` **dan** `X-API-KEY`, diskon organisasi
+        ikut diterapkan pada `service_price`.
+      operationId: apiCheckShippingCost
+      security:
+        - {}
+        - bearerAuth: []
+          apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [weight, postal_code_id]
+              properties:
+                weight:
+                  type: number
+                  description: Berat dalam gram. Wajib, harus lebih dari 0.
+                  example: 1000
+                postal_code_id:
+                  type: string
+                  format: uuid
+                  description: Wajib. Id kode pos tujuan dari `GET /api/v1/shipping/postal-codes`.
+                pickup_address_id:
+                  type: string
+                  format: uuid
+                  description: Id alamat pickup sebagai asal. Wajib jika `send_postal_id` kosong.
+                send_postal_id:
+                  type: string
+                  format: uuid
+                  description: Id kode pos sebagai asal. Wajib jika `pickup_address_id` kosong.
+                courier_code:
+                  type: string
+                  description: Filter ke satu kurir. Kosongkan untuk mengambil semua kurir.
+                  example: jne
+                length: { type: number, description: Panjang paket (cm), example: 10 }
+                width: { type: number, description: Lebar paket (cm), example: 10 }
+                height: { type: number, description: Tinggi paket (cm), example: 10 }
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        courier_code: { type: string, example: jne }
+                        courier_name: { type: string, example: JNE }
+                        service_code:
+                          type: string
+                          description: Dikirim sebagai `services_type` saat create order
+                          example: REG
+                        service_name:
+                          type: string
+                          description: Dikirim sebagai `services_name` saat create order
+                          example: Layanan Reguler
+                        service_price:
+                          type: number
+                          description: Harga setelah diskon. Dikirim sebagai `shipping_cost` saat create order.
+                          example: 9000
+                        original_price:
+                          type: number
+                          description: Harga sebelum diskon
+                          example: 10000
+                        service_insurance:
+                          type: number
+                          description: Rate asuransi dalam bentuk desimal (0.002 = 0,2%)
+                          example: 0.002
+                        etd:
+                          type: string
+                          description: Estimasi waktu pengiriman
+                          example: 1-2 hari
+                        discount_type:
+                          type: string
+                          description: Kosong jika tidak ada diskon yang berlaku
+                          enum: [PERCENTAGE, NOMINAL, '']
+                          example: PERCENTAGE
+                        discount_value:
+                          type: number
+                          description: Nilai persen (jika PERCENTAGE) atau nominal (jika NOMINAL)
+                          example: 10
+                        discount_amount:
+                          type: number
+                          description: Jumlah diskon hasil perhitungan
+                          example: 1000
+        '400':
+          description: |
+            Format request tidak valid, validasi gagal (`weight` kosong/<= 0, `postal_code_id` kosong),
+            atau `pickup_address_id` dan `send_postal_id` sama-sama kosong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: |
+            Alamat pickup/area asal/area tujuan tidak ditemukan, district id tidak terpetakan,
+            atau panggilan ke penyedia ongkir gagal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/orders:
+    post:
+      tags: [Orders]
+      summary: Buat order (checkout pickup + daftar order)
+      description: |
+        Membuat pickup order beserta order-ordernya sekaligus.
+        `pickup.address_id` (alamat existing) atau `pickup.address_data` (alamat baru inline) wajib salah satu.
+        Order NON_COD memotong saldo wallet organisasi — gagal jika saldo tidak cukup.
+        Dapatkan `courier_code`, `services_type`, `services_name`, dan `shipping_cost` dari `POST /api/v1/shipping/check-cost`.
+      operationId: apiCreateOrders
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveCheckoutRequest'
+      responses:
+        '201':
+          description: Order berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Order berhasil dibuat }
+                  data:
+                    type: object
+                    properties:
+                      pickup_order_id: { type: string, format: uuid }
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Validasi order gagal atau saldo wallet tidak cukup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [Orders]
+      summary: Daftar order organisasi
+      operationId: apiListOrders
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            example: PENDING
+          description: Nama status (PENDING, REQUESTED, IN_TRANSIT, DELIVERED, CANCELLED, dst.)
+        - name: start_date
+          in: query
+          schema: { type: string, example: '2026-07-01' }
+        - name: end_date
+          in: query
+          schema: { type: string, example: '2026-07-31' }
+        - name: search
+          in: query
+          schema: { type: string }
+          description: Cari di order_code, transaction_id, nama/telepon/alamat customer, kurir
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: sort_dir
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      orders:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrderListItem'
+                      pagination:
+                        type: object
+                        properties:
+                          page: { type: integer }
+                          per_page: { type: integer }
+                          total: { type: integer }
+                          total_filtered: { type: integer }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Detail order + pickup order
+      operationId: apiOrderDetail
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      order: { type: object }
+                      status: { type: string, example: IN_TRANSIT }
+                      pickup_order: { type: object }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Order tidak ditemukan atau bukan milik organisasi aktif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/orders/{id}/cancel:
+    post:
+      tags: [Orders]
+      summary: Batalkan order
+      operationId: apiCancelOrder
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                remark:
+                  type: string
+                  example: Stok habis
+      responses:
+        '200':
+          description: Order berhasil dibatalkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Order tidak ditemukan atau bukan milik organisasi aktif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Order tidak dapat dibatalkan (belum ada transaction ID, sudah dibatalkan, atau ditolak kurir)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/products:
+    get:
+      tags: [Product]
+      summary: Daftar produk organisasi
+      operationId: apiListProducts
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: array
+                    items: { type: object }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Product]
+      summary: Buat produk baru
+      description: '`organization_id` diambil dari konteks X-API-KEY, nilai di payload diabaikan.'
+      operationId: apiCreateProduct
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '201':
+          description: Produk berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Produk berhasil dibuat }
+                  data: { type: object }
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Gagal membuat produk (mis. SKU duplikat)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/categories:
+    get:
+      tags: [Category]
+      summary: Daftar kategori barang
+      operationId: apiListCategories
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: array
+                    items: { type: object }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/subcategories:
+    get:
+      tags: [Category]
+      summary: Daftar subkategori barang
+      operationId: apiListSubcategories
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: category_code
+          in: query
+          schema: { type: string }
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: array
+                    items: { type: object }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/invoices:
+    get:
+      tags: [Invoice]
+      summary: Daftar tagihan organisasi
+      operationId: apiListInvoices
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: search
+          in: query
+          description: Cari di nama customer, nomor tagihan, email customer
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, sent, paid, cancelled] }
+        - name: start_date
+          in: query
+          description: Filter invoice_date >= (YYYY-MM-DD)
+          schema: { type: string, format: date }
+        - name: end_date
+          in: query
+          description: Filter invoice_date <= (YYYY-MM-DD)
+          schema: { type: string, format: date }
+        - name: sort_dir
+          in: query
+          description: Urutan berdasarkan invoice_date
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      invoices:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/InvoiceListItem'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Invoice]
+      summary: Buat tagihan baru
+      description: |
+        Membuat tagihan dan mengirim email berisi link pembayaran ke customer.
+        Pembayaran dilakukan customer lewat `payment_link` (halaman publik) —
+        dana masuk ke rekening bank organisasi (`bank_account_id`) atau ke saldo
+        wallet organisasi (`settlement_type=wallet`).
+      operationId: apiCreateInvoice
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveInvoiceRequest'
+      responses:
+        '201':
+          description: Tagihan dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Tagihan berhasil dibuat dan dikirim ke pelanggan }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      invoice_number: { type: string, example: INV-20260706-0001 }
+                      status: { type: string, example: sent }
+                      grand_total: { type: number, example: 150000 }
+                      payment_link: { type: string, example: 'https://app.jualkirim.id/invoice/pay/abc123' }
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Gagal membuat tagihan (mis. rekening bank tidak valid)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/invoices/{id}:
+    get:
+      tags: [Invoice]
+      summary: Detail tagihan
+      operationId: apiInvoiceDetail
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      invoice: { type: object, description: Tagihan lengkap dengan items dan tax_deductions }
+                      status_label: { type: string, example: Terkirim }
+                      customer_total:
+                        type: number
+                        description: Total yang dibayar customer (grand_total + admin_fee jika ditanggung customer)
+                      payment_link:
+                        type: string
+                        description: Link halaman pembayaran publik untuk customer
+                      settlement_status:
+                        $ref: '#/components/schemas/SettlementStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Tagihan tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Invoice]
+      summary: Ubah tagihan
+      description: Hanya tagihan berstatus `draft` yang bisa diubah.
+      operationId: apiUpdateInvoice
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveInvoiceRequest'
+      responses:
+        '200':
+          description: Berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Tagihan tidak ditemukan atau tidak dapat diubah
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Invoice]
+      summary: Hapus tagihan
+      description: Hanya tagihan berstatus `draft` atau `cancelled` yang bisa dihapus.
+      operationId: apiDeleteInvoice
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Tagihan tidak ditemukan atau tidak dapat dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/payments:
+    get:
+      tags: [Payment]
+      summary: Daftar pembayaran vendor organisasi
+      operationId: apiListPayments
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, processing, paid, cancelled] }
+        - name: start_date
+          in: query
+          description: Filter payment_date >= (YYYY-MM-DD)
+          schema: { type: string, format: date }
+        - name: end_date
+          in: query
+          description: Filter payment_date <= (YYYY-MM-DD)
+          schema: { type: string, format: date }
+        - name: sort_dir
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      payments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PaymentListItem'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Payment]
+      summary: Buat pembayaran ke vendor
+      description: |
+        Membuat pembayaran ke vendor dan mengirim email notifikasi ke vendor.
+        Setelah dibuat, lakukan pembayaran lewat `POST /api/v1/payments/{id}/checkout`.
+      operationId: apiCreatePayment
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavePaymentRequest'
+      responses:
+        '201':
+          description: Pembayaran dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Pembayaran berhasil dibuat }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      payment_number: { type: string, example: PAY-20260706-0001 }
+                      status: { type: string, example: pending }
+                      grand_total: { type: number, example: 500000 }
+                      merchant_total:
+                        type: number
+                        description: Total yang harus dibayar merchant (grand_total + admin_fee jika ditanggung merchant)
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Gagal membuat pembayaran (mis. vendor tidak valid)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/payments/{id}:
+    get:
+      tags: [Payment]
+      summary: Detail pembayaran
+      operationId: apiPaymentDetail
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      payment: { type: object, description: Pembayaran lengkap dengan items dan tax_deductions }
+                      status_label: { type: string, example: Menunggu }
+                      merchant_total: { type: number }
+                      settlement_status:
+                        $ref: '#/components/schemas/SettlementStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Pembayaran tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Payment]
+      summary: Ubah pembayaran
+      description: Hanya pembayaran berstatus `pending` yang bisa diubah.
+      operationId: apiUpdatePayment
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavePaymentRequest'
+      responses:
+        '200':
+          description: Berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Pembayaran tidak ditemukan atau tidak dapat diubah
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Payment]
+      summary: Hapus pembayaran
+      description: Hanya pembayaran berstatus `pending` atau `cancelled` yang bisa dihapus.
+      operationId: apiDeletePayment
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Pembayaran tidak ditemukan atau tidak dapat dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/payments/{id}/checkout:
+    post:
+      tags: [Payment]
+      summary: Mulai pembayaran (checkout)
+      description: |
+        Membuat billing di penyedia pembayaran untuk pembayaran vendor ini.
+        Response berisi detail cara bayar sesuai metode: `qr_string` (QRIS),
+        `payment_code` (VA), atau `payment_link`.
+        Daftar metode tersedia di `GET /api/v1/payment-methods`.
+
+        Permission role yang dibutuhkan: `payment-read`.
+      operationId: apiPaymentCheckout
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_method]
+              properties:
+                payment_method:
+                  type: string
+                  description: Kode metode pembayaran dari GET /api/v1/payment-methods
+                  example: QRIS
+      responses:
+        '200':
+          description: Billing dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+        '400':
+          description: Format request tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Pembayaran tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Gagal membuat billing (mis. status bukan pending, metode tidak valid)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [Payment]
+      summary: Ambil ulang detail billing aktif (resume)
+      description: Mengembalikan detail QR/VA billing yang masih aktif setelah checkout dimulai.
+      operationId: apiPaymentResumeCheckout
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Pembayaran tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Tidak ada billing aktif untuk pembayaran ini
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/payments/{id}/status:
+    get:
+      tags: [Payment]
+      summary: Status pembayaran (polling)
+      operationId: apiPaymentStatus
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      status: { type: string, example: processing }
+                      paid: { type: boolean, example: false }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Pembayaran tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/payment-methods:
+    get:
+      tags: [Payment]
+      summary: Daftar metode pembayaran aktif
+      description: Metode pembayaran aktif beserta biaya admin (sudah termasuk override fee per organisasi).
+      operationId: apiListPaymentMethods
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      methods:
+                        type: array
+                        items: { type: object }
+                        description: Termasuk metode `wallet` (bayar dari saldo) dan metode gateway (VA/QRIS/dll)
+                      wallet_balance:
+                        type: number
+                        example: 150000
+                        description: Saldo wallet organisasi saat ini
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/disbursement-batches/validate:
+    post:
+      tags: [Disbursement]
+      summary: Periksa daftar rekening tanpa membuat batch
+      description: |
+        Memvalidasi daftar rekening tujuan dan menghitung total terhadap saldo wallet saat ini.
+        Tidak ada saldo yang dipotong. Kirim sebagai JSON (`items`) atau upload CSV (`multipart/form-data`, field `file`).
+
+        Format CSV (header wajib, urutan tetap, koma atau titik koma):
+        `bank_code,account_number,account_holder,amount,email,phone,note` — maksimal 100 baris, file maksimal 1 MB.
+
+        Permission role yang dibutuhkan: `multi-disbursement-create`.
+      operationId: apiValidateDisbursementBatch
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 100
+                  items:
+                    $ref: '#/components/schemas/DisbursementItemInput'
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File .csv
+      responses:
+        '200':
+          description: Hasil validasi (cek `summary.invalid_items`, `summary.sufficient`, dan `errors`)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    $ref: '#/components/schemas/DisbursementValidationResult'
+        '400':
+          description: Format request / file CSV tidak valid (header salah, lebih dari 100 baris, bukan .csv)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/disbursement-batches:
+    get:
+      tags: [Disbursement]
+      summary: Daftar batch disbursement organisasi
+      description: 'Permission role yang dibutuhkan: `multi-disbursement-read`.'
+      operationId: apiListDisbursementBatches
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: search
+          in: query
+          description: Cari berdasarkan kode batch
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [scheduled, processing, success, partial, failed, cancelled] }
+        - name: start_date
+          in: query
+          description: Filter tanggal dibuat >= (YYYY-MM-DD)
+          schema: { type: string, format: date }
+        - name: end_date
+          in: query
+          description: Filter tanggal dibuat <= (YYYY-MM-DD)
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    type: object
+                    properties:
+                      batches:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DisbursementBatch'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Disbursement]
+      summary: Buat batch disbursement (langsung atau terjadwal)
+      description: |
+        Memvalidasi item, lalu **langsung memotong saldo wallet** sebesar
+        `total_amount + total_fee` (fee = biaya wallet × jumlah rekening), termasuk untuk batch terjadwal.
+
+        - Tanpa `scheduled_at`: status `processing`, dikirim oleh worker dalam ±1 menit.
+        - Dengan `scheduled_at`: status `scheduled`, dikirim pada waktu tersebut; bisa dibatalkan
+          lewat `POST /api/v1/disbursement-batches/{id}/cancel` dengan pengembalian saldo penuh.
+
+        Nominal + fee rekening yang gagal dikembalikan otomatis ke saldo. Pantau hasil per rekening
+        lewat `GET /api/v1/disbursement-batches/{id}`.
+
+        Permission role yang dibutuhkan: `multi-disbursement-create`.
+      operationId: apiCreateDisbursementBatch
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDisbursementBatchRequest'
+      responses:
+        '201':
+          description: Batch dibuat dan saldo sudah dipotong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Batch disbursement berhasil dibuat }
+                  data:
+                    $ref: '#/components/schemas/DisbursementBatch'
+        '400':
+          description: |
+            Request tidak bisa diproses: saldo tidak mencukupi (`Saldo tidak mencukupi`, `data` berisi hasil validasi),
+            jadwal tidak valid (minimal 5 menit, maksimal 90 hari ke depan), atau payment gateway tidak aktif.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Saldo tidak mencukupi }
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/DisbursementValidationResult'
+                    nullable: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Ada rekening yang tidak valid; `data` berisi hasil validasi per item
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: 'data rekening tidak valid, periksa kembali' }
+                  data:
+                    $ref: '#/components/schemas/DisbursementValidationResult'
+
+  /api/v1/disbursement-batches/{id}:
+    get:
+      tags: [Disbursement]
+      summary: Detail batch beserta status tiap rekening
+      description: 'Permission role yang dibutuhkan: `multi-disbursement-read`.'
+      operationId: apiDisbursementBatchDetail
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Berhasil }
+                  data:
+                    $ref: '#/components/schemas/DisbursementBatchDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Batch tidak ditemukan (atau milik organisasi lain)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/disbursement-batches/{id}/cancel:
+    post:
+      tags: [Disbursement]
+      summary: Batalkan batch terjadwal
+      description: |
+        Hanya batch berstatus `scheduled` yang belum dieksekusi. Seluruh saldo yang dipotong
+        (`total_amount + total_fee`) dikembalikan ke wallet.
+
+        Permission role yang dibutuhkan: `multi-disbursement-cancel`.
+      operationId: apiCancelDisbursementBatch
+      security:
+        - bearerAuth: []
+          apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathID'
+      responses:
+        '200':
+          description: Batch dibatalkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Batch tidak bisa dibatalkan (sudah diproses / selesai / dibatalkan)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Batch tidak ditemukan (atau milik organisasi lain)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT dari endpoint login, berlaku 24 jam
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: API key organisasi (23 karakter, huruf besar + angka)
+
+  parameters:
+    PathID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, default: 1, minimum: 1 }
+    PerPage:
+      name: per_page
+      in: query
+      schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+
+  responses:
+    Unauthorized:
+      description: Token tidak valid/kedaluwarsa, X-API-KEY kosong, atau tidak cocok dengan organisasi user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Role user di organisasi ini tidak memiliki permission yang dibutuhkan, atau user sudah bukan anggota organisasi
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            message: Anda tidak memiliki akses untuk aksi ini
+            data: null
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: rahasia123
+
+    LoginResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Login berhasil
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              description: JWT HS256, berlaku 24 jam
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            expires_at:
+              type: string
+              format: date-time
+              example: '2026-07-03T10:00:00+07:00'
+            organizations:
+              type: array
+              description: Semua organisasi milik user beserta `api_key` untuk header `X-API-KEY`
+              items:
+                $ref: '#/components/schemas/Organization'
+
+    MeResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Berhasil
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            organizations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Organization'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+          example: Budi
+        last_name:
+          type: string
+          example: Santoso
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Toko A
+        api_key:
+          type: string
+          description: 23 karakter, huruf besar + angka
+          example: A1B2C3D4E5F6G7H8I9J0K1L
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: object
+          nullable: true
+          example: null
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Validasi gagal
+        data:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            email: Email wajib diisi
+
+    Address:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Gudang Utama }
+        responsible_name: { type: string, example: Budi }
+        responsible_phone: { type: string, example: '081234567890' }
+        email: { type: string, format: email }
+        postal_code: { type: string, example: '40111' }
+        postal_code_id: { type: integer, format: int64, example: 12345 }
+        address: { type: string, example: Jl. Merdeka No. 1 }
+        latitude: { type: string, example: '-6.914744' }
+        longitude: { type: string, example: '107.609810' }
+        is_default: { type: boolean }
+
+    SaveAddressRequest:
+      type: object
+      required: [name, email]
+      properties:
+        name: { type: string, example: Gudang Utama }
+        responsible_name: { type: string, example: Budi }
+        responsible_phone: { type: string, example: '081234567890' }
+        email: { type: string, format: email }
+        postal_code: { type: string, example: '40111' }
+        postal_code_id:
+          type: integer
+          format: int64
+          description: ID kode pos dari GET /api/v1/shipping/postal-codes
+        address: { type: string, example: Jl. Merdeka No. 1 }
+        latitude: { type: string, example: '-6.914744' }
+        longitude: { type: string, example: '107.609810' }
+        is_default: { type: boolean }
+
+    SaveCheckoutRequest:
+      type: object
+      required: [pickup, orders]
+      properties:
+        pickup:
+          type: object
+          required: [type, volume]
+          properties:
+            type:
+              type: string
+              enum: [scheduled, dropoff]
+            is_sameday: { type: boolean }
+            datetime:
+              type: string
+              example: '2026-07-04T09:00'
+              description: Wajib untuk type=scheduled, format YYYY-MM-DDTHH:mm
+            address_id:
+              type: string
+              format: uuid
+              description: Alamat existing; kosongkan jika memakai address_data
+            address_data:
+              type: object
+              description: Alamat pickup baru inline (dibuat otomatis)
+            volume: { type: string, example: '1-5' }
+        orders:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SaveOrderRequest'
+
+    SaveOrderRequest:
+      type: object
+      required: [customer_name, customer_phone, customer_address, postal_code_id, postal_code_text, payment_method, courier_code, services_type, services_name]
+      properties:
+        customer_name: { type: string }
+        customer_phone: { type: string, example: '081234567890' }
+        customer_address: { type: string }
+        customer_landmark: { type: string }
+        postal_code_id: { type: string, example: '12345' }
+        postal_code_text: { type: string, example: '40111' }
+        payment_method:
+          type: string
+          enum: [COD, NON_COD]
+        shipping_instruction: { type: string }
+        use_insurance: { type: boolean }
+        total_price: { type: string, example: '150000' }
+        total_weight: { type: string, description: Berat total dalam gram, example: '1000' }
+        items:
+          type: array
+          items:
+            type: object
+            required: [qty]
+            properties:
+              product_id: { type: string }
+              variant_id: { type: string }
+              qty: { type: integer, minimum: 1 }
+              product_name: { type: string }
+              sku: { type: string }
+              price: { type: number }
+              weight: { type: number, description: Berat per item dalam gram }
+              category: { type: string }
+              subcategory: { type: string }
+              length: { type: number }
+              width: { type: number }
+              height: { type: number }
+              is_new: { type: boolean, description: Produk baru, belum ada di database }
+              save_to_db: { type: boolean, description: Simpan produk baru ke database }
+        courier_code: { type: string, example: jne }
+        services_type: { type: string, example: REG }
+        services_name: { type: string, example: JNE Reguler }
+        custom_courier_id: { type: string, format: uuid }
+        shipping_cost: { type: string, example: '12000' }
+        insurance_amount: { type: string, example: '0' }
+        cod_fee: { type: string, example: '0' }
+
+    OrderListItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        order_code: { type: string }
+        transaction_id: { type: string }
+        courier: { type: string, example: JNE Reguler }
+        address: { type: string }
+        status: { type: string, example: IN_TRANSIT }
+        created_at: { type: string, example: '2026-07-03 10:00:00' }
+
+    MessageResponse:
+      type: object
+      properties:
+        message: { type: string, example: Berhasil }
+        data:
+          type: object
+          nullable: true
+          example: null
+
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer, example: 1 }
+        per_page: { type: integer, example: 20 }
+        total: { type: integer, example: 42 }
+        total_filtered: { type: integer, example: 42 }
+
+    SettlementStatus:
+      type: object
+      description: Status pencairan dana (kosong jika belum ada pembayaran masuk)
+      properties:
+        code:
+          type: string
+          description: '`progress` | `disburse` | `completed` | `failed` | kosong'
+          example: completed
+        label: { type: string, example: Selesai }
+
+    SaveInvoiceItem:
+      type: object
+      required: [description, qty]
+      properties:
+        description: { type: string, example: Jasa desain logo }
+        qty: { type: number, example: 1 }
+        unit: { type: string, example: pcs }
+        price: { type: number, example: 150000 }
+        discount: { type: number, example: 0 }
+        tax_percent: { type: number, example: 11 }
+
+    SaveTaxDeduction:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, example: PPh 23 }
+        rate_percent: { type: number, example: 2 }
+
+    SaveInvoiceRequest:
+      type: object
+      required:
+        - customer_name
+        - customer_phone
+        - customer_email
+        - admin_fee_paid_by
+        - invoice_date
+        - due_date
+        - items
+      properties:
+        customer_name: { type: string, example: Budi Santoso }
+        customer_phone: { type: string, example: '081234567890' }
+        customer_email: { type: string, format: email }
+        customer_address: { type: string }
+        notes: { type: string }
+        settlement_type:
+          type: string
+          enum: [bank, wallet]
+          default: bank
+          description: >-
+            Tujuan pencairan dana. `bank` = transfer ke rekening bank organisasi
+            (bank_account_id wajib), `wallet` = dana masuk ke saldo wallet organisasi.
+        bank_account_id:
+          type: string
+          format: uuid
+          description: Rekening bank organisasi tujuan pencairan dana (wajib jika settlement_type=bank)
+        admin_fee_paid_by:
+          type: string
+          enum: [merchant, customer]
+        logo_url: { type: string }
+        invoice_date: { type: string, format: date, example: '2026-07-06' }
+        due_date: { type: string, format: date, example: '2026-07-20' }
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SaveInvoiceItem'
+        tax_deductions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SaveTaxDeduction'
+
+    SavePaymentRequest:
+      type: object
+      required:
+        - from_name
+        - from_email
+        - vendor_id
+        - admin_fee_paid_by
+        - payment_date
+        - due_date
+        - items
+      properties:
+        logo_url: { type: string }
+        from_name: { type: string, example: Toko A }
+        from_description: { type: string }
+        from_phone: { type: string, example: '081234567890' }
+        from_email: { type: string, format: email }
+        vendor_id:
+          type: string
+          format: uuid
+          description: Vendor penerima pembayaran (harus milik organisasi)
+        admin_fee_paid_by:
+          type: string
+          enum: [merchant, vendor]
+        payment_date: { type: string, format: date, example: '2026-07-06' }
+        due_date: { type: string, format: date, example: '2026-07-20' }
+        notes: { type: string }
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SaveInvoiceItem'
+        tax_deductions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SaveTaxDeduction'
+
+    InvoiceListItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        invoice_number: { type: string, example: INV-20260706-0001 }
+        customer_name: { type: string }
+        customer_email: { type: string }
+        grand_total: { type: number }
+        status: { type: string, example: sent }
+        status_label: { type: string, example: Terkirim }
+        settlement_status: { type: string, example: completed }
+        settlement_status_label: { type: string, example: Selesai }
+        invoice_date: { type: string, example: '06/07/2026' }
+        due_date: { type: string, example: '20/07/2026' }
+        is_editable: { type: boolean }
+        is_deletable: { type: boolean }
+
+    PaymentListItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        payment_number: { type: string, example: PAY-20260706-0001 }
+        vendor_name: { type: string }
+        grand_total: { type: number }
+        status: { type: string, example: pending }
+        status_label: { type: string, example: Menunggu }
+        settlement_status: { type: string, example: '' }
+        settlement_status_label: { type: string, example: '' }
+        payment_date: { type: string, example: '06/07/2026' }
+        due_date: { type: string, example: '20/07/2026' }
+        is_editable: { type: boolean }
+        is_deletable: { type: boolean }
+
+    CheckoutResponse:
+      type: object
+      properties:
+        message: { type: string, example: Berhasil }
+        data:
+          type: object
+          properties:
+            paid:
+              type: boolean
+              description: >-
+                true jika pembayaran langsung lunas (metode `wallet` — saldo terpotong,
+                tidak ada instruksi VA/QR/link)
+            payment_method: { type: string, example: QRIS }
+            qr_string: { type: string, description: 'Isi QRIS (kosong jika bukan QRIS)' }
+            payment_code: { type: string, description: 'Nomor VA (kosong jika bukan VA)' }
+            payment_link: { type: string }
+            total_amount: { type: number, example: 505000 }
+            admin_fee: { type: number, example: 5000 }
+
+    DisbursementItemInput:
+      type: object
+      required: [bank_code, account_number, account_holder, amount]
+      properties:
+        row:
+          type: integer
+          description: Nomor baris (opsional; untuk CSV diisi otomatis dengan nomor baris file)
+          example: 1
+        bank_code:
+          type: string
+          enum: [BCA, BNI, BRI, MANDIRI, CIMB, SEABANK, UOB, OCBC]
+          example: BCA
+        account_number:
+          type: string
+          pattern: '^[0-9]{5,20}$'
+          example: '1234567890'
+        account_holder:
+          type: string
+          maxLength: 255
+          example: Budi Santoso
+        amount:
+          type: number
+          description: Nominal bilangan bulat dalam Rupiah, minimal 25.000
+          minimum: 25000
+          example: 150000
+        email:
+          type: string
+          format: email
+          description: Opsional, hanya disimpan
+        phone:
+          type: string
+          description: Opsional, hanya disimpan (8-15 digit)
+          example: '081234567890'
+        note:
+          type: string
+          description: Opsional, catatan per rekening
+          example: Gaji September
+
+    DisbursementItemValidation:
+      allOf:
+        - $ref: '#/components/schemas/DisbursementItemInput'
+        - type: object
+          properties:
+            valid: { type: boolean, example: false }
+            errors:
+              type: array
+              items: { type: string }
+              example: [bank tidak didukung, nominal minimal Rp 25.000]
+
+    DisbursementValidationSummary:
+      type: object
+      properties:
+        total_items: { type: integer, example: 2 }
+        valid_items: { type: integer, example: 2 }
+        invalid_items: { type: integer, example: 0 }
+        total_amount: { type: number, example: 150000 }
+        fee_per_item: { type: number, example: 2500 }
+        total_fee: { type: number, example: 5000 }
+        total_deduct:
+          type: number
+          description: total_amount + total_fee, yang akan dipotong dari saldo
+          example: 155000
+        balance: { type: number, example: 500000 }
+        balance_after: { type: number, example: 345000 }
+        sufficient: { type: boolean, example: true }
+
+    DisbursementValidationResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisbursementItemValidation'
+        summary:
+          $ref: '#/components/schemas/DisbursementValidationSummary'
+        errors:
+          type: array
+          description: Error tingkat batch (mis. lebih dari 100 rekening)
+          items: { type: string }
+          example: []
+
+    CreateDisbursementBatchRequest:
+      type: object
+      required: [items]
+      properties:
+        source:
+          type: string
+          enum: [manual, csv, saved]
+          default: manual
+          description: Asal data. `csv` juga menyimpan rekening baru ke daftar rekening organisasi.
+        scheduled_at:
+          type: string
+          description: |
+            Kosongkan untuk kirim sekarang. RFC3339 (`2026-09-25T09:00:00+07:00`) atau
+            `YYYY-MM-DDTHH:mm` (dianggap WIB). Minimal 5 menit, maksimal 90 hari ke depan.
+          example: '2026-09-25T09:00:00+07:00'
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/DisbursementItemInput'
+
+    DisbursementItemCounts:
+      type: object
+      properties:
+        total: { type: integer, example: 10 }
+        success: { type: integer, example: 8 }
+        failed: { type: integer, example: 1 }
+        processing:
+          type: integer
+          description: Menunggu + sedang diproses
+          example: 1
+
+    DisbursementBatch:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, example: MD-20260922-0001 }
+        source: { type: string, enum: [manual, csv, saved] }
+        status:
+          type: string
+          enum: [scheduled, processing, success, partial, failed, cancelled]
+          example: processing
+        status_label: { type: string, example: Diproses }
+        scheduled_at:
+          type: string
+          nullable: true
+          description: Waktu kirim (WIB, format `02 Jan 2006 15:04`); null jika kirim langsung
+          example: 25 Sep 2026 09:00
+        executed_at: { type: string, nullable: true, example: 22 Sep 2026 10:15 }
+        completed_at: { type: string, nullable: true, example: null }
+        total_items: { type: integer, example: 10 }
+        total_amount: { type: number, example: 1500000 }
+        total_fee: { type: number, example: 25000 }
+        total_deduct: { type: number, example: 1525000 }
+        total_refunded:
+          type: number
+          description: Total saldo yang sudah dikembalikan (rekening gagal / batch dibatalkan)
+          example: 152500
+        counts:
+          $ref: '#/components/schemas/DisbursementItemCounts'
+        cancellable: { type: boolean, example: false }
+        created_at: { type: string, example: 22 Sep 2026 10:14 }
+
+    DisbursementItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        row: { type: integer, example: 2 }
+        bank_code: { type: string, example: BCA }
+        account_number: { type: string, example: '1234567890' }
+        account_holder: { type: string, example: Budi Santoso }
+        email: { type: string }
+        phone: { type: string }
+        note: { type: string }
+        amount: { type: number, example: 150000 }
+        fee: { type: number, example: 2500 }
+        status:
+          type: string
+          enum: [pending, processing, success, failed]
+          example: success
+        status_label: { type: string, example: Berhasil }
+        disbursement_id: { type: string, description: ID transaksi di payment gateway }
+        error_message: { type: string, example: '' }
+        refunded:
+          type: boolean
+          description: true jika nominal + fee rekening ini sudah dikembalikan ke saldo
+        updated_at: { type: string, example: 22 Sep 2026 10:16 }
+
+    DisbursementBatchDetail:
+      allOf:
+        - $ref: '#/components/schemas/DisbursementBatch'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/DisbursementItem'

@@ -73,6 +73,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Integrasi JualKirim: request gagal dicatat harian. Token/API key/password tidak pernah ditulis.
+        'jualkirim' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/jualkirim.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
         'monthly' => [
             'driver' => 'monthly',
             'path' => storage_path('logs/laravel.log'),
