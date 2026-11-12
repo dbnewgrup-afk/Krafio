@@ -102,7 +102,7 @@ class OpsController extends Controller
         $bucket = fn ($q, string $col) => $q->selectRaw("DATE_FORMAT({$col}, '{$fmt}') b, SUM(amount) s, COUNT(*) c")->groupBy('b')->pluck('s', 'b');
 
         $topup = $bucket(Payment::where('status', 'paid')->where('purpose', 'topup')->whereBetween('paid_at', [$from, $to]), 'paid_at');
-        $gatewaySales = $bucket(Payment::where('status', 'paid')->where('purpose', '!=', 'topup')->whereBetween('paid_at', [$from, $to]), 'paid_at');
+        $gatewaySales = $bucket(Payment::where('status', 'paid')->where('purpose', '!=', 'topup')->where('gateway', '!=', 'balance')->whereBetween('paid_at', [$from, $to]), 'paid_at');
         $balanceSales = $bucket(LedgerEntry::where('ref_type', 'order')->where('direction', 'debit')->whereBetween('created_at', [$from, $to]), 'created_at');
         $refunds = $bucket(LedgerEntry::where('ref_type', 'order_refund')->where('direction', 'credit')->whereBetween('created_at', [$from, $to]), 'created_at');
         $withdrawPaid = $bucket(Withdrawal::where('status', 'paid')->whereBetween('processed_at', [$from, $to]), 'processed_at');

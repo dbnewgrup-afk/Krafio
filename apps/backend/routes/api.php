@@ -82,6 +82,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('jobs', [StudioController::class, 'index']);
         Route::post('jobs', [StudioController::class, 'store'])->middleware('throttle:30,1,r13');
         Route::post('jobs/{job}/cancel', [StudioController::class, 'cancel']);
+        Route::get('jobs/{job}/files/{n}', [StudioController::class, 'file'])->whereNumber('n');
         Route::post('uploads', [StudioController::class, 'upload'])->middleware('throttle:30,1,r14');
         Route::get('assets', [StudioController::class, 'assets']);
         Route::get('projects', [StudioController::class, 'projects']);
@@ -100,6 +101,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('websites/{website}', [WorkspaceController::class, 'updateWebsite']);
         Route::post('websites/{website}/publish', [WorkspaceController::class, 'publishWebsite']);
         Route::post('websites/{website}/seo-suggest', [WorkspaceController::class, 'suggestSeo'])->middleware('throttle:60,1,ws1');
+        Route::post('websites/{website}/domain', [WorkspaceController::class, 'setDomain'])->middleware('throttle:10,1,dm1');
+        Route::post('websites/{website}/domain/verify', [WorkspaceController::class, 'verifyDomain'])->middleware('throttle:20,1,dm2');
+        Route::delete('websites/{website}/domain', [WorkspaceController::class, 'removeDomain']);
         Route::get('seo/audits', [WorkspaceController::class, 'seoAudits']);
         Route::post('seo/audits', [WorkspaceController::class, 'runSeo'])->middleware('throttle:10,1,r16');
         Route::patch('seo/findings/{finding}', [WorkspaceController::class, 'updateFinding']);
@@ -124,6 +128,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('subscription', [BillingController::class, 'subscription']);
         Route::post('orders/quote', [BillingController::class, 'quote'])->middleware('throttle:60,1,r17');
         Route::post('orders/promos', [BillingController::class, 'promosForItem'])->middleware('throttle:60,1,pr1');
+        Route::get('payments-history', [BillingController::class, 'paymentHistory']);
+        Route::post('payments/{payment}/refund', [BillingController::class, 'requestRefund'])->middleware('throttle:10,1,rf1');
         Route::post('orders', [BillingController::class, 'order'])->middleware('throttle:20,1,r18');
         Route::delete('subscription/scheduled-change', [BillingController::class, 'cancelDowngrade']);
         Route::patch('subscription/auto-renew', [BillingController::class, 'autoRenew']);
@@ -156,6 +162,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('badges', [AdminController::class, 'badges']);
         Route::get('dashboard', [AdminController::class, 'dashboard']);
         Route::get('ops/attention', [AdminController::class, 'opsAttention']);
+        Route::get('reports', [AdminController::class, 'reports'])->middleware('throttle:30,1,rp1');
         Route::post('ops/recover-stuck-jobs', [AdminController::class, 'opsRecoverStuckJobs'])->middleware('throttle:10,1,ops1');
         Route::get('users', [AdminController::class, 'users']);
         Route::post('users', [AccountController::class, 'store'])->middleware('throttle:20,1,acc1');

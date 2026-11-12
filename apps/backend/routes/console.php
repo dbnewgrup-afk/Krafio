@@ -28,6 +28,9 @@ Schedule::call(fn () => Billing::releaseCommissions())->hourly()->name('release-
 Schedule::call(fn () => Billing::releaseExpiredReservations())->everyFifteenMinutes()->name('expire-payments')->withoutOverlapping();
 Schedule::call(fn () => JualKirimInvoices::syncPending())->everyMinute()->name('jualkirim-invoice-sync')->withoutOverlapping(); // JualKirim tanpa webhook → polling
 Schedule::call(fn () => \App\Services\Ops::recoverStuckJobs())->everyFiveMinutes()->name('recover-stuck-jobs')->withoutOverlapping();
+Schedule::call(fn () => \App\Services\Ops::alertLowMargin())->dailyAt('09:00')->timezone('Asia/Jakarta')->name('ai-margin-alert')->withoutOverlapping();
+Schedule::call(fn () => \App\Services\Ops::resetProviderCounters())->monthlyOn(1, '00:05')->timezone('Asia/Jakarta')->name('ai-provider-monthly-reset');
+Schedule::call(fn () => \App\Services\CustomDomains::recheckPending())->hourly()->name('custom-domain-recheck')->withoutOverlapping();
 Schedule::call(fn () => Billing::renewals())->hourly()->name('subscription-renewals')->withoutOverlapping();
 Schedule::call(function () {
     Backups::database();

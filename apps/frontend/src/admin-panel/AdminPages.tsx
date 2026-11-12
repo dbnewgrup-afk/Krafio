@@ -41,7 +41,7 @@ interface Dash {
 function AttentionPanel() {
   const { t } = useTranslation()
   const toast = useToast()
-  const a = useApi<{ key: string; severity: 'critical' | 'warning' | 'info'; count: number; to: string }[]>('/admin/ops/attention')
+  const a = useApi<{ key: string; severity: 'critical' | 'warning' | 'info'; count: number; to: string; value?: number | null; threshold?: number }[]>('/admin/ops/attention')
   const [busy, setBusy] = useState(false)
   if (!a.data) return null
   const open = a.data.filter((x) => x.count > 0)
@@ -78,7 +78,7 @@ function AttentionPanel() {
           {open.map((x) => (
             <li key={x.key}>
               <Link to={x.to} className="flex items-center justify-between gap-3 rounded-md border border-line px-3 py-2.5 hover:bg-surface-2">
-                <span className="text-sm">{t(`admin.ops.k.${x.key}`)}</span>
+                <span className="text-sm">{t(`admin.ops.k.${x.key}`, { value: x.value ?? '—', threshold: x.threshold })}</span>
                 <span className={cn('inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-[12px] font-semibold tabular-nums', tone[x.severity])}>{number(x.count)}</span>
               </Link>
             </li>
@@ -456,6 +456,10 @@ export function AdminApprovals({ type, history, title }: { type?: string; histor
   const list = useServerList<ApprovalRow>('/admin/approvals', { type: type ?? '', status: history ? 'approved' : 'pending' })
   const [act, setAct] = useState<{ row: ApprovalRow; decision: 'approve' | 'reject' | 'revision' } | null>(null)
   const [histStatus, setHistStatus] = useState('approved')
+  const [refundMethod, setRefundMethod] = useState<'balance' | 'transfer'>('balance')
+  const [refundRef, setRefundRef] = useState('')
+  const isRefundApprove = act?.row.type === 'refund' && act.decision === 'approve'
+  const topupRefund = act?.row.payload?.purpose === 'topup'
   return (
     <>
       <PageHeader title={title} subtitle={t('admin.approvals_sub')} crumbs={[{ label: t('admin.nav.g_approval') }, { label: title }]} />
@@ -474,6 +478,7 @@ export function AdminApprovals({ type, history, title }: { type?: string; histor
           { key: 'payload', header: t('admin.f.detail'), render: (r) => (
             <span className="t-small line-clamp-2 text-muted">
               {r.payload?.amount ? rupiah(r.payload.amount) : r.payload?.note ?? r.payload?.email ?? '—'}
+              {r.type === 'refund' && r.payload?.reason && <span className="block">“{r.payload.reason}”</span>}
               {r.type === 'payment' && r.payload?.gateway_status && (
                 <span className={cn('ml-2 font-semibold', r.payload.gateway_status === 'paid' ? 'text-success' : r.payload.gateway_status === 'amount_mismatch' ? 'text-danger' : 'text-muted')}>
                   {t(`admin.gateway_status.${r.payload.gateway_status}`, { defaultValue: r.payload.gateway_status })}
@@ -503,10 +508,25 @@ export function AdminApprovals({ type, history, title }: { type?: string; histor
         destructive={act?.decision === 'reject'}
         requireReason={act?.decision !== 'approve'}
         title={act ? t(`admin.decide_title_${act.decision}`, { title: act.row.title }) : ''}
-        body={act?.row.type === 'withdrawal' ? t('admin.withdraw_decide_note') : undefined}
+        body={act?.row.type === 'withdrawal' ? t('admin.withdraw_decide_note') : isRefundApprove ? t('admin.refund.note') : undefined}
+        extra={
+          isRefundApprove ? (
+            <div className="grid gap-3">
+              {!topupRefund && (
+                <SelectField label={t('admin.refund.method')} value={refundMethod} onChange={(e) => setRefundMethod(e.target.value as 'balance' | 'transfer')}>
+                  <option value="balance">{t('admin.refund.to_balance')}</option>
+                  <option value="transfer">{t('admin.refund.to_transfer')}</option>
+                </SelectField>
+              )}
+              {(topupRefund || refundMethod === 'transfer') && <TextField label={t('admin.f.reference')} required value={refundRef} onChange={(e) => setRefundRef(e.target.value)} hint={t('admin.refund.reference_hint')} />}
+            </div>
+          ) : undefined
+        }
         confirmLabel={act ? t(`admin.${act.decision}`) : ''}
         onConfirm={async (reason) => {
-          await withReauth(() => http.post(`/admin/approvals/${act!.row.id}/decide`, { decision: act!.decision, reason }))
+          await withReauth(() => http.post(`/admin/approvals/${act!.row.id}/decide`, { decision: act!.decision, reason, ...(isRefundApprove ? { refund_method: topupRefund ? 'transfer' : refundMethod, reference: refundRef || undefined } : {}) }))
+          setRefundRef('')
+          setRefundMethod('balance')
           toast.push('success', t('common.saved'))
           list.reload()
         }}

@@ -75,6 +75,25 @@ class AdminController extends Controller
         ]];
     }
 
+    /** Laporan & analitik (filter: from, to, plan, gateway; default 30 hari terakhir). CSV KPI via ?export=csv. */
+    public function reports(Request $r)
+    {
+        $d = $r->validate(['from' => 'nullable|date', 'to' => 'nullable|date|after_or_equal:from', 'plan' => 'nullable|string|max:40', 'gateway' => 'nullable|string|max:30']);
+        $to = isset($d['to']) ? \Illuminate\Support\Carbon::parse($d['to'])->endOfDay() : now();
+        $from = isset($d['from']) ? \Illuminate\Support\Carbon::parse($d['from'])->startOfDay() : $to->copy()->subDays(29)->startOfDay();
+        if ($from->diffInDays($to) > 366) {
+            throw new ApiException('validation_failed', 'Rentang laporan maksimal 1 tahun.', 422, [], ['from' => ['Rentang maksimal 1 tahun.']]);
+        }
+        $data = \App\Services\Reports::build($from, $to, $d['plan'] ?? null, $d['gateway'] ?? null);
+        if ($r->query('export') === 'csv') {
+            Audit::log('admin.reports.export', null, $d);
+
+            return BillingController::csv('krafio-kpi.csv', ['KPI', 'Hari ini', 'Periode', 'Periode sebelumnya', 'Δ %'], collect($data['kpi'])->map(fn ($k) => [$k['key'], $k['today'], $k['period'], $k['previous'], $k['delta']]));
+        }
+
+        return ['data' => $data];
+    }
+
     /** Monitoring "Perlu tindakan": hitungan per kategori, diurutkan dari yang paling kritis. */
     public function opsAttention()
     {
@@ -236,15 +255,15 @@ class AdminController extends Controller
 
     public function decide(Request $r, Approval $approval)
     {
-        $data = $r->validate(['decision' => 'required|in:approve,reject,revision', 'reason' => 'nullable|string|max:1000', 'reference' => 'nullable|string|max:120']);
+        $data = $r->validate(['decision' => 'required|in:approve,reject,revision', 'reason' => 'nullable|string|max:1000', 'reference' => 'nullable|string|max:120', 'refund_method' => 'nullable|in:balance,transfer']);
         if ($data['decision'] !== 'approve' && mb_strlen(trim((string) ($data['reason'] ?? ''))) < 5) {
             throw new ApiException('validation_failed', 'Alasan wajib diisi.', 422, [], ['reason' => ['Alasan wajib diisi (minimal 5 karakter).']]);
         }
         if ($approval->status !== 'pending') {
             throw new ApiException('already_decided', 'Approval sudah diputuskan.', 422);
         }
-        if ($approval->type === 'withdrawal') {
-            $this->requireRecentAuth();
+        if (in_array($approval->type, ['withdrawal', 'refund'], true)) {
+            $this->requireRecentAuth(); // keputusan keuangan wajib re-autentikasi
         }
         DB::transaction(function () use ($approval, $data, $r) {
             $status = ['approve' => 'approved', 'reject' => 'rejected', 'revision' => 'revision'][$data['decision']];
@@ -269,9 +288,16 @@ class AdminController extends Controller
                         Wallet::post($w->user_id, 'commission', 'credit', (int) $w->amount, 'Pengembalian withdrawal #'.$w->id, ['withdrawal_refund', $w->id], $data['reason'], $r->user()->id);
                     }
                     if ($data['decision'] === 'approve') {
-                        $u->notify(new Notice('Withdrawal disetujui', 'Withdrawal Rp'.number_format($w->amount, 0, ',', '.').' disetujui dan segera diproses.', 'transaction', '/app/wallet/withdrawals'));
+                        Messenger::notify($u, 'withdrawal_approved', ['amount' => 'Rp'.number_format($w->amount, 0, ',', '.')], 'Withdrawal disetujui', 'Withdrawal Rp'.number_format($w->amount, 0, ',', '.').' disetujui dan segera diproses.', '/app/wallet/withdrawals');
                     } else {
                         Messenger::notify($u, 'withdrawal_rejected', ['amount' => 'Rp'.number_format($w->amount, 0, ',', '.'), 'reason' => (string) $data['reason']], 'Withdrawal ditolak', 'Withdrawal Rp'.number_format($w->amount, 0, ',', '.').' ditolak: '.$data['reason'], '/app/wallet/withdrawals');
+                    }
+                    break;
+                case 'refund':
+                    if ($data['decision'] === 'approve') {
+                        \App\Services\Refunds::approve($approval, $r->user(), $data['refund_method'] ?? 'balance', $data['reference'] ?? null);
+                    } else {
+                        \App\Services\Refunds::reject($approval, (string) $data['reason']);
                     }
                     break;
                 case 'template':
@@ -312,7 +338,15 @@ class AdminController extends Controller
         }
         $withdrawal->update(['status' => $data['status'], 'reference' => $data['reference'] ?? $withdrawal->reference, 'admin_note' => $data['note'] ?? $withdrawal->admin_note, 'processed_at' => $data['status'] === 'paid' ? now() : $withdrawal->processed_at]);
         if ($data['status'] === 'paid') {
-            \App\Models\Commission::where('referrer_id', $withdrawal->user_id)->where('status', 'available')->limit(1000)->update(['status' => 'paid']);
+            // FIFO: hanya komisi tertua yang tertutup penuh oleh nominal withdrawal ini yang ditandai dibayar
+            $left = (int) $withdrawal->amount;
+            foreach (\App\Models\Commission::where('referrer_id', $withdrawal->user_id)->where('status', 'available')->orderBy('available_at')->orderBy('id')->get() as $c) {
+                if ((int) $c->amount > $left) {
+                    break;
+                }
+                $c->update(['status' => 'paid']);
+                $left -= (int) $c->amount;
+            }
             Messenger::notify($withdrawal->user, 'withdrawal_paid', ['amount' => 'Rp'.number_format($withdrawal->amount, 0, ',', '.'), 'reference' => (string) $data['reference']], 'Withdrawal dibayar', 'Dana Rp'.number_format($withdrawal->amount, 0, ',', '.').' telah ditransfer. Ref: '.$data['reference'], '/app/wallet/withdrawals');
         }
         Audit::log('admin.withdrawal.'.$data['status'], $withdrawal, $data);

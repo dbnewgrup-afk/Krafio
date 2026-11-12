@@ -70,6 +70,40 @@ class Present
             'trial_available' => ! $u->isAdmin() && ! $u->trial_used_at && ! (($s = $u->activeSubscription()) && $s->price > 0),
             'scheduled_change' => ($s2 = $u->activeSubscription()) && $s2->scheduled_plan_code ? ['plan_code' => $s2->scheduled_plan_code, 'effective_at' => $s2->ends_at?->toIso8601String()] : null,
             'limits' => $u->isAdmin() ? (object) [] : (object) Entitlements::grants($u)['limits'],
+            'renewal' => $u->isAdmin() ? null : self::renewal($u, $sub),
+        ];
+    }
+
+    /**
+     * Banner siklus langganan (blueprint "Siklus Langganan"): lewat tempo (past_due, masa tenggang)
+     * atau paket berbayar / pemberian admin yang berakhir ≤ 7 hari dan belum diperpanjang di muka.
+     */
+    private static function renewal(User $u, $sub): ?array
+    {
+        $grace = (int) \App\Services\Settings::get('subscription.grace_days', 3);
+        $lapsed = $u->subscriptions()->where('status', 'past_due')->whereNotNull('ends_at')->latest('ends_at')->first();
+        if ($lapsed && $lapsed->ends_at->copy()->addDays($grace)->isFuture()) {
+            return ['state' => 'past_due', 'plan' => $lapsed->plan_name, 'plan_code' => $lapsed->plan_code, 'cycle' => $lapsed->cycle, 'ends_at' => $lapsed->ends_at->toIso8601String(), 'grace_until' => $lapsed->ends_at->copy()->addDays($grace)->toIso8601String()];
+        }
+        if (! $sub || $sub->status !== 'active' || ! $sub->ends_at || $sub->ends_at->isPast() || $sub->source === 'trial' || ($sub->price <= 0 && $sub->source !== 'admin') || $sub->ends_at->gt(now()->addDays(7)) || \App\Services\Billing::hasSuccessor($sub)) {
+            return null;
+        }
+
+        $price = null;
+        if ($sub->source !== 'admin') {
+            try {
+                $price = \App\Services\Billing::resolve($u, $sub->source === 'custom' && ! $sub->scheduled_plan_code ? 'custom' : 'plan', $sub->scheduled_plan_code ?: $sub->plan_code, $sub->scheduled_cycle ?: $sub->cycle)['price'];
+            } catch (\Throwable) {
+                $price = null; // paket tidak lagi tersedia → banner meminta pilih paket lain
+            }
+        }
+
+        return [
+            'renew_price' => $price,
+            'state' => 'expiring', 'plan' => $sub->plan_name, 'plan_code' => $sub->plan_code, 'cycle' => $sub->cycle, 'ends_at' => $sub->ends_at->toIso8601String(),
+            'days' => max(0, (int) ceil(now()->diffInHours($sub->ends_at, false) / 24)),
+            'auto' => $sub->source !== 'admin' && ((bool) $u->auto_renew || (bool) $sub->scheduled_plan_code),
+            'granted_by_admin' => $sub->source === 'admin',
         ];
     }
 
@@ -151,7 +185,7 @@ class Present
             'status' => $j->status,
             'progress' => (int) $j->progress,
             'cost' => (int) $j->cost,
-            'result' => $j->result,
+            'result' => is_array($j->result) ? array_diff_key($j->result, ['files' => true]) : $j->result, // path storage internal tidak dikirim
             'error' => $j->error,
             'created_at' => $j->created_at?->toIso8601String(),
             'completed_at' => $j->completed_at?->toIso8601String(),

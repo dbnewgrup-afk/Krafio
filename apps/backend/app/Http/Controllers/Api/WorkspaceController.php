@@ -50,7 +50,33 @@ class WorkspaceController extends Controller
         return array_filter([
             'id' => $w->id, 'name' => $w->name, 'subdomain' => $w->subdomain, 'status' => $w->status, 'updated_at' => $w->updated_at->toIso8601String(),
             'content' => $content ? $w->content : null,
+            'domain' => \App\Services\CustomDomains::present($w),
         ], fn ($v) => $v !== null);
+    }
+
+    /** Pasang / ganti domain kustom (dibatasi limits.custom_domains paket). */
+    public function setDomain(Request $r, Website $website)
+    {
+        abort_unless($website->user_id === $r->user()->id, 404);
+        Entitlements::ensure($r->user(), 'website.builder', 0);
+        $w = \App\Services\CustomDomains::set($r->user(), $website, (string) $r->validate(['domain' => 'required|string|max:190'])['domain']);
+
+        return ['data' => $this->site($w)];
+    }
+
+    public function verifyDomain(Request $r, Website $website)
+    {
+        abort_unless($website->user_id === $r->user()->id, 404);
+
+        return ['data' => $this->site(\App\Services\CustomDomains::verify($website))];
+    }
+
+    public function removeDomain(Request $r, Website $website)
+    {
+        abort_unless($website->user_id === $r->user()->id, 404);
+        \App\Services\CustomDomains::remove($website);
+
+        return ['data' => $this->site($website->fresh())];
     }
 
     public function websites(Request $r)

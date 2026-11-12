@@ -48,6 +48,12 @@ class Settings
         'billing.ppn_percent' => 11,
         'billing.price_includes_ppn' => true,
         'billing.margin_alert_percent' => 55,
+        // Refund (PRD P-09 masih terbuka → dapat diubah Admin)
+        'refund.enabled' => true,
+        'refund.window_days' => 7,
+        'refund.purposes' => ['subscription', 'addon', 'custom', 'topup'],
+        // Nilai rupiah 1 kredit untuk menghitung margin AI (harga paket ÷ kredit ≈ Rp180)
+        'billing.credit_value_idr' => 180,
     ];
 
     public const SECRET_KEYS = ['security.turnstile_secret'];

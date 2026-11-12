@@ -201,6 +201,8 @@ class DatabaseSeeder extends Seeder
             'withdrawal_rejected' => ['Withdrawal ditolak', "Halo {{name}},\n\nWithdrawal {{amount}} ditolak: {{reason}}. Dana dikembalikan ke saldo komisi Anda.", 'Withdrawal rejected', "Hi {{name}},\n\nYour {{amount}} withdrawal was rejected: {{reason}}. Funds were returned to your commission balance."],
             'test' => ['Email uji Krafio', "Halo {{name}},\n\nIni email uji dari pengaturan SMTP Krafio ({{time}}). Jika Anda menerima email ini, SMTP berfungsi.", 'Krafio test email', "Hi {{name}},\n\nThis is a test email from Krafio SMTP settings ({{time}})."],
         ];
+        // Siklus langganan & affiliate (blueprint) — menggantikan teks pengingat lama
+        $mails = \App\Support\LifecycleMail::TEMPLATES + $mails;
         foreach ($mails as $k => [$sid, $bid, $sen, $ben]) {
             EmailTemplate::updateOrCreate(['key' => $k], ['subject_id' => $sid, 'body_id' => $bid, 'subject_en' => $sen, 'body_en' => $ben, 'is_active' => true]);
         }
@@ -214,7 +216,14 @@ class DatabaseSeeder extends Seeder
         foreach ($wa as $event => [$name, $body, $vars]) {
             \App\Models\WaTemplate::updateOrCreate(['event' => $event], ['meta_name' => $name, 'language' => 'id', 'body_preview' => $body, 'variables' => $vars, 'is_active' => true]);
         }
-        AiPrompt::updateOrCreate(['key' => 'brainstorm.default'], ['name' => 'Brainstorm konten default', 'template' => 'Buat {{n}} ide konten untuk {{platform}} dengan nada {{tone}} tentang: {{topic}}', 'version' => '1.0', 'status' => 'active']);
+        // Siklus langganan, affiliate, refund: NONAKTIF sampai template disetujui Meta (Admin → Template WA → aktifkan)
+        foreach (array_diff_key(\App\Support\LifecycleMail::WA, $wa) as $event => [$name, $body, $vars]) {
+            \App\Models\WaTemplate::firstOrCreate(['event' => $event], ['meta_name' => $name, 'language' => 'id', 'body_preview' => $body, 'variables' => $vars, 'is_active' => false]);
+        }
+        // Prompt Library bawaan (dibaca AI Gateway; admin bisa membuat versi baru tanpa mengubah kode)
+        foreach (\App\Support\AiPromptDefaults::PROMPTS as $key => [$name, $template]) {
+            AiPrompt::firstOrCreate(['key' => $key], ['name' => $name, 'template' => $template, 'version' => '1.0', 'status' => 'active']);
+        }
     }
 
     /** Akun demo khusus lokal untuk menguji User Panel; saldo awal dicatat sebagai entri ledger. */

@@ -446,6 +446,28 @@ export function JobPreview({ job }: { job: AiJob }) {
         ))}
       </ol>
     )
+  // Hasil nyata dari provider AI (gambar/video tersimpan) — bisa diputar & diunduh
+  if (job.result?.media?.length)
+    return (
+      <div className="grid gap-3">
+        <div className="mx-auto grid w-full max-w-3xl gap-3 sm:grid-cols-2">
+          {job.result.media.map((m, i) => (
+            <figure key={m.url} className="grid gap-2">
+              {m.kind === 'video' ? (
+                <video src={m.url} controls playsInline preload="metadata" className="w-full rounded-lg border border-line bg-surface-2" />
+              ) : (
+                <img src={m.url} alt={t('studio.result_alt', { n: i + 1 })} loading="lazy" className="w-full rounded-lg border border-line bg-surface-2 object-contain" />
+              )}
+              <a href={m.url} download className="t-label inline-flex items-center gap-1.5 text-primary hover:underline">
+                <Download className="size-4" aria-hidden />
+                {t('studio.download')}
+              </a>
+            </figure>
+          ))}
+        </div>
+        {job.result.fallback && <p className="t-small text-muted">{t('studio.fallback_note')}</p>}
+      </div>
+    )
   return (
     <div className="grid gap-3">
       <div className="mx-auto grid w-full max-w-3xl gap-3 sm:grid-cols-2">
@@ -490,7 +512,9 @@ function JobResults({ jobs, onPreview, onCancel, onRetry, textMode }: { jobs: Ai
             </button>
           ) : (
             <button type="button" disabled={j.status !== 'completed'} onClick={() => onPreview(j)} aria-label={t('studio.view')} className="relative aspect-square overflow-hidden rounded-md bg-surface-2 disabled:cursor-default">
-              {j.status === 'completed' && (j.result?.preview_images || j.result?.preview_palette) ? (
+              {j.status === 'completed' && j.result?.media?.[0]?.kind === 'video' ? (
+                <video src={j.result.media[0].url} muted playsInline preload="metadata" className="absolute inset-0 h-full w-full object-cover" />
+              ) : j.status === 'completed' && (j.result?.preview_images || j.result?.preview_palette) ? (
                 <span className="absolute inset-0" style={previewStyle(j.result)} />
               ) : j.status === 'queued' || j.status === 'processing' ? (
                 <span className="absolute inset-0 grid place-items-center">

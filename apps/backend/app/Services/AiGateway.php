@@ -28,7 +28,7 @@ class AiGateway
     {
         $out = [];
         $providers = AiProvider::where('status', 'active')->orderBy('priority')->get()
-            ->filter(fn ($p) => in_array($capability, $p->capabilities ?? [], true) && $p->api_key);
+            ->filter(fn ($p) => in_array($capability, $p->capabilities ?? [], true) && ($p->driver !== 'openai_compatible' || $p->api_key) && ($p->driver === 'openai_compatible' || $p->base_url));
         foreach ($providers as $p) {
             if ($p->monthly_token_limit && $p->tokens_used >= $p->monthly_token_limit) {
                 continue;
@@ -60,10 +60,12 @@ class AiGateway
                     ]);
                 if ($res->successful()) {
                     $tokens = (int) data_get($res->json(), 'usage.total_tokens', 0);
+                    // Biaya provider (Rp per 1.000 token di model) → dasar margin AI
+                    $cost = (int) ceil($tokens / 1000 * (int) $m->cost_idr);
                     $p->increment('tokens_used', $tokens);
-                    $p->update(['health' => 'healthy', 'last_checked_at' => now()]);
+                    $p->update(['health' => 'healthy', 'last_checked_at' => now(), 'cost_month' => (int) $p->cost_month + $cost]);
 
-                    return ['text' => (string) data_get($res->json(), 'choices.0.message.content', ''), 'provider_id' => $p->id];
+                    return ['text' => (string) data_get($res->json(), 'choices.0.message.content', ''), 'provider_id' => $p->id, 'cost' => $cost];
                 }
                 $p->update(['health' => 'degraded', 'last_checked_at' => now()]);
             } catch (\Throwable $e) {
@@ -86,13 +88,15 @@ class AiGateway
         if ($cap === 'text') {
             $p = $job->params ?? [];
             $n = (int) ($p['ideas'] ?? 5);
+            // Prompt Library (Admin → AI → Prompt): versi aktif tertinggi; fallback ke teks bawaan
+            $vars = ['n' => $n, 'platform' => $p['platform'] ?? 'instagram', 'tone' => $p['tone'] ?? 'friendly', 'topic' => $job->prompt];
             $res = self::chat([
-                ['role' => 'system', 'content' => 'Anda asisten konten pemasaran untuk UMKM Indonesia. Jawab dalam bahasa Indonesia. Berikan daftar bernomor tanpa pembuka.'],
-                ['role' => 'user', 'content' => "Buat {$n} ide konten untuk platform ".($p['platform'] ?? 'instagram')." dengan nada ".($p['tone'] ?? 'friendly')." tentang: {$job->prompt}"],
+                ['role' => 'system', 'content' => Ai\Prompts::render('brainstorm.system', $vars, 'Anda asisten konten pemasaran untuk UMKM Indonesia. Jawab dalam bahasa Indonesia. Berikan daftar bernomor tanpa pembuka.')],
+                ['role' => 'user', 'content' => Ai\Prompts::render('brainstorm.default', $vars, 'Buat {{n}} ide konten untuk {{platform}} dengan nada {{tone}} tentang: {{topic}}')],
             ]);
             if ($res) {
                 $items = array_values(array_filter(array_map(fn ($l) => trim(preg_replace('/^\s*\d+[\.\)]\s*/', '', $l)), preg_split('/\r?\n/', $res['text']))));
-                $job->update(['status' => 'completed', 'progress' => 100, 'provider_id' => $res['provider_id'], 'completed_at' => now(), 'result' => ['items' => array_slice($items, 0, $n)]]);
+                $job->update(['status' => 'completed', 'progress' => 100, 'provider_id' => $res['provider_id'], 'provider_cost' => $res['cost'] ?? 0, 'completed_at' => now(), 'result' => ['items' => array_slice($items, 0, $n)]]);
 
                 return;
             }
@@ -104,7 +108,15 @@ class AiGateway
             return;
         }
 
-        // Gambar/video: belum ada driver media yang dikonfigurasi → pratinjau simulasi deterministik.
+        // Gambar/video: provider aktif (ComfyUI / HTTP kustom) dicoba berurutan sesuai prioritas (fallback otomatis).
+        $candidates = self::candidates($cap);
+        if ($candidates) {
+            self::processMedia($job, $cap, $candidates);
+
+            return;
+        }
+
+        // Belum ada provider media → pratinjau simulasi deterministik.
         $seed = crc32($job->prompt.$job->id);
         $count = max(1, min(4, (int) (($job->params ?? [])['count'] ?? 1)));
         $palette = [];
@@ -123,6 +135,42 @@ class AiGateway
             'preview_images' => $images,
             'note' => 'Pratinjau simulasi: provider AI gambar/video belum dikonfigurasi. Hasil sungguhan muncul setelah Admin mengaktifkan provider (mis. ComfyUI) di AI Management.',
         ]]);
+    }
+
+    /**
+     * Jalankan job gambar/video di provider nyata. Gagal di satu provider → coba berikutnya; semua gagal →
+     * job gagal + kredit dikembalikan sekali (blueprint "Pemrosesan Job AI" langkah 6 & 12).
+     *
+     * @param  array<int, array{0: AiProvider, 1: AiModel}>  $candidates
+     */
+    private static function processMedia(AiJob $job, string $cap, array $candidates): void
+    {
+        $user = $job->user;
+        $limits = $user ? Entitlements::grants($user)['limits'] : [];
+        $vars = ['prompt' => $job->prompt, 'style' => ($job->params ?? [])['style'] ?? 'product', 'operation' => ($job->params ?? [])['operation'] ?? 'inpaint', 'ratio' => ($job->params ?? [])['ratio'] ?? '1:1', 'duration' => ($job->params ?? [])['duration'] ?? 5];
+        $promptKey = ($cap === 'video' ? 'video.' : 'image.').$job->type;
+        $prompt = Ai\Prompts::render($promptKey, $vars, '{{prompt}}');
+        $errors = [];
+        foreach ($candidates as $i => [$p, $m]) {
+            try {
+                $job->update(['progress' => min(90, 30 + $i * 20), 'provider_id' => $p->id]);
+                $files = Ai\MediaDrivers::generate($p, $m, $job, Ai\MediaDrivers::vars($job, $prompt, (int) ($limits['photo_max_px'] ?? 4096)));
+                $stored = Ai\Outputs::store($job, $files, ! empty($limits['watermark']));
+                $cost = (int) $m->cost_idr * count($files);
+                $p->update(['health' => 'healthy', 'last_checked_at' => now(), 'cost_month' => (int) $p->cost_month + $cost]);
+                $job->update(['status' => 'completed', 'progress' => 100, 'completed_at' => now(), 'provider_cost' => $cost, 'error' => null,
+                    'result' => ['media' => $stored['media'], 'preview_images' => $stored['preview_images'], 'files' => $stored['files'], 'fallback' => $i > 0]]);
+
+                return;
+            } catch (\Throwable $e) {
+                $errors[] = $p->name.': '.$e->getMessage();
+                Log::warning('Provider media gagal', ['provider' => $p->id, 'job' => $job->id, 'error' => $e->getMessage()]);
+                $p->update(['health' => 'down', 'last_checked_at' => now()]);
+            }
+        }
+        $job->update(['status' => 'failed', 'progress' => 100, 'completed_at' => now(), 'error' => 'Semua penyedia AI gagal memproses. Kredit sudah dikembalikan.']);
+        \App\Http\Controllers\Api\StudioController::refundJob($job, 'Job #'.$job->id.' gagal di semua penyedia AI');
+        Audit::log('ai.job_failed_all_providers', $job, ['errors' => array_map(fn ($e) => mb_substr($e, 0, 200), $errors)], null);
     }
 
     private static function simulatedIdeas(string $topic, string $platform, int $n): array

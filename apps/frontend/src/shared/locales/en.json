@@ -153,7 +153,8 @@
   "facebook": "Facebook",
   "instagram": "Instagram",
   "tiktok": "TikTok",
-  "threads": "Threads"
+  "threads": "Threads",
+  "refunded": "Refunded"
  },
  "fields": {
   "name": "Name",
@@ -1026,7 +1027,10 @@
    "edit-video": "Add subtitles and cut silent gaps",
    "brainstorm": "",
    "clipper": "Keep the parts about pricing"
-  }
+  },
+  "result_alt": "Result {{n}}",
+  "download": "Download",
+  "fallback_note": "Processed by a backup provider because the main provider had an issue."
  },
  "wallet": {
   "topup": "Top-up balance",
@@ -1316,7 +1320,27 @@
    "cta": "Call to action"
   },
   "seo_fix": "Auto-fix SEO",
-  "seo_fixed": "SEO title & description adjusted."
+  "seo_fixed": "SEO title & description adjusted.",
+  "domain": {
+   "title": "Custom domain",
+   "body": "Use your own domain (Pro and above). Add two DNS records at your domain provider, then verify.",
+   "label": "Domain",
+   "save": "Save domain",
+   "remove": "Remove",
+   "records": "Add these DNS records",
+   "copy": "Copy",
+   "copied": "Copied",
+   "verify": "Verify now",
+   "checked": "Last checked {{date}}",
+   "auto": "Checked automatically every hour (DNS changes can take up to 24 hours).",
+   "verified_note": "{{domain}} is verified. SSL & traffic routing are enabled by the Krafio team.",
+   "status": {
+    "none": "None",
+    "pending": "Waiting for DNS",
+    "verified": "Verified",
+    "failed": "DNS changed"
+   }
+  }
  },
  "seo": {
   "subtitle": "Audit public pages with the Krafio rules engine.",
@@ -1501,7 +1525,8 @@
    "usage_counters": "Quota usage",
    "credit_ledger": "Credit history",
    "coupon_redemptions": "Coupon redemptions",
-   "social_accounts": "Connected social accounts"
+   "social_accounts": "Connected social accounts",
+   "reports": "Reports & analytics"
   },
   "login_title": "Admin sign in",
   "login_sub": "Super Admin only. Every attempt is logged.",
@@ -1822,7 +1847,11 @@
    "meta_status": "Meta status",
    "is_public": "Show on Promos page",
    "headline": "Promo headline",
-   "image": "Image"
+   "image": "Image",
+   "reversal_reason": "Reversal reason",
+   "reversed_at": "Reversed at",
+   "cost_idr": "Provider cost (Rp)",
+   "refund_method": "Refund method"
   },
   "hint": {
    "quotas_hint": "JSON. Example: {\"credits\": 300, \"chatbot.basic\": 30, \"content.brainstorm\": 30, \"seo.basic\": 20}",
@@ -1840,7 +1869,9 @@
    "job_stop_hint": "Only queued/processing jobs. The user's credits or quota are refunded automatically.",
    "promo_public_hint": "Shown on /promo, the home strip and the \"Promos available\" chips at checkout. Turn off for secret codes.",
    "promo_headline_hint": "A concrete line, e.g. \"Save 20% on your first month\". Empty = name/code.",
-   "promo_image_hint": "Image path, e.g. /assets/img/pages/pricing.jpg or a /api/media/… URL from Media."
+   "promo_image_hint": "Image path, e.g. /assets/img/pages/pricing.jpg or a /api/media/… URL from Media.",
+   "commission_reverse_hint": "Only commissions still on hold can be reversed — e.g. refund, chargeback or fraud. The affiliate is notified.",
+   "cost_idr_hint": "Rp per 1,000 tokens (text models) or per output (image/video). Basis for AI margin."
   },
   "s": {
    "credits_costs": "Credit cost per action (JSON, empty = PRD 55.1.1 values)",
@@ -1897,7 +1928,11 @@
    "security_admin_session_minutes": "Admin session timeout (minutes)",
    "sso_google": "Google sign-in (SSO)",
    "billing_margin_alert_percent": "Cost ratio alert threshold (%)",
-   "payment_webhook_secret_manual": "Gateway webhook secret"
+   "payment_webhook_secret_manual": "Gateway webhook secret",
+   "billing_credit_value_idr": "Value of 1 credit (Rp) for AI margin",
+   "refund_enabled": "Accept refund requests",
+   "refund_window_days": "Refund window (days after payment)",
+   "refund_purposes": "Refundable purchase types (JSON: subscription, addon, custom, topup)"
   },
   "info": {
    "credit_costs": "Leave empty to use the PRD 55.1.1 table (standard photo 8, HD 15, remove bg 2, upscale 4, inpaint 8, 720p video 80/5 s, 1080p 150/5 s, clipper 10/min, video edit 5/min). Values must be validated against final provider rates (P-01).",
@@ -1965,7 +2000,8 @@
    "usage_quotas": "Credit packs per user. Add one to grant bonus credits (recorded in credit history).",
    "credit_ledger": "Credit in/out trail — read-only so it cannot be tampered with.",
    "coupon_redemptions": "Coupon usage per transaction — read-only.",
-   "social_accounts": "Social accounts connected by users. Delete to disconnect."
+   "social_accounts": "Social accounts connected by users. Delete to disconnect.",
+   "reports": "Users, funnel, AI, operations, finance, KPIs and templates — real data with date filters."
   },
   "ops": {
    "title": "Needs attention",
@@ -1981,8 +2017,17 @@
     "pending_withdrawals": "Withdrawals in progress",
     "failed_payments_24h": "Failed payments (24h)",
     "open_tickets_sla": "Tickets past SLA",
-    "pending_accounts": "Accounts awaiting approval"
+    "pending_accounts": "Accounts awaiting approval",
+    "ai_margin_low": "AI margin {{value}}% (below {{threshold}}%)",
+    "pending_refunds": "Pending refund requests"
    }
+  },
+  "refund": {
+   "note": "A refund creates a new ledger entry, stops the plan/add-on from this payment, expires its credits and reverses the related affiliate commission.",
+   "method": "Refund method",
+   "to_balance": "To top-up balance (instant)",
+   "to_transfer": "Manual bank transfer",
+   "reference_hint": "Bank/e-wallet transfer reference. Required for top-up refunds and manual transfers."
   }
  },
  "ops": {
@@ -2619,5 +2664,141 @@
   "applied": "Code {{code}} applied",
   "remove": "Remove promo code",
   "ready": "Code {{code}} is ready — pick a plan below and it is filled in at checkout."
+ },
+ "renewal": {
+  "past_due_title": "Renewal of your {{plan}} plan failed",
+  "past_due_body": "Top up your balance and pay before {{date}}. After that the account returns to the Free plan — projects & assets are kept.",
+  "ends_one": "ends tomorrow ({{date}})",
+  "ends_other": "ends in {{count}} days ({{date}})",
+  "expiring_title": "Your {{plan}} plan {{when}}",
+  "admin_body": "This plan was granted by an admin and does not renew automatically. Choose a plan to keep your features.",
+  "manual_body": "Auto-renew is off. Renew now or turn on auto-renew on the Subscription page.",
+  "unavailable_body": "This plan is no longer available for auto-renew. Choose another plan before it ends.",
+  "short_body": "Your top-up balance {{balance}} is not enough for the {{price}} auto-renewal. Top up before the end date.",
+  "auto_body": "It will renew automatically from your top-up balance ({{price}}). No action needed.",
+  "topup": "Top up",
+  "pay_now": "Pay now",
+  "renew_now": "Renew now",
+  "choose_plan": "Choose a plan",
+  "manage": "Manage subscription"
+ },
+ "refund": {
+  "history_title": "Payment history",
+  "history_empty": "No payments yet.",
+  "purpose": {
+   "subscription": "Plan",
+   "addon": "Add-on",
+   "custom": "Custom package",
+   "topup": "Balance top-up"
+  },
+  "gateway": {
+   "balance": "Top-up balance",
+   "jualkirim": "JualKirim",
+   "midtrans": "Midtrans",
+   "xendit": "Xendit",
+   "tripay": "Tripay",
+   "manual": "Manual"
+  },
+  "request": "Request refund",
+  "request_title": "Request a refund",
+  "pending": "Refund under review",
+  "refunded_balance": "Refunded to balance",
+  "refunded_transfer": "Refunded (transfer)",
+  "reason": "Refund reason",
+  "reason_hint": "At least 10 characters. Briefly describe the issue so the team can review it faster.",
+  "submit": "Request {{amount}} refund",
+  "requested": "Refund request sent. We will notify you in-app and by email.",
+  "item_note": "If approved, the plan/add-on from this payment stops and its credits can no longer be used. Funds go back to your top-up balance (or are transferred, per the admin decision).",
+  "topup_note": "A top-up can only be refunded while your top-up balance still covers it. The balance is reduced and funds are transferred to your account.",
+  "policy_note": "Refunds can be requested within a limited time after payment and are reviewed by an admin. Affiliate commissions from refunded purchases are reversed."
+ },
+ "reports": {
+  "subtitle": "Real platform data for decisions — compared with the previous period of the same length.",
+  "export": "Export KPIs (CSV)",
+  "from": "From",
+  "to": "To",
+  "plan": "Plan",
+  "gateway": "Payment method",
+  "apply": "Apply",
+  "margin_low": "AI margin this month is {{margin}}% — below the {{threshold}}% threshold. Review model costs or credit value.",
+  "review_models": "Review AI models",
+  "k": {
+   "sales": "Plan & add-on sales",
+   "paid_users": "Paying users",
+   "ai_success": "AI job success",
+   "ai_margin": "AI margin (this month)"
+  },
+  "range": "{{from}} – {{to}}",
+  "conversion": "{{pct}}% conversion",
+  "jobs": "{{n}} jobs",
+  "margin_hint": "Credits {{revenue}} · cost {{cost}}",
+  "daily_sales": "Daily sales",
+  "users_by_plan": "Users by plan",
+  "users_note": "{{total}} users · {{suspended}} suspended/banned",
+  "funnel": "Acquisition funnel",
+  "funnel_note": "Sign-up → paid conversion {{pct}}%",
+  "f": {
+   "registered": "Signed up",
+   "verified": "Verified",
+   "active": "Active",
+   "paid": "Paid"
+  },
+  "operations": "Operations",
+  "o": {
+   "payment_success": "Payments completed",
+   "renewal_success": "Auto-renewal success",
+   "sla": "Tickets within SLA",
+   "avg_ai": "Average AI processing",
+   "of": "of {{n}} invoices",
+   "renewals": "{{ok}} ok · {{fail}} failed",
+   "tickets": "{{n}} tickets · {{done}} resolved",
+   "seconds": "{{n}} s",
+   "recovered": "{{n}} stuck jobs recovered"
+  },
+  "finance": "Finance",
+  "fin": {
+   "sales": "Plan & add-on sales",
+   "topups": "Top-ups received",
+   "refunds": "Refunds",
+   "discounts": "Promo discounts given",
+   "commission": "Affiliate commission",
+   "withdrawals_paid": "Withdrawals paid",
+   "liabilities": "Outstanding balance liabilities"
+  },
+  "ai_jobs": "AI jobs",
+  "ai": {
+   "completed": "Completed",
+   "failed": "Failed",
+   "cancelled": "Cancelled",
+   "running": "Running"
+  },
+  "job_types": {
+   "photo_generate": "Photo generation",
+   "photo_edit": "Photo editing",
+   "video_generate": "Video generation",
+   "video_edit": "Video editing",
+   "video_clipper": "Video clipper",
+   "content_brainstorm": "Brainstorming"
+  },
+  "kpi": "KPIs",
+  "kpi_name": "KPI",
+  "today": "Today",
+  "period": "Period",
+  "previous": "Previous period",
+  "kpis": {
+   "registrations": "Sign-ups",
+   "revenue": "Revenue",
+   "new_paid_subscriptions": "New paid subscriptions",
+   "ai_jobs_completed": "AI jobs completed",
+   "renewals_failed": "Failed renewals",
+   "tickets_resolved": "Tickets resolved",
+   "coupons_used": "Coupons used",
+   "withdrawals_paid": "Withdrawals paid"
+  },
+  "templates": "Top templates",
+  "premium": "Premium",
+  "no_data": "No data for this period.",
+  "no_sales": "No sales in this period.",
+  "total": "Period total"
  }
 }

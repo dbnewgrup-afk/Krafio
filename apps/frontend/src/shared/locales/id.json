@@ -153,7 +153,8 @@
   "facebook": "Facebook",
   "instagram": "Instagram",
   "tiktok": "TikTok",
-  "threads": "Threads"
+  "threads": "Threads",
+  "refunded": "Direfund"
  },
  "fields": {
   "name": "Nama",
@@ -1026,7 +1027,10 @@
    "edit-video": "Tambahkan subtitle dan potong jeda kosong",
    "brainstorm": "",
    "clipper": "Ambil bagian dengan pembahasan harga"
-  }
+  },
+  "result_alt": "Hasil {{n}}",
+  "download": "Unduh",
+  "fallback_note": "Diproses penyedia cadangan karena penyedia utama sedang bermasalah."
  },
  "wallet": {
   "topup": "Saldo top-up",
@@ -1316,7 +1320,27 @@
    "cta": "Ajakan"
   },
   "seo_fix": "Perbaiki SEO otomatis",
-  "seo_fixed": "Judul & deskripsi SEO sudah disesuaikan."
+  "seo_fixed": "Judul & deskripsi SEO sudah disesuaikan.",
+  "domain": {
+   "title": "Domain kustom",
+   "body": "Pakai domain milik Anda (paket Pro ke atas). Tambahkan dua record DNS di penyedia domain lalu verifikasi.",
+   "label": "Domain",
+   "save": "Simpan domain",
+   "remove": "Lepas",
+   "records": "Tambahkan record DNS berikut",
+   "copy": "Salin",
+   "copied": "Disalin",
+   "verify": "Verifikasi sekarang",
+   "checked": "Terakhir dicek {{date}}",
+   "auto": "Dicek otomatis setiap jam (perubahan DNS bisa butuh hingga 24 jam).",
+   "verified_note": "{{domain}} terverifikasi. SSL & arah lalu lintas diaktifkan oleh tim Krafio.",
+   "status": {
+    "none": "Belum ada",
+    "pending": "Menunggu DNS",
+    "verified": "Terverifikasi",
+    "failed": "DNS berubah"
+   }
+  }
  },
  "seo": {
   "subtitle": "Audit halaman publik dengan rules engine Krafio.",
@@ -1501,7 +1525,8 @@
    "usage_counters": "Pemakaian kuota",
    "credit_ledger": "Riwayat kredit",
    "coupon_redemptions": "Pemakaian kupon",
-   "social_accounts": "Akun sosial terhubung"
+   "social_accounts": "Akun sosial terhubung",
+   "reports": "Laporan & analitik"
   },
   "login_title": "Masuk Admin",
   "login_sub": "Khusus Super Admin. Setiap percobaan tercatat.",
@@ -1822,7 +1847,11 @@
    "meta_status": "Status Meta",
    "is_public": "Tampil di halaman Promo",
    "headline": "Judul promo",
-   "image": "Gambar"
+   "image": "Gambar",
+   "reversal_reason": "Alasan pembatalan",
+   "reversed_at": "Dibatalkan pada",
+   "cost_idr": "Biaya provider (Rp)",
+   "refund_method": "Metode refund"
   },
   "hint": {
    "quotas_hint": "JSON. Contoh: {\"credits\": 300, \"chatbot.basic\": 30, \"content.brainstorm\": 30, \"seo.basic\": 20}",
@@ -1840,7 +1869,9 @@
    "job_stop_hint": "Hanya job yang masih antre/diproses. Kredit atau kuota user dikembalikan otomatis.",
    "promo_public_hint": "Tampil di /promo, strip beranda, dan chip \"Promo tersedia\" saat checkout. Kode rahasia/khusus: matikan.",
    "promo_headline_hint": "Kalimat konkret, mis. \"Hemat 20% bulan pertama\". Kosong = memakai nama/kode.",
-   "promo_image_hint": "Path gambar, mis. /assets/img/pages/pricing.jpg atau URL /api/media/… dari Media."
+   "promo_image_hint": "Path gambar, mis. /assets/img/pages/pricing.jpg atau URL /api/media/… dari Media.",
+   "commission_reverse_hint": "Hanya komisi berstatus menunggu (masa tahan) yang bisa dibatalkan — mis. refund, chargeback, atau kecurangan. Affiliate diberi notifikasi.",
+   "cost_idr_hint": "Rp per 1.000 token (model teks) atau per hasil (gambar/video). Dasar perhitungan margin AI."
   },
   "s": {
    "credits_costs": "Biaya kredit per aksi (JSON, kosong = nilai PRD 55.1.1)",
@@ -1897,7 +1928,11 @@
    "security_admin_session_minutes": "Timeout sesi admin (menit)",
    "sso_google": "Login Google (SSO)",
    "billing_margin_alert_percent": "Ambang alert rasio biaya (%)",
-   "payment_webhook_secret_manual": "Webhook secret gateway"
+   "payment_webhook_secret_manual": "Webhook secret gateway",
+   "billing_credit_value_idr": "Nilai 1 kredit (Rp) untuk margin AI",
+   "refund_enabled": "Terima pengajuan refund",
+   "refund_window_days": "Batas pengajuan refund (hari setelah bayar)",
+   "refund_purposes": "Jenis pembelian yang bisa direfund (JSON: subscription, addon, custom, topup)"
   },
   "info": {
    "credit_costs": "Kosongkan untuk memakai tabel PRD 55.1.1 (foto standar 8, HD 15, remove bg 2, upscale 4, inpaint 8, video 720p 80/5 dtk, 1080p 150/5 dtk, clipper 10/menit, edit video 5/menit). Nilai wajib divalidasi terhadap tarif provider final (P-01).",
@@ -1965,7 +2000,8 @@
    "usage_quotas": "Pack kredit per user. Tambah untuk memberi kredit bonus (tercatat di riwayat kredit).",
    "credit_ledger": "Jejak kredit masuk/keluar — hanya-baca agar tidak bisa dimanipulasi.",
    "coupon_redemptions": "Pemakaian kupon per transaksi — hanya-baca.",
-   "social_accounts": "Akun sosial yang dihubungkan user. Hapus untuk memutus koneksi."
+   "social_accounts": "Akun sosial yang dihubungkan user. Hapus untuk memutus koneksi.",
+   "reports": "User, funnel, AI, operasional, keuangan, KPI, dan template — data nyata dengan filter tanggal."
   },
   "ops": {
    "title": "Perlu tindakan",
@@ -1981,8 +2017,17 @@
     "pending_withdrawals": "Penarikan diproses",
     "failed_payments_24h": "Pembayaran gagal (24 jam)",
     "open_tickets_sla": "Tiket lewat SLA",
-    "pending_accounts": "Akun menunggu persetujuan"
+    "pending_accounts": "Akun menunggu persetujuan",
+    "ai_margin_low": "Margin AI {{value}}% (di bawah {{threshold}}%)",
+    "pending_refunds": "Pengajuan refund menunggu"
    }
+  },
+  "refund": {
+   "note": "Refund membuat entri ledger baru, menghentikan paket/add-on dari pembayaran ini, mengedaluwarsakan kreditnya, dan membatalkan komisi affiliate terkait.",
+   "method": "Metode pengembalian dana",
+   "to_balance": "Ke saldo top-up (langsung)",
+   "to_transfer": "Transfer manual ke rekening",
+   "reference_hint": "Nomor referensi transfer dari bank/e-wallet. Wajib untuk refund top-up & transfer manual."
   }
  },
  "ops": {
@@ -2620,5 +2665,141 @@
   "applied": "Kode {{code}} terpasang",
   "remove": "Hapus kode promo",
   "ready": "Kode {{code}} siap dipakai — pilih paket di bawah dan kode otomatis terisi saat checkout."
+ },
+ "renewal": {
+  "past_due_title": "Perpanjangan paket {{plan}} gagal",
+  "past_due_body": "Isi saldo top-up lalu bayar sebelum {{date}}. Lewat tanggal itu akun kembali ke paket Gratis — proyek & aset tetap tersimpan.",
+  "ends_one": "berakhir besok ({{date}})",
+  "ends_other": "berakhir dalam {{count}} hari ({{date}})",
+  "expiring_title": "Paket {{plan}} {{when}}",
+  "admin_body": "Paket ini diberikan admin dan tidak diperpanjang otomatis. Pilih paket agar fitur tetap terbuka.",
+  "manual_body": "Perpanjangan otomatis nonaktif. Perpanjang sekarang atau aktifkan perpanjangan otomatis di halaman Langganan.",
+  "unavailable_body": "Paket ini tidak lagi tersedia untuk perpanjangan otomatis. Pilih paket lain sebelum tanggal berakhir.",
+  "short_body": "Saldo top-up {{balance}} belum cukup untuk perpanjangan otomatis {{price}}. Isi saldo sebelum tanggal berakhir.",
+  "auto_body": "Akan diperpanjang otomatis dari saldo top-up ({{price}}). Tidak perlu tindakan apa pun.",
+  "topup": "Isi saldo",
+  "pay_now": "Bayar sekarang",
+  "renew_now": "Perpanjang sekarang",
+  "choose_plan": "Pilih paket",
+  "manage": "Kelola langganan"
+ },
+ "refund": {
+  "history_title": "Riwayat pembayaran",
+  "history_empty": "Belum ada pembayaran.",
+  "purpose": {
+   "subscription": "Paket",
+   "addon": "Add-on",
+   "custom": "Custom package",
+   "topup": "Top-up saldo"
+  },
+  "gateway": {
+   "balance": "Saldo top-up",
+   "jualkirim": "JualKirim",
+   "midtrans": "Midtrans",
+   "xendit": "Xendit",
+   "tripay": "Tripay",
+   "manual": "Manual"
+  },
+  "request": "Ajukan refund",
+  "request_title": "Ajukan refund",
+  "pending": "Refund diperiksa",
+  "refunded_balance": "Direfund ke saldo",
+  "refunded_transfer": "Direfund (transfer)",
+  "reason": "Alasan refund",
+  "reason_hint": "Minimal 10 karakter. Ceritakan singkat kendalanya agar tim bisa memeriksa lebih cepat.",
+  "submit": "Ajukan refund {{amount}}",
+  "requested": "Pengajuan refund terkirim. Kami kabari lewat notifikasi & email.",
+  "item_note": "Bila disetujui, paket/add-on dari pembayaran ini dihentikan dan kreditnya tidak bisa dipakai lagi. Dana dikembalikan ke saldo top-up (atau ditransfer sesuai keputusan admin).",
+  "topup_note": "Refund top-up hanya bisa bila saldo top-up masih cukup. Saldo dikurangi dan dana ditransfer ke rekening Anda.",
+  "policy_note": "Refund dapat diajukan dalam batas waktu tertentu setelah pembayaran dan diperiksa oleh admin. Komisi affiliate dari pembelian yang direfund ikut dibatalkan."
+ },
+ "reports": {
+  "subtitle": "Data nyata platform untuk mengambil keputusan — dibandingkan dengan periode sebelumnya yang sama panjang.",
+  "export": "Ekspor KPI (CSV)",
+  "from": "Dari",
+  "to": "Sampai",
+  "plan": "Paket",
+  "gateway": "Metode bayar",
+  "apply": "Terapkan",
+  "margin_low": "Margin AI bulan ini {{margin}}% — di bawah ambang {{threshold}}%. Tinjau biaya model atau nilai kredit.",
+  "review_models": "Tinjau model AI",
+  "k": {
+   "sales": "Penjualan paket & add-on",
+   "paid_users": "User berbayar",
+   "ai_success": "Job AI sukses",
+   "ai_margin": "Margin AI (bulan ini)"
+  },
+  "range": "{{from}} – {{to}}",
+  "conversion": "Konversi {{pct}}%",
+  "jobs": "{{n}} job",
+  "margin_hint": "Kredit {{revenue}} · biaya {{cost}}",
+  "daily_sales": "Penjualan harian",
+  "users_by_plan": "User per paket",
+  "users_note": "{{total}} user · {{suspended}} ditangguhkan/diblokir",
+  "funnel": "Funnel akuisisi",
+  "funnel_note": "Konversi daftar → berbayar {{pct}}%",
+  "f": {
+   "registered": "Daftar",
+   "verified": "Terverifikasi",
+   "active": "Aktif",
+   "paid": "Berbayar"
+  },
+  "operations": "Operasional",
+  "o": {
+   "payment_success": "Pembayaran lunas",
+   "renewal_success": "Perpanjangan otomatis sukses",
+   "sla": "Tiket dalam SLA",
+   "avg_ai": "Rata-rata proses AI",
+   "of": "dari {{n}} tagihan",
+   "renewals": "{{ok}} sukses · {{fail}} gagal",
+   "tickets": "{{n}} tiket · {{done}} selesai",
+   "seconds": "{{n}} dtk",
+   "recovered": "{{n}} job macet dipulihkan"
+  },
+  "finance": "Keuangan",
+  "fin": {
+   "sales": "Penjualan paket & add-on",
+   "topups": "Top-up masuk",
+   "refunds": "Refund",
+   "discounts": "Diskon promo diberikan",
+   "commission": "Komisi affiliate",
+   "withdrawals_paid": "Withdrawal dibayar",
+   "liabilities": "Kewajiban saldo berjalan"
+  },
+  "ai_jobs": "Job AI",
+  "ai": {
+   "completed": "Selesai",
+   "failed": "Gagal",
+   "cancelled": "Batal",
+   "running": "Berjalan"
+  },
+  "job_types": {
+   "photo_generate": "Generate foto",
+   "photo_edit": "Edit foto",
+   "video_generate": "Generate video",
+   "video_edit": "Edit video",
+   "video_clipper": "Video clipper",
+   "content_brainstorm": "Brainstorming"
+  },
+  "kpi": "KPI",
+  "kpi_name": "KPI",
+  "today": "Hari ini",
+  "period": "Periode",
+  "previous": "Periode sebelumnya",
+  "kpis": {
+   "registrations": "Pendaftaran",
+   "revenue": "Pendapatan",
+   "new_paid_subscriptions": "Langganan berbayar baru",
+   "ai_jobs_completed": "Job AI selesai",
+   "renewals_failed": "Perpanjangan gagal",
+   "tickets_resolved": "Tiket terselesaikan",
+   "coupons_used": "Kupon terpakai",
+   "withdrawals_paid": "Withdrawal dibayar"
+  },
+  "templates": "Template teratas",
+  "premium": "Premium",
+  "no_data": "Belum ada data pada periode ini.",
+  "no_sales": "Belum ada penjualan pada periode ini.",
+  "total": "Total periode"
  }
 }

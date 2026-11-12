@@ -3,6 +3,8 @@
 /skill/
 
 # Rahasia & lokal
+secret.md
+**/secret.md
 .env
 .env.*
 !.env.example

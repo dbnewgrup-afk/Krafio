@@ -36,11 +36,56 @@ class Ops
             ['key' => 'failed_payments_24h', 'severity' => 'info', 'count' => Payment::where('status', 'failed')->where('updated_at', '>=', now()->subDay())->count(), 'to' => '/admin/finance/payments'],
             ['key' => 'open_tickets_sla', 'severity' => 'critical', 'count' => Ticket::whereIn('status', ['open', 'pending'])->whereNotNull('sla_due_at')->where('sla_due_at', '<', now())->count(), 'to' => '/admin/support/inbox'],
             ['key' => 'pending_accounts', 'severity' => 'info', 'count' => User::where('role', 'user')->where('status', 'pending_approval')->count(), 'to' => '/admin/approvals/accounts'],
+            ['key' => 'pending_refunds', 'severity' => 'warning', 'count' => Approval::where('type', 'refund')->where('status', 'pending')->count(), 'to' => '/admin/approvals/refunds'],
         ];
+        $m = self::aiMargin();
+        $items[] = ['key' => 'ai_margin_low', 'severity' => 'critical', 'count' => $m['low'] ? 1 : 0, 'to' => '/admin/reports', 'value' => $m['margin'], 'threshold' => $m['threshold']];
         $rank = ['critical' => 0, 'warning' => 1, 'info' => 2];
         usort($items, fn ($a, $b) => [$a['count'] === 0, $rank[$a['severity']], -$a['count']] <=> [$b['count'] === 0, $rank[$b['severity']], -$b['count']]);
 
         return $items;
+    }
+
+    /**
+     * Margin AI bulan berjalan (blueprint "Alert margin 55%"): pendapatan = kredit AI terpakai (setelah refund)
+     * × nilai rupiah per kredit; biaya = akumulasi biaya provider (cost_idr model × pemakaian).
+     *
+     * @return array{revenue:int, cost:int, margin:?float, threshold:int, low:bool, credits_used:int}
+     */
+    public static function aiMargin(): array
+    {
+        $from = now()->startOfMonth();
+        $debit = (int) CreditLedgerEntry::where('direction', 'debit')->where('ref_type', 'ai_job')->where('created_at', '>=', $from)->sum('amount');
+        $refund = (int) CreditLedgerEntry::where('direction', 'credit')->where('ref_type', 'ai_job')->where('created_at', '>=', $from)->sum('amount');
+        $credits = max(0, $debit - $refund);
+        $revenue = $credits * (int) Settings::get('billing.credit_value_idr', 180);
+        $cost = (int) \App\Models\AiProvider::sum('cost_month');
+        $margin = $revenue > 0 ? round(($revenue - $cost) / $revenue * 100, 1) : ($cost > 0 ? -100.0 : null);
+        $threshold = (int) Settings::get('billing.margin_alert_percent', 55);
+
+        return ['revenue' => $revenue, 'cost' => $cost, 'margin' => $margin, 'threshold' => $threshold, 'low' => $margin !== null && $margin < $threshold, 'credits_used' => $credits];
+    }
+
+    /** Scheduler harian: beri tahu admin bila margin AI di bawah ambang (sekali per hari). */
+    public static function alertLowMargin(): bool
+    {
+        $m = self::aiMargin();
+        if (! $m['low'] || ! \Illuminate\Support\Facades\Cache::add('ops.margin_alert.'.now()->format('Ymd'), 1, now()->endOfDay())) {
+            return false;
+        }
+        \Illuminate\Support\Facades\Notification::send(User::where('role', 'admin')->get(), new \App\Notifications\Notice(
+            'Margin AI di bawah '.$m['threshold'].'%',
+            'Margin bulan ini '.$m['margin'].'% (pendapatan kredit Rp'.number_format($m['revenue'], 0, ',', '.').', biaya provider Rp'.number_format($m['cost'], 0, ',', '.').'). Tinjau harga kredit, model, atau provider.',
+            'system', '/admin/ai/usage'));
+        Audit::log('ops.margin_low', null, $m, null);
+
+        return true;
+    }
+
+    /** Awal bulan: reset penghitung token & biaya provider (dasar kuota token bulanan & margin). */
+    public static function resetProviderCounters(): void
+    {
+        \App\Models\AiProvider::query()->update(['tokens_used' => 0, 'cost_month' => 0]);
     }
 
     /** Job yang macet di "processing" > 30 menit → gagal + kredit/kuota dikembalikan (sekali). */

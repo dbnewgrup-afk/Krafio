@@ -230,7 +230,7 @@ class Billing
                 Credits::grant($u, 'addon', (int) $grants['credits'], $ends, 'Add-on '.$item['name'], 'addon', $paymentId);
             }
             if (array_diff(array_keys($grants), ['credits'])) {
-                UserAddon::create(['user_id' => $u->id, 'addon_code' => $item['code'], 'name' => $item['name'], 'snapshot' => $item['snapshot'], 'status' => 'active', 'ends_at' => $ends]);
+                UserAddon::create(['user_id' => $u->id, 'payment_id' => $paymentId, 'addon_code' => $item['code'], 'name' => $item['name'], 'snapshot' => $item['snapshot'], 'status' => 'active', 'ends_at' => $ends]);
             }
             $u->notify(new Notice('Add-on aktif', $item['name'].' sudah dapat dipakai.', 'subscription', '/app/addons'));
         } else {
@@ -252,7 +252,7 @@ class Billing
                 $promo = ['coupon_id' => $c->id, 'type' => $c->type, 'value' => (int) $c->value, 'max_discount' => $c->max_discount, 'duration' => $c->duration, 'months_left' => $c->duration === 'first_n_months' ? max(0, (int) $c->duration_months - 1) : null];
             }
             Subscription::create([
-                'user_id' => $u->id, 'source' => $item['kind'] === 'custom' ? 'custom' : 'plan', 'plan_code' => $item['code'], 'plan_name' => $item['name'],
+                'user_id' => $u->id, 'payment_id' => $paymentId, 'source' => $item['kind'] === 'custom' ? 'custom' : 'plan', 'plan_code' => $item['code'], 'plan_name' => $item['name'],
                 'cycle' => $item['cycle'] ?? 'custom', 'price' => $paid, 'snapshot' => $item['snapshot'] + ['normal_price' => $item['price']], 'status' => 'active',
                 'starts_at' => $start, 'ends_at' => $start->copy()->addDays($days), 'promo' => $promo,
             ]);
@@ -395,9 +395,11 @@ class Billing
      */
     public static function renewals(): void
     {
+        $grace = (int) Settings::get('subscription.grace_days', 3);
         foreach (Subscription::where('status', 'active')->whereNotNull('ends_at')->where('ends_at', '<=', now()->addDays(7))->where('source', '!=', 'trial')->get() as $s) {
             $u = $s->user;
-            if (! $u || $s->price <= 0) {
+            // Paket gratis tanpa batas tidak diingatkan; paket pemberian admin (harga 0) tetap diingatkan, tidak diperpanjang otomatis
+            if (! $u || ($s->price <= 0 && $s->source !== 'admin')) {
                 continue;
             }
             // Sudah diperpanjang manual (periode berikutnya sudah dibayar): tanpa pengingat & tanpa auto-renew
@@ -409,11 +411,14 @@ class Billing
                 continue;
             }
             $days = (int) ceil(now()->diffInHours($s->ends_at, false) / 24);
-            foreach ([7 => 1, 3 => 2, 1 => 3] as $d => $flag) {
-                if ($days <= $d && $days > 0 && $s->reminders_sent < $flag) {
-                    $u->notify(new Notice('Paket segera berakhir', 'Paket '.$s->plan_name.' berakhir dalam '.$days.' hari.', 'subscription', '/app/subscription'));
-                    $s->update(['reminders_sent' => $flag]);
-                }
+            // Satu pengingat per tahap (H-7, H-3, H-1). Bila scheduler sempat terlewat, kirim SATU pengingat tahap terdekat saja.
+            $stage = $days <= 0 ? 0 : ($days <= 1 ? 3 : ($days <= 3 ? 2 : 1));
+            if ($stage > (int) $s->reminders_sent) {
+                self::remind($u, $s, $days);
+                $s->update(['reminders_sent' => $stage]);
+            }
+            if ($s->source === 'admin') {
+                continue; // paket pemberian admin berakhir lewat grace → Gratis, tanpa debit saldo
             }
             if ($s->ends_at->isPast() || $days <= 0) {
                 $targetCode = $s->scheduled_plan_code ?: $s->plan_code;
@@ -443,17 +448,52 @@ class Billing
                     // Saldo kurang, atau paket/custom package sudah tidak tersedia → past_due (satu langganan gagal tidak menghentikan yang lain)
                     $s->update(['status' => 'past_due']);
                     $insufficient = $e instanceof ApiException && $e->errorCode === 'insufficient_balance';
-                    $u->notify(new Notice('Perpanjangan gagal', $insufficient ? 'Saldo top-up tidak cukup untuk memperpanjang '.$s->plan_name.'.' : 'Paket '.$s->plan_name.' tidak dapat diperpanjang otomatis. Silakan pilih paket di halaman Langganan.', 'transaction', $insufficient ? '/app/wallet/topup' : '/app/subscription'));
+                    $reason = $insufficient ? 'saldo top-up tidak cukup' : 'paket tidak lagi tersedia';
+                    $graceUntil = $s->ends_at->copy()->addDays($grace)->format('d-m-Y');
+                    Messenger::notify($u, 'renewal_failed', ['plan' => $s->plan_name, 'reason' => $reason, 'grace_until' => $graceUntil, 'link' => self::appUrl($insufficient ? '/app/wallet/topup' : '/app/subscription')],
+                        'Perpanjangan gagal', 'Paket '.$s->plan_name.' tidak dapat diperpanjang ('.$reason.'). Bayar sebelum '.$graceUntil.' agar tidak kembali ke Gratis.', $insufficient ? '/app/wallet/topup' : '/app/subscription');
+                    Audit::log('subscription.renewal_failed', $s, ['reason' => $reason], null);
                 }
             }
         }
         // Setelah grace period: kembali ke paket Gratis (data & aset tetap tersimpan — PRD 4.4)
-        $grace = (int) Settings::get('subscription.grace_days', 3);
         foreach (Subscription::whereIn('status', ['active', 'past_due'])->whereNotNull('ends_at')->where('ends_at', '<', now()->subDays($grace))->get() as $s) {
             $s->update(['status' => 'expired']);
-            if ($s->user && ! $s->user->activeSubscription()) {
-                \App\Http\Controllers\Api\AuthController::grantFreePlan($s->user, true);
+            $u = $s->user;
+            if ($u && ! $u->activeSubscription()) {
+                \App\Http\Controllers\Api\AuthController::grantFreePlan($u, true, notify: false);
+                Messenger::notify($u, 'subscription_ended', ['plan' => $s->plan_name, 'link' => self::appUrl('/app/subscription')],
+                    'Paket berakhir', 'Paket '.$s->plan_name.' telah berakhir. Akun kembali ke paket Gratis; proyek & aset tetap tersimpan.', '/app/subscription');
             }
         }
+    }
+
+    /** Pengingat "paket segera berakhir": in-app + email (+ WhatsApp bila diaktifkan user), isi sesuai status auto-renew & saldo. */
+    private static function remind(User $u, Subscription $s, int $days): void
+    {
+        if ($s->source === 'admin') {
+            $note = 'Paket ini diberikan admin dan tidak diperpanjang otomatis.';
+        } elseif (! $u->auto_renew && ! $s->scheduled_plan_code) {
+            $note = 'Perpanjangan otomatis nonaktif — perpanjang manual dari halaman Langganan.';
+        } else {
+            try {
+                $price = self::resolve($u, $s->source === 'custom' && ! $s->scheduled_plan_code ? 'custom' : 'plan', $s->scheduled_plan_code ?: $s->plan_code, $s->scheduled_cycle ?: $s->cycle)['price'];
+            } catch (ApiException|\Illuminate\Database\Eloquent\ModelNotFoundException) {
+                $price = null;
+            }
+            $balance = Wallet::balance($u->id, 'topup');
+            $note = $price === null
+                ? 'Paket ini tidak lagi tersedia untuk perpanjangan otomatis — pilih paket lain di halaman Langganan.'
+                : ($balance >= $price
+                    ? 'Akan diperpanjang otomatis dari saldo top-up (Rp'.number_format($price, 0, ',', '.').').'
+                    : 'Saldo top-up Rp'.number_format($balance, 0, ',', '.').' belum cukup untuk perpanjangan otomatis Rp'.number_format($price, 0, ',', '.').' — isi saldo sebelum tanggal berakhir.');
+        }
+        Messenger::notify($u, 'subscription_expiring', ['plan' => $s->plan_name, 'days' => $days, 'ends_at' => $s->ends_at->format('d-m-Y'), 'renew_note' => $note, 'link' => self::appUrl('/app/subscription')],
+            'Paket segera berakhir', 'Paket '.$s->plan_name.' berakhir dalam '.$days.' hari. '.$note, '/app/subscription');
+    }
+
+    private static function appUrl(string $path): string
+    {
+        return rtrim((string) config('krafio.frontend_url'), '/').$path;
     }
 }

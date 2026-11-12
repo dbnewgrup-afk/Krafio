@@ -18,6 +18,8 @@ class Website extends Model
             'content' => 'array',
             'published_content' => 'array',
             'published_at' => 'datetime',
+            'domain_verified_at' => 'datetime',
+            'domain_checked_at' => 'datetime',
         ];
     }
 }

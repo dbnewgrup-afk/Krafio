@@ -71,3 +71,36 @@ Tampil di:
 Alur: **Pakai promo** di `/promo` → kode disimpan (7 hari, bertahan lewat login/daftar) → Langganan → pilih paket → checkout dengan kode terisi → bayar → pemakaian tercatat di **Pemakaian kupon**; kode yang sudah mencapai batas per user hilang dari chip & ditolak.
 
 API: `GET /api/public/promos`, `POST /api/app/orders/promos {kind, code, cycle}`. Kupon tidak berlaku untuk top-up.
+
+## 6. Siklus langganan & affiliate (blueprint hal. 8–9)
+
+- Pengingat H-7/H-3/H-1: in-app + email (+ WA bila template aktif), **satu per tahap** walau scheduler sempat mati; isi menyebut auto-renew / saldo kurang / pemberian admin.
+- Banner Dashboard & Langganan: kuning (segera berakhir), biru (akan diperpanjang otomatis), merah (lewat tempo + batas masa tenggang).
+- Perpanjangan gagal → `past_due` + email wajib + audit `subscription.renewal_failed`; lewat masa tenggang → Gratis + notifikasi "Paket berakhir".
+- Admin → Affiliate → Ubah → **Dibatalkan** (alasan wajib) untuk komisi masa tahan; refund membatalkan/menarik komisi otomatis.
+- Withdrawal dibayar menandai komisi **FIFO** sebatas nominal withdrawal.
+
+## 7. Refund (Approval › Refund)
+
+User: Langganan → **Riwayat pembayaran** → Ajukan refund (alasan ≥ 10 karakter). Admin memutuskan dengan re-auth:
+- Paket/add-on/custom: dana ke **saldo top-up** (langsung) atau **transfer manual** (nomor referensi wajib); paket/add-on dihentikan, kreditnya kedaluwarsa, akun kembali ke paket berlaku; komisi affiliate dibatalkan (masa tahan) atau ditarik dari saldo komisi (sudah tersedia).
+- Top-up: hanya bila saldo top-up masih cukup; saldo didebit, dana ditransfer manual (referensi wajib).
+- Pengaturan (Admin → Sistem): `refund.enabled`, `refund.window_days` (default 7), `refund.purposes`.
+- Pembelian dari saldo kini tercatat sebagai pembayaran (`gateway = balance`) agar bisa direfund & muncul di riwayat.
+
+## 8. AI Gateway: provider nyata, prompt library, margin
+
+- Driver **ComfyUI** (self-host/hosted) dan **HTTP kustom** untuk gambar/video, fallback berurutan; semua gagal → job gagal + kredit kembali sekali.
+- ComfyUI: isi Prompt Library key `comfyui.<jenis_job>` (mis. `comfyui.photo_generate`) dengan workflow **API format**; placeholder `{{prompt}}`, `{{negative}}`, `{{width}}`, `{{height}}`, `{{seed}}`, `{{count}}`, `{{source_image}}`, `{{duration}}`, `{{model}}` (angka boleh tanpa tanda kutip: `"seed": {{seed}}`).
+- HTTP kustom: `POST base_url` JSON `{job_id,type,model,prompt,negative,params,width,height,seed,source}` → `{outputs:[{url}|{base64,mime}]}`.
+- Hasil disimpan privat (`storage/app/private/ai-outputs`), disajikan di `/api/app/jobs/{id}/files/{n}` hanya untuk pemilik; paket dengan `watermark` → gambar diberi tanda "Krafio".
+- Prompt Library: `brainstorm.system`, `brainstorm.default`, `assistant.system`, `image.photo_generate`, `image.photo_edit`, `video.video_generate`, `image.negative` — status **aktif** dipakai, draft/arsip → teks bawaan.
+- Margin AI = kredit AI terpakai × `billing.credit_value_idr` (default Rp180) vs biaya provider (`cost_idr` per model: Rp/1K token teks atau Rp/hasil). Di bawah `billing.margin_alert_percent` (55%) → panel "Perlu tindakan" + notifikasi admin harian 09.00. Penghitung provider direset tanggal 1.
+
+## 9. Domain kustom website (Pro+)
+
+Editor website → **Domain kustom** → simpan domain → tambah `TXT _krafio.<domain> = krafio-verify=<token>` dan `CNAME <domain> → sites.<KRAFIO_SITE_DOMAIN>` (atau `KRAFIO_CUSTOM_DOMAIN_TARGET`) → Verifikasi (otomatis tiap jam). Dibatasi `limits.custom_domains` paket. SSL & routing edge (Cloudflare for SaaS) disiapkan terpisah.
+
+## 10. Laporan & analitik
+
+Admin → Ringkasan → **Laporan & analitik**: user per paket, funnel daftar→berbayar, job AI (sukses, rata-rata proses, job macet dipulihkan, per jenis), operasional (pembayaran lunas, perpanjangan sukses, SLA tiket), keuangan (penjualan, top-up, refund, diskon, komisi, withdrawal, kewajiban saldo), KPI hari ini/periode/Δ, template teratas; filter tanggal/paket/metode bayar; ekspor CSV KPI.

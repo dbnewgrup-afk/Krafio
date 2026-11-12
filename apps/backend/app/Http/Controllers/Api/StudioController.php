@@ -236,6 +236,19 @@ class StudioController extends Controller
         return response()->json(['data' => ['id' => $up->id]], 201);
     }
 
+    /** Berkas hasil job AI (storage privat) — hanya pemilik job. */
+    public function file(Request $r, AiJob $job, int $n)
+    {
+        abort_unless($job->user_id === $r->user()->id, 404);
+        $f = ($job->result['files'] ?? [])[$n] ?? null;
+        abort_unless($f && \Illuminate\Support\Facades\Storage::disk('local')->exists($f['path']), 404);
+
+        return response()->file(\Illuminate\Support\Facades\Storage::disk('local')->path($f['path']), [
+            'Content-Type' => $f['mime'], 'Cache-Control' => 'private, max-age=86400', 'X-Content-Type-Options' => 'nosniff',
+            'Content-Disposition' => 'inline; filename="krafio-'.$job->id.'-'.$n.'.'.(\App\Services\Ai\Outputs::EXT[$f['mime']] ?? 'bin').'"',
+        ]);
+    }
+
     public function assets(Request $r)
     {
         $uid = $r->user()->id;
@@ -367,7 +380,8 @@ class StudioController extends Controller
         Entitlements::consume($u, 'chatbot.basic', 1);
         AssistantMessage::create(['user_id' => $u->id, 'role' => 'user', 'content' => $data['message']]);
         $history = AssistantMessage::where('user_id', $u->id)->latest('id')->limit(10)->get()->reverse()->map(fn ($m) => ['role' => $m->role, 'content' => $m->content])->values()->all();
-        $res = AiGateway::chat(array_merge([['role' => 'system', 'content' => 'Anda AI Assistant Krafio yang membantu UMKM dan kreator membuat konten pemasaran. Jawab ringkas dalam bahasa pengguna.']], $history));
+        $system = \App\Services\Ai\Prompts::render('assistant.system', ['name' => $u->name], 'Anda AI Assistant Krafio yang membantu UMKM dan kreator membuat konten pemasaran. Jawab ringkas dalam bahasa pengguna.');
+        $res = AiGateway::chat(array_merge([['role' => 'system', 'content' => $system]], $history));
         $text = $res['text'] ?? null;
         if (! $res) {
             // Tanpa provider AI: jawab dari FAQ aktif (pencocokan kata kunci), kuota tidak dipotong.

@@ -10,7 +10,7 @@ import { useLocked } from '@/shared/layout/Locked'
 import { useApi } from '@/shared/hooks/useApi'
 import { useDocTitle } from '@/shared/hooks/useDocTitle'
 import { useIsDesktop } from '@/shared/hooks/useMediaQuery'
-import { Card, ChipRow, PageHeader, Segmented, Tabs, Accordion } from '@/shared/ui/Misc'
+import { Card, CardTitle, ChipRow, PageHeader, Segmented, Tabs, Accordion } from '@/shared/ui/Misc'
 import { Button, ButtonLink } from '@/shared/ui/Button'
 import { TextField, TextArea, SelectField, inputCls } from '@/shared/ui/Field'
 import { StatusChip, Badge } from '@/shared/ui/Status'
@@ -349,8 +349,17 @@ export function AssistantPage() {
 }
 
 /* ---------------- Website builder (§19.5, PRD 6.7) ---------------- */
+interface SiteDomain {
+  domain: string | null
+  status: 'none' | 'pending' | 'verified' | 'failed'
+  checked_at: string | null
+  verified_at: string | null
+  error: string | null
+  records: { type: string; name: string; value: string }[]
+}
 interface Site {
   id: number
+  domain?: SiteDomain
   name: string
   subdomain: string
   status: string
@@ -554,7 +563,77 @@ export function WebsiteEditorPage() {
         </div>
       )}
       <Modal open={sheet && !isDesktop} onClose={() => setSheet(false)} size="confirm" title={block ? t(`websites.block_types.${block.type}`) : ''}>{props}</Modal>
+      <DomainPanel siteId={site.data.id} domain={site.data.domain} onChange={site.reload} />
     </>
+  )
+}
+
+/** Domain kustom (paket Pro+): pasang domain → tambah TXT & CNAME → verifikasi (otomatis tiap jam / tombol). */
+function DomainPanel({ siteId, domain, onChange }: { siteId: number; domain?: SiteDomain; onChange: () => void }) {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const { openLocked } = useLocked()
+  const [value, setValue] = useState(domain?.domain ?? '')
+  const [busy, setBusy] = useState<'set' | 'verify' | 'remove' | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const run = async (kind: 'set' | 'verify' | 'remove') => {
+    setBusy(kind)
+    setErr(null)
+    try {
+      if (kind === 'set') await http.post(`/app/websites/${siteId}/domain`, { domain: value })
+      else if (kind === 'verify') await http.post(`/app/websites/${siteId}/domain/verify`)
+      else await http.del(`/app/websites/${siteId}/domain`)
+      onChange()
+      if (kind === 'remove') setValue('')
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'feature_locked' || e.code === 'quota_exceeded')) openLocked('website.builder')
+      setErr(e instanceof ApiError ? (e.fields.domain?.[0] ?? e.message) : t('errors.server_body'))
+    } finally {
+      setBusy(null)
+    }
+  }
+  const status = domain?.status ?? 'none'
+  const copy = (v: string) => navigator.clipboard?.writeText(v).then(() => toast.push('success', t('websites.domain.copied')), () => undefined)
+  return (
+    <Card className="mt-6">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <CardTitle>{t('websites.domain.title')}</CardTitle>
+          <p className="t-small -mt-2 text-muted">{t('websites.domain.body')}</p>
+        </div>
+        {status !== 'none' && <StatusChip status={status === 'verified' ? 'active' : status === 'failed' ? 'failed' : 'pending'} label={t(`websites.domain.status.${status}`)} />}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <div className="min-w-0 flex-1">
+          <TextField label={t('websites.domain.label')} value={value} onChange={(e) => setValue(e.target.value)} placeholder="www.tokokamu.com" error={err ?? undefined} />
+        </div>
+        <div className="flex items-end gap-2">
+          <Button loading={busy === 'set'} disabled={!value.trim() || value.trim().toLowerCase() === domain?.domain} onClick={() => run('set')}>{t('websites.domain.save')}</Button>
+          {domain?.domain && <Button variant="ghost" loading={busy === 'remove'} onClick={() => run('remove')}>{t('websites.domain.remove')}</Button>}
+        </div>
+      </div>
+      {domain?.domain && status !== 'verified' && (
+        <div className="mt-4 grid gap-2">
+          <p className="t-label text-fg">{t('websites.domain.records')}</p>
+          <ul className="grid gap-2">
+            {domain.records.map((r) => (
+              <li key={r.type} className="grid gap-1 rounded-md border border-line p-3 text-sm sm:grid-cols-[80px_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-3">
+                <span className="font-semibold">{r.type}</span>
+                <span className="t-mono break-all text-muted">{r.name}</span>
+                <span className="t-mono break-all text-fg">{r.value}</span>
+                <button type="button" onClick={() => copy(r.value)} className="t-label justify-self-start text-primary hover:underline">{t('websites.domain.copy')}</button>
+              </li>
+            ))}
+          </ul>
+          {domain.error && <p className="t-small text-warning">{domain.error}</p>}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="secondary" loading={busy === 'verify'} onClick={() => run('verify')}>{t('websites.domain.verify')}</Button>
+            <span className="t-small text-muted">{domain.checked_at ? t('websites.domain.checked', { date: dateTime(domain.checked_at) }) : t('websites.domain.auto')}</span>
+          </div>
+        </div>
+      )}
+      {status === 'verified' && <p className="t-small mt-3 text-success">{t('websites.domain.verified_note', { domain: domain?.domain })}</p>}
+    </Card>
   )
 }
 

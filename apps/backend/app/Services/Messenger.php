@@ -23,6 +23,8 @@ class Messenger
         'otp' => 'security', 'welcome' => 'subscription', 'password_changed' => 'security', 'topup_success' => 'transaction',
         'subscription_active' => 'subscription', 'subscription_expiring' => 'subscription', 'withdrawal_requested' => 'transaction',
         'withdrawal_paid' => 'transaction', 'withdrawal_rejected' => 'transaction', 'test' => 'system',
+        'renewal_failed' => 'transaction', 'subscription_ended' => 'subscription', 'withdrawal_approved' => 'transaction', 'commission_reversed' => 'transaction',
+        'refund_approved' => 'transaction', 'refund_rejected' => 'transaction',
     ];
 
     /** Terapkan SMTP dari Integrasi Admin; tanpa integrasi aktif memakai mailer .env (log di lokal). */

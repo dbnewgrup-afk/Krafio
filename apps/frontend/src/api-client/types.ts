@@ -39,6 +39,8 @@ export interface Me {
   auto_renew: boolean
   trial_available: boolean
   scheduled_change: { plan_code: string; effective_at: string | null } | null
+  /** Banner siklus langganan: lewat tempo atau berakhir ≤ 7 hari */
+  renewal?: { state: 'past_due' | 'expiring'; plan: string; plan_code: string; cycle: string; ends_at: string; grace_until?: string; days?: number; auto?: boolean; granted_by_admin?: boolean; renew_price?: number | null } | null
   limits: Record<string, number | string | boolean>
 }
 
@@ -123,7 +125,7 @@ export interface AiJob {
   status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled'
   progress: number
   cost: number
-  result: { preview_palette?: string[]; preview_images?: string[]; text?: string; items?: string[]; note?: string } | null
+  result: { preview_palette?: string[]; preview_images?: string[]; text?: string; items?: string[]; note?: string; media?: { url: string; kind: 'image' | 'video' }[]; fallback?: boolean } | null
   error: string | null
   created_at: string
   completed_at: string | null

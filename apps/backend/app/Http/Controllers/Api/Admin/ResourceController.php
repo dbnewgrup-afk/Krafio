@@ -104,7 +104,8 @@ class ResourceController extends Controller
                 $rules[$uniq] .= '|'.Rule::unique($table, $uniq)->ignore($model?->getKey(), $model?->getKeyName() ?? 'id');
             }
         }
-        if ($model) {
+        // Update parsial: field wajib boleh tidak dikirim — kecuali resource mendefinisikan update_rules sendiri (dipakai apa adanya)
+        if ($model && ! isset($def['update_rules'])) {
             foreach ($rules as $k => $v) {
                 $rules[$k] = is_string($v) ? str_replace('required|', 'sometimes|required|', $v) : $v;
             }

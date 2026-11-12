@@ -18,6 +18,7 @@ class Payment extends Model
             'gateway_payload' => 'array',
             'pricing' => 'array',
             'paid_at' => 'datetime',
+            'refunded_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
     }

@@ -59,7 +59,12 @@ class AdminResources
             'payments' => ['model' => Models\Payment::class, 'readonly' => true, 'with' => ['user'], 'search' => ['reference'], 'filters' => ['status', 'purpose', 'gateway'], 'sort' => ['created_at', 'amount']],
             'topups' => ['model' => Models\Payment::class, 'readonly' => true, 'scope' => ['purpose' => 'topup'], 'with' => ['user'], 'search' => ['reference'], 'filters' => ['status'], 'sort' => ['created_at', 'amount']],
             'ledger' => ['model' => Models\LedgerEntry::class, 'readonly' => true, 'with' => ['user'], 'search' => ['description'], 'filters' => ['wallet', 'direction'], 'sort' => ['created_at', 'amount']],
-            'commissions' => ['model' => Models\Commission::class, 'readonly' => true, 'with' => ['referrer', 'referred'], 'search' => [], 'filters' => ['status'], 'sort' => ['created_at', 'amount']],
+            // Komisi hanya bisa DIBATALKAN (refund/chargeback/kecurangan) selama masa tahan; nominal & status lain tidak bisa diubah.
+            'commissions' => ['model' => Models\Commission::class, 'can' => ['update'], 'rules' => [
+                'status' => 'required|in:reversed', 'reversal_reason' => 'required|string|min:5|max:500',
+            ], 'update_rules' => [ // alasan WAJIB juga saat update (aturan generik mengubah required → sometimes)
+                'status' => 'required|in:reversed', 'reversal_reason' => 'required|string|min:5|max:500',
+            ], 'with' => ['referrer', 'referred'], 'search' => [], 'filters' => ['status'], 'sort' => ['created_at', 'amount']],
             'withdrawals' => ['model' => Models\Withdrawal::class, 'readonly' => true, 'with' => ['user'], 'search' => ['reference'], 'filters' => ['status'], 'sort' => ['created_at', 'amount']],
             'approvals' => ['model' => Models\Approval::class, 'readonly' => true, 'with' => ['user', 'decider'], 'search' => ['title'], 'filters' => ['type', 'status'], 'sort' => ['created_at', 'decided_at']],
             'ai-providers' => ['model' => Models\AiProvider::class, 'search' => ['name', 'driver'], 'filters' => ['status', 'health'], 'sort' => ['priority', 'tokens_used', 'cost_month'], 'secret' => ['api_key'], 'rules' => [
@@ -68,7 +73,7 @@ class AdminResources
             ]],
             'ai-models' => ['model' => Models\AiModel::class, 'with' => ['provider'], 'search' => ['name', 'model_id'], 'filters' => ['capability', 'is_active'], 'sort' => ['credit_cost', 'created_at'], 'rules' => [
                 'provider_id' => 'required|exists:ai_providers,id', 'name' => 'required|string|max:80', 'model_id' => 'required|string|max:120', 'capability' => 'required|in:text,image,video',
-                'credit_cost' => 'required|integer|min:1|max:1000', 'is_active' => $bool, 'is_fallback' => $bool,
+                'credit_cost' => 'required|integer|min:1|max:1000', 'is_active' => $bool, 'is_fallback' => $bool, 'cost_idr' => 'nullable|integer|min:0|max:100000000',
             ]],
             'ai-prompts' => ['model' => Models\AiPrompt::class, 'search' => ['key', 'name'], 'filters' => ['status'], 'sort' => ['updated_at'], 'rules' => [
                 'key' => 'required|alpha_dash|max:60', 'name' => 'required|string|max:120', 'template' => 'required|string|max:8000', 'version' => 'required|string|max:10', 'status' => 'required|in:draft,active,archived',
@@ -129,7 +134,7 @@ class AdminResources
             'mail-logs' => ['model' => Models\MailLog::class, 'readonly' => true, 'search' => ['to', 'subject', 'template'], 'filters' => ['status', 'template', 'mailer'], 'sort' => ['created_at']],
             'wa-logs' => ['model' => Models\WaLog::class, 'readonly' => true, 'search' => ['to', 'event', 'template'], 'filters' => ['status', 'event'], 'sort' => ['created_at']],
             'wa-templates' => ['model' => Models\WaTemplate::class, 'search' => ['event', 'meta_name'], 'filters' => ['is_active', 'language'], 'sort' => ['event', 'updated_at'], 'rules' => [
-                'event' => 'required|in:otp,welcome,password_changed,topup_success,subscription_active,subscription_expiring,withdrawal_requested,withdrawal_paid,withdrawal_rejected,test',
+                'event' => 'required|in:'.implode(',', array_keys(\App\Services\Messenger::EVENTS)),
                 'meta_name' => 'required|string|max:120|regex:/^[a-z0-9_]+$/', 'language' => 'required|string|max:10', 'body_preview' => 'required|string|max:1024',
                 'variables' => 'array', 'is_active' => $bool,
             ]],

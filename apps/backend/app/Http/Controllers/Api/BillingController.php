@@ -52,6 +52,22 @@ class BillingController extends Controller
     }
 
     /** Rincian harga sebelum bayar: normal, prorata upgrade, diskon kupon/promo terbaik, PPN (PRD 55.4–55.5). */
+    /** Riwayat pembayaran (paid/refunded) + apakah bisa diajukan refund. */
+    public function paymentHistory(Request $r)
+    {
+        return ['data' => \App\Services\Refunds::history($r->user())];
+    }
+
+    /** Ajukan refund → Approval refund (diputuskan admin). */
+    public function requestRefund(Request $r, Payment $payment)
+    {
+        abort_unless($payment->user_id === $r->user()->id, 404);
+        $data = $r->validate(['reason' => 'required|string|min:10|max:1000']);
+        \App\Services\Refunds::request($r->user(), $payment, $data['reason']);
+
+        return response()->json(['data' => ['requested' => true]], 201);
+    }
+
     /** Promo publik yang berlaku untuk item ini (chip "Promo tersedia" di checkout). */
     public function promosForItem(Request $r)
     {
@@ -120,12 +136,20 @@ class BillingController extends Controller
         if ($idem && LedgerEntry::where('user_id', $u->id)->where('ref_type', 'order')->where('description', 'like', "%[{$idem}]")->exists()) {
             return ['data' => ['status' => 'active']]; // permintaan ganda
         }
-        DB::transaction(function () use ($u, $item, $idem, $q, $final) {
+        DB::transaction(function () use ($u, $item, $idem, $q, $final, $purpose) {
+            $paymentId = null;
             if ($final > 0) {
-                Wallet::post($u->id, 'topup', 'debit', $final, 'Pembelian '.$item['name'].($idem ? " [{$idem}]" : ''), ['order', null]);
+                // Pembelian dari saldo juga tercatat sebagai pembayaran (riwayat, refund, tautan komisi) — gateway "balance"
+                $p = Payment::create([
+                    'user_id' => $u->id, 'reference' => 'KRF'.now()->format('ymd').strtoupper(\Illuminate\Support\Str::random(6)), 'purpose' => $purpose, 'purpose_code' => $item['code'],
+                    'cycle' => $item['cycle'], 'amount' => $final, 'method' => 'balance', 'gateway' => 'balance', 'status' => 'paid', 'paid_at' => now(),
+                    'idempotency_key' => $idem ? 'bal:'.$idem : null, 'pricing' => $q, 'coupon_id' => $q['coupon']['id'] ?? null,
+                ]);
+                $paymentId = $p->id;
+                Wallet::post($u->id, 'topup', 'debit', $final, 'Pembelian '.$item['name'].($idem ? " [{$idem}]" : ''), ['order', $p->id]);
             }
-            $red = Billing::reserveCoupon($u, $q['coupon'], $q['discount'], null);
-            Billing::activate($u, $item, $final, null, $q['coupon']);
+            $red = Billing::reserveCoupon($u, $q['coupon'], $q['discount'], $paymentId);
+            Billing::activate($u, $item, $final, $paymentId, $q['coupon']);
             Billing::finalizeCoupon($red, true);
             // Bila aktivasi gagal, transaksi DB dibatalkan seluruhnya sehingga debit ikut batal (kompensasi PRD 5.4).
         });
@@ -448,6 +472,8 @@ class BillingController extends Controller
             return $w;
         });
         Notification::send(User::where('role', 'admin')->get(), new Notice('Withdrawal baru', $u->email.' — Rp'.number_format($w->amount, 0, ',', '.'), 'approval', '/admin/approvals/withdrawals'));
+        // Konfirmasi ke member (in-app + email; template withdrawal_requested)
+        \App\Services\Messenger::notify($u, 'withdrawal_requested', ['amount' => 'Rp'.number_format($w->amount, 0, ',', '.')], 'Withdrawal diajukan', 'Pengajuan withdrawal Rp'.number_format($w->amount, 0, ',', '.').' diterima dan akan diproses 1–3 hari kerja setelah valid.', '/app/wallet/withdrawals');
         Audit::log('wallet.withdrawal_requested', $w, ['amount' => $w->amount]);
 
         return response()->json(['data' => self::wd($w)], 201);

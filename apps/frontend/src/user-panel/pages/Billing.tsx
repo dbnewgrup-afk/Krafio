@@ -20,6 +20,8 @@ import { Carousel } from '@/shared/ui/Carousel'
 import { PlanCard } from '@/public-site/components/PlanCard'
 import { CheckoutModal, type CheckoutItem } from './Checkout'
 import { PendingInvoices } from '@/shared/billing/PendingInvoices'
+import { RenewalBanner } from '@/shared/billing/RenewalBanner'
+import { PaymentHistory } from '@/shared/billing/PaymentHistory'
 import { dateTime, number, rupiah } from '@/shared/lib/format'
 
 /** Kredit, trial, perpanjangan otomatis, perubahan terjadwal (PRD 55.1, 55.4.1, 55.5). */
@@ -133,6 +135,7 @@ export function SubscriptionPage() {
           </button>
         </div>
       )}
+      <RenewalBanner />
       <PendingInvoices onChange={sub.reload} />
       {!sub.data ? (
         <Skeleton className="h-28" />
@@ -196,6 +199,7 @@ export function SubscriptionPage() {
           </ul>
         )}
       </section>
+      <PaymentHistory key={sub.data ? JSON.stringify(sub.data.current?.ends_at ?? null) : 'x'} />
       <CheckoutModal item={co} onClose={() => { setCo(null); setPromo(pendingPromo()) }} onDone={sub.reload} />
     </>
   )

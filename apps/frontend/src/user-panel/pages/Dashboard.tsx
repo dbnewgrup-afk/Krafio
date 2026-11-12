@@ -19,6 +19,7 @@ import { motion } from 'framer-motion'
 import { CountUp } from '@/shared/motion/CountUp'
 import { RevealCard } from '@/shared/motion/Reveal'
 import { useIntro } from '@/shared/motion/intro'
+import { RenewalBanner } from '@/shared/billing/RenewalBanner'
 import { DashboardHero } from '@/shared/ui/DashboardHero'
 
 interface DashData {
@@ -96,6 +97,7 @@ export default function Dashboard() {
         }
       />
 
+      <RenewalBanner />
       <DashboardHero area="user" />
 
       {/* Mobile: kartu ringkas horizontal scroll (§8 butir 3); desktop: 3 kolom */}

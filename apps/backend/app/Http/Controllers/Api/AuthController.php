@@ -246,7 +246,8 @@ class AuthController extends Controller
         return ['data' => Present::me($u->fresh())];
     }
 
-    public static function grantFreePlan(User $u, bool $force = false): void
+    /** @param bool $notify false saat kembali ke Gratis karena paket berakhir (notifikasi "Paket berakhir" dikirim terpisah) */
+    public static function grantFreePlan(User $u, bool $force = false, bool $notify = true): void
     {
         $free = Plan::where('code', 'free')->where('is_active', true)->first();
         // Akun admin adalah pengelola: tidak pernah diberi paket/fitur
@@ -258,7 +259,9 @@ class AuthController extends Controller
             'snapshot' => ['features' => $free->features, 'quotas' => $free->quotas, 'limits' => $free->limits],
             'status' => 'active', 'starts_at' => now(), 'ends_at' => null,
         ]);
-        \App\Services\Messenger::notify($u, 'welcome', ['plan' => $free->name_id], 'Selamat datang di Krafio', 'Akun Anda aktif dengan paket '.$free->name_id.'.', '/app');
+        if ($notify) {
+            \App\Services\Messenger::notify($u, 'welcome', ['plan' => $free->name_id], 'Selamat datang di Krafio', 'Akun Anda aktif dengan paket '.$free->name_id.'.', '/app');
+        }
     }
 
     public function forgot(Request $r)

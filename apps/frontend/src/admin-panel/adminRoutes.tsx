@@ -5,6 +5,7 @@ import { InboxPage } from '@/shared/messages/InboxPage'
 import { TemplateStudio } from './TemplateStudio'
 import { HeroEditor } from './HeroEditor'
 import { IntegrationPage, FinanceReportPage, BackupPage } from './OpsPages'
+import { AdminReports } from './Reports'
 import { AdminApprovals, AdminDashboard, AdminEntitlements, AdminInfoPage, AdminSettings, AdminSystem, AdminUsers, AdminWithdrawals, AdminAiUsage, type SettingField } from './AdminPages'
 
 // Struktur Sidebar Admin Panel Final (PRD Bab 13) — 16 grup, setiap grup dengan sub-sidebar.
@@ -47,6 +48,7 @@ export const ADMIN_NAV: Group[] = [
   { key: 'g_overview', children: [
     { key: 'dashboard', path: '/admin', el: () => <AdminDashboard /> },
     { key: 'platform_analytics', path: '/admin/analytics', el: () => <AI k="platform_analytics" /> },
+    { key: 'reports', path: '/admin/reports', el: () => <AdminReports /> },
   ] },
   { key: 'g_users', children: [
     { key: 'all_users', path: '/admin/users', el: () => <U k="all_users" /> },
@@ -191,7 +193,7 @@ export const ADMIN_NAV: Group[] = [
     { key: 'general_settings', path: '/admin/settings/general', el: () => <S k="general_settings" g="g_settings" fields={[{ key: 'general.app_name', type: 'text' }, { key: 'general.environment_label', type: 'text' }, { key: 'wallet.topup_min', type: 'number' }, { key: 'wallet.topup_max', type: 'number' }, { key: 'wallet.withdraw_min', type: 'number' }, { key: 'affiliate.active', type: 'bool' }, { key: 'affiliate.rate_percent', type: 'number' }, { key: 'affiliate.hold_days', type: 'number' }, { key: 'subscription.grace_days', type: 'number' }, { key: 'billing.ppn_percent', type: 'number' }, { key: 'billing.price_includes_ppn', type: 'bool' }, { key: 'payment.gateway', type: 'select', options: ['manual', 'midtrans', 'xendit', 'tripay'] }]} /> },
     { key: 'admin_security', path: '/admin/settings/security', el: () => <S k="admin_security" g="g_settings" fields={[{ key: 'security.admin_mfa_required', type: 'bool' }, { key: 'security.login_max_attempts', type: 'number' }, { key: 'security.admin_session_minutes', type: 'number' }, { key: 'sso.google', type: 'bool' }]} info="admin.info.admin_security" /> },
     { key: 'feature_flags', path: '/admin/settings/feature-flags', el: () => <R resource="feature-flags" k="feature_flags" g="g_settings" /> },
-    { key: 'system_configuration', path: '/admin/settings/system', el: () => <S k="system_configuration" g="g_settings" fields={[{ key: 'billing.margin_alert_percent', type: 'number' }, { key: 'payment.webhook_secret.manual', type: 'secret' }]} /> },
+    { key: 'system_configuration', path: '/admin/settings/system', el: () => <S k="system_configuration" g="g_settings" fields={[{ key: 'billing.margin_alert_percent', type: 'number' }, { key: 'billing.credit_value_idr', type: 'number' }, { key: 'subscription.grace_days', type: 'number' }, { key: 'refund.enabled', type: 'bool' }, { key: 'refund.window_days', type: 'number' }, { key: 'refund.purposes', type: 'json' }, { key: 'payment.webhook_secret.manual', type: 'secret' }]} /> },
   ] },
 ]
 
