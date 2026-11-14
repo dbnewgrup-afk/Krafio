@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Commission;
+use App\Models\Coupon;
 use App\Models\Payment;
 use App\Models\Subscription;
-use App\Models\Commission;
+use App\Services\Billing;
 use App\Services\Integrations;
 use App\Services\Wallet;
 use Illuminate\Support\Facades\Http;
@@ -22,8 +24,8 @@ class BillingFlowTest extends KrafioTestCase
         $this->assertSame('pending', $p['status']);
         // simulasi hanya untuk APP_ENV=local → di testing ditolak 404
         $this->json_('POST', "/app/wallet/topups/{$p['id']}/simulate-paid")->assertNotFound();
-        \App\Services\Billing::markPaid($p['id']);
-        \App\Services\Billing::markPaid($p['id']); // duplikat tidak boleh menambah dua kali
+        Billing::markPaid($p['id']);
+        Billing::markPaid($p['id']); // duplikat tidak boleh menambah dua kali
         $this->assertSame(100000, Wallet::balance($u->id, 'topup'));
     }
 
@@ -36,7 +38,7 @@ class BillingFlowTest extends KrafioTestCase
         $this->assertSame(59000, $q->json('data.final'));
         $this->json_('POST', '/app/orders', ['kind' => 'plan', 'code' => 'starter', 'cycle' => 'monthly', 'source' => 'balance', 'coupon' => 'BONUS100'])->assertOk()->assertJsonPath('data.status', 'active');
         $this->assertSame(41000, Wallet::balance($u->id, 'topup'));
-        $this->json_('GET', '/me')->assertJsonPath('data.plan.code', 'starter')->assertJsonPath('data.entitlements.credits.remaining', 400); // 300 paket + 100 bonus
+        $this->json_('GET', '/me')->assertJsonPath('data.plan.code', 'starter')->assertJsonPath('data.entitlements.credits.remaining', 430); // 330 paket + 100 bonus
         $c = Commission::where('referred_id', $u->id)->firstOrFail();
         $this->assertSame(5900, (int) $c->amount); // 10% dari nominal dibayar
         $this->json_('POST', '/app/orders', ['kind' => 'plan', 'code' => 'pro', 'cycle' => 'monthly', 'source' => 'balance', 'coupon' => 'TIDAKADA'])->assertStatus(422)->assertJsonPath('code', 'coupon_invalid');
@@ -52,7 +54,7 @@ class BillingFlowTest extends KrafioTestCase
         $this->assertGreaterThan(50000, $q['prorata']);
         $this->assertSame('Upgrade Starter ke Pro', $q['coupon']['name']); // promo upgrade otomatis
         $this->json_('POST', '/app/orders', ['kind' => 'plan', 'code' => 'pro', 'cycle' => 'monthly', 'source' => 'balance'])->assertOk();
-        $this->json_('GET', '/me')->assertJsonPath('data.plan.code', 'pro')->assertJsonPath('data.entitlements.credits.remaining', 1000);
+        $this->json_('GET', '/me')->assertJsonPath('data.plan.code', 'pro')->assertJsonPath('data.entitlements.credits.remaining', 1150);
         $this->json_('POST', '/app/orders', ['kind' => 'plan', 'code' => 'starter', 'cycle' => 'monthly', 'source' => 'balance'])->assertOk()->assertJsonPath('data.status', 'scheduled');
         $this->assertSame('starter', Subscription::where('user_id', $u->id)->where('status', 'active')->first()->scheduled_plan_code);
     }
@@ -64,7 +66,7 @@ class BillingFlowTest extends KrafioTestCase
         $this->json_('POST', '/app/orders', ['kind' => 'plan', 'code' => 'pro', 'cycle' => 'monthly', 'source' => 'balance'])->assertStatus(422)->assertJsonPath('code', 'insufficient_balance');
         Wallet::post($u->id, 'topup', 'credit', 100000, 'uji', ['test', null]);
         $this->json_('POST', '/app/orders', ['kind' => 'addon', 'code' => 'credits-200', 'source' => 'balance'])->assertOk();
-        $this->json_('GET', '/me')->assertJsonPath('data.entitlements.credits.remaining', 250);
+        $this->json_('GET', '/me')->assertJsonPath('data.entitlements.credits.remaining', 255);
         $this->json_('POST', '/app/orders', ['kind' => 'addon', 'code' => 'seo-advanced', 'source' => 'balance'])->assertStatus(422)->assertJsonPath('code', 'addon_conflict');
     }
 
@@ -109,10 +111,10 @@ class BillingFlowTest extends KrafioTestCase
         $u = $this->user([], 'free');
         $this->actingUser($u);
         $this->json_('POST', '/app/orders', ['kind' => 'plan', 'code' => 'starter', 'cycle' => 'monthly', 'source' => 'gateway', 'coupon' => 'BONUS100'])->assertOk()->assertJsonPath('data.status', 'pending_payment');
-        $this->assertSame(1, \App\Models\Coupon::where('code', 'BONUS100')->value('reserved'));
+        $this->assertSame(1, Coupon::where('code', 'BONUS100')->value('reserved'));
         Payment::where('user_id', $u->id)->update(['expires_at' => now()->subMinute()]);
-        \App\Services\Billing::releaseExpiredReservations();
-        $this->assertSame(0, \App\Models\Coupon::where('code', 'BONUS100')->value('reserved'));
+        Billing::releaseExpiredReservations();
+        $this->assertSame(0, Coupon::where('code', 'BONUS100')->value('reserved'));
         $this->assertDatabaseHas('coupon_redemptions', ['user_id' => $u->id, 'status' => 'released']);
     }
 

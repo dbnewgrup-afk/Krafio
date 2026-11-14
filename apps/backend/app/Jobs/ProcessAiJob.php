@@ -13,9 +13,10 @@ class ProcessAiJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 2;
+    public int $tries = 1;
 
-    public int $timeout = 120;
+    /** Naskah multi-part di model lokal & clipper video bisa berjalan beberapa menit. */
+    public int $timeout = 1800;
 
     public function __construct(public int $jobId) {}
 

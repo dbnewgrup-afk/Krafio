@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard, Sparkles, LayoutTemplate, FolderOpen, Bot, Globe, SearchCheck, Share2, CreditCard, Wallet, HandCoins, Activity, Bell, LifeBuoy, Settings,
   Image, Video, Wand2, Scissors, Lightbulb, Film, Plus, User as UserIcon, HelpCircle, Images,
+  PenLine, Clapperboard, MessageSquareText, CalendarDays, Megaphone, FileText, BookOpen, MessagesSquare,
 } from 'lucide-react'
 import { AppShell, PanelFooter, type NavSection, type ShellConfig } from '@/shared/layout/AppShell'
 import { FabStack } from '@/shared/layout/Fab'
@@ -14,6 +15,7 @@ import { MessagesProvider } from '@/shared/messages/MessagesProvider'
 import { MessagesMenu } from '@/shared/messages/MessagesMenu'
 import { PasswordAlert } from '@/shared/account/PasswordAlert'
 import { ContactVerifyGate } from './ContactVerifyGate'
+import { useForumCategories } from './pages/forumData'
 import { http } from '@/api-client/http'
 import { number, dateTime } from '@/shared/lib/format'
 import { Link } from 'react-router-dom'
@@ -27,6 +29,8 @@ export default function UserLayout() {
 
   const ent = me?.entitlements ?? {}
   const lockedIf = (key: string) => (ent[key] && ent[key].enabled ? undefined : key)
+  const forumData = useForumCategories(!!ent['forum.access']?.enabled).data
+  const forumCats = useMemo(() => forumData?.data ?? [], [forumData])
 
   const sections: NavSection[] = useMemo(
     () => [
@@ -41,10 +45,26 @@ export default function UserLayout() {
             children: [
               { key: 'photo', label: t('features.photo_generate'), to: '/app/create/photo', icon: Image, lockedFeature: lockedIf('photo.generate') },
               { key: 'video', label: t('features.video_generate'), to: '/app/create/video', icon: Video, lockedFeature: lockedIf('video.generate') },
+              { key: 'svideo', label: t('features.script_video'), to: '/app/create/script-video', icon: Clapperboard, lockedFeature: lockedIf('video.edit') },
               { key: 'ephoto', label: t('features.photo_edit'), to: '/app/create/edit-photo', icon: Wand2, lockedFeature: lockedIf('photo.edit') },
               { key: 'evideo', label: t('features.video_edit'), to: '/app/create/edit-video', icon: Scissors, lockedFeature: lockedIf('video.edit') },
-              { key: 'brain', label: t('features.content_brainstorm'), to: '/app/create/brainstorm', icon: Lightbulb, lockedFeature: lockedIf('content.brainstorm') },
               { key: 'clip', label: t('features.video_clipper'), to: '/app/create/clipper', icon: Film, lockedFeature: lockedIf('video.clipper') },
+            ],
+          },
+          {
+            // Studio teks: naskah, caption, ide, kalender, copy, artikel, cerita (registry AI Tools)
+            key: 'write',
+            label: t('user.nav.write'),
+            icon: PenLine,
+            children: [
+              { key: 'script', label: t('features.content_script'), to: '/app/create/script', icon: Clapperboard, lockedFeature: lockedIf('content.brainstorm') },
+              { key: 'caption', label: t('features.content_caption'), to: '/app/create/caption', icon: MessageSquareText, lockedFeature: lockedIf('content.brainstorm') },
+              { key: 'brain', label: t('features.content_brainstorm'), to: '/app/create/brainstorm', icon: Lightbulb, lockedFeature: lockedIf('content.brainstorm') },
+              { key: 'plan', label: t('features.content_plan'), to: '/app/create/plan', icon: CalendarDays, lockedFeature: lockedIf('content.brainstorm') },
+              { key: 'copy', label: t('features.copywriting'), to: '/app/create/copy', icon: Megaphone, lockedFeature: lockedIf('content.brainstorm') },
+              { key: 'article', label: t('features.article_writer'), to: '/app/create/article', icon: FileText, lockedFeature: lockedIf('content.brainstorm') },
+              { key: 'story', label: t('features.story_series'), to: '/app/create/story', icon: BookOpen, lockedFeature: lockedIf('content.brainstorm') },
+              { key: 'prompt', label: t('features.prompt_optimizer'), to: '/app/create/prompt', icon: Sparkles, lockedFeature: lockedIf('content.brainstorm') },
             ],
           },
           { key: 'tpl', label: t('user.nav.templates'), icon: LayoutTemplate, to: '/app/templates' },
@@ -54,6 +74,19 @@ export default function UserLayout() {
           { key: 'web', label: t('features.website_builder'), icon: Globe, to: '/app/websites', lockedFeature: lockedIf('website.builder') },
           { key: 'seo', label: t('features.seo_basic'), icon: SearchCheck, to: '/app/seo', lockedFeature: lockedIf('seo.basic') },
           { key: 'social', label: t('features.social_integrations'), icon: Share2, to: '/app/social', lockedFeature: lockedIf('social.integrations') },
+          // Forum Diskusi privat: sub-menu per kepentingan dari kategori yang diatur Admin; terkunci bila paket tanpa forum.access
+          lockedIf('forum.access')
+            ? { key: 'forum', label: t('forum.title'), icon: MessagesSquare, to: '/app/forum', lockedFeature: 'forum.access' }
+            : {
+                key: 'forum',
+                label: t('forum.title'),
+                icon: MessagesSquare,
+                children: [
+                  { key: 'forum-all', label: t('forum.all_topics'), to: '/app/forum', end: true },
+                  ...forumCats.map((c) => ({ key: `forum-${c.slug}`, label: c.name, to: `/app/forum/c/${c.slug}` })),
+                  { key: 'forum-reports', label: t('forum.my_reports'), to: '/app/forum/reports' },
+                ],
+              },
         ],
       },
       {
@@ -95,7 +128,7 @@ export default function UserLayout() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, me],
+    [t, me, forumCats],
   )
 
   if (loading) return null

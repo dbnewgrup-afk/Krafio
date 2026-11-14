@@ -1,0 +1,22 @@
+{
+  "as": "qa",
+  "lang": "id",
+  "steps": [
+    { "goto": "/app/forum" }, { "waitFor": "Semua topik" },
+    { "expectText": "UMKM & Bisnis Lokal" }, { "expectNoText": "forum." },
+    { "click": "Topik baru" }, { "waitFor": "Terbitkan" },
+    { "fill": { "label": "Judul", "value": "Uji E2E: strategi promosi kopi susu" } },
+    { "fill": { "label": "Isi", "value": "Halo semua, <script>alert(1)</script> bagaimana promosi kopi susu di TikTok?" } },
+    { "click": "Terbitkan", "after": 1500 },
+    { "waitFor": "Uji E2E: strategi promosi kopi susu" },
+    { "expectText": "<script>alert(1)</script>" },
+    { "fill": { "label": "Balasan Anda", "value": "Saya coba video 15 detik tiap pagi." } },
+    { "click": "Kirim balasan", "after": 1500 },
+    { "waitFor": "1 balasan" }, { "shot": "topik-dan-balasan" },
+    { "goto": "/app/forum/c/pengumuman" }, { "waitFor": "Pengumuman" }, { "expectNoText": "Topik baru" },
+    { "goto": "/app/forum" }, { "click": "Laporkan kendala" }, { "waitFor": "Kirim laporan" },
+    { "fill": { "label": "Keterangan", "value": "Uji E2E: tombol muat lebih banyak terasa lambat." } },
+    { "click": "Kirim laporan", "after": 1500 },
+    { "goto": "/app/forum/reports" }, { "waitFor": "Kendala sistem" }, { "shot": "laporan-saya" }
+  ]
+}

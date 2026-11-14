@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Media;
 use App\Models\Template;
 use App\Models\Ticket;
+use App\Models\User;
+use App\Services\Settings;
 use Illuminate\Http\UploadedFile;
 
 /**
@@ -164,11 +166,11 @@ class DashboardShowcaseTest extends KrafioTestCase
 
     public function test_f9_admin_mfa_can_be_disabled_without_deleting_secret(): void
     {
-        $a = \App\Models\User::where('role', 'admin')->firstOrFail();
+        $a = User::where('role', 'admin')->firstOrFail();
         $a->forceFill(['password' => 'AdminUji12345', 'mfa_enabled' => true, 'mfa_secret' => 'JBSWY3DPEHPK3PXP'])->save();
         $this->json_('POST', '/auth/admin/login', ['email' => $a->email, 'password' => 'AdminUji12345'])->assertOk()->assertJsonPath('data.mfa', 'verify');
 
-        \App\Services\Settings::set('security.admin_mfa_required', false);
+        Settings::set('security.admin_mfa_required', false);
         $this->flushSession();
         $this->app['auth']->forgetGuards();
         $r = $this->json_('POST', '/auth/admin/login', ['email' => $a->email, 'password' => 'AdminUji12345'])->assertOk();

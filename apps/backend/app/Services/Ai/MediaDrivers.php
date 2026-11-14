@@ -26,6 +26,9 @@ class MediaDrivers
         return match ($p->driver) {
             'comfyui' => self::comfy($p, $m, $job, $vars),
             'custom_http' => self::http($p, $m, $job, $vars),
+            'openai_images' => self::openaiImages($p, $m, $job, $vars),
+            'fal' => self::fal($p, $m, $job, $vars),
+            'replicate' => self::replicate($p, $m, $job, $vars),
             default => throw new \RuntimeException("Driver {$p->driver} tidak mendukung gambar/video."),
         };
     }
@@ -39,7 +42,7 @@ class MediaDrivers
         $round = fn ($v) => max(256, (int) (floor($v * $scale / 64) * 64));
 
         return [
-            'prompt' => $prompt, 'negative' => Prompts::render('image.negative', []), 'width' => $round($w), 'height' => $round($h),
+            'prompt' => $prompt, 'negative' => trim(Prompts::render('image.negative', []).(! empty($p['negative']) ? ', '.$p['negative'] : ''), ', '), 'width' => $round($w), 'height' => $round($h),
             'seed' => crc32($job->id.'|'.$job->prompt) % 2147483647, 'count' => (int) ($p['count'] ?? 1), 'duration' => (int) ($p['duration'] ?? 5),
             'ratio' => $p['ratio'] ?? '1:1', 'style' => $p['style'] ?? 'product', 'operation' => $p['operation'] ?? 'inpaint', 'model' => '',
         ];
@@ -151,6 +154,126 @@ class MediaDrivers
         $files = array_values(array_filter($files, fn ($f) => $f['bytes'] !== ''));
         if (! $files) {
             throw new \RuntimeException('Provider HTTP tidak mengembalikan hasil.');
+        }
+
+        return $files;
+    }
+
+    /* ---------------- OpenAI Images (gpt-image-1 / dall-e-3) ----------------
+     * Generate: POST {base}/images/generations. Edit (inpaint/ganti latar): POST {base}/images/edits (multipart).
+     */
+    private static function openaiImages(AiProvider $p, AiModel $m, AiJob $job, array $vars): array
+    {
+        $base = rtrim((string) ($p->base_url ?: 'https://api.openai.com/v1'), '/');
+        $w = $vars['width'];
+        $h = $vars['height'];
+        $size = $w === $h ? '1024x1024' : ($h > $w ? '1024x1536' : '1536x1024');
+        if (str_starts_with($m->model_id, 'dall-e-3')) {
+            $size = $w === $h ? '1024x1024' : ($h > $w ? '1024x1792' : '1792x1024');
+        }
+        $client = Http::timeout((int) config('krafio.ai_media_timeout', 100) * 2)->withToken((string) $p->api_key)->acceptJson();
+        $up = $job->upload_id ? Upload::find($job->upload_id) : null;
+        if ($up && $job->type === 'photo_edit') {
+            $res = $client->attach('image', Storage::disk($up->disk ?: 'local')->get($up->path), basename($up->path), ['Content-Type' => $up->mime])
+                ->post($base.'/images/edits', ['model' => $m->model_id, 'prompt' => $vars['prompt'] ?: 'Perbaiki foto ini', 'size' => $size]);
+        } else {
+            $body = ['model' => $m->model_id, 'prompt' => $vars['prompt'], 'n' => str_starts_with($m->model_id, 'dall-e-3') ? 1 : max(1, min(4, $vars['count'])), 'size' => $size];
+            if (str_starts_with($m->model_id, 'dall-e')) {
+                $body['response_format'] = 'b64_json';
+            }
+            $res = $client->post($base.'/images/generations', $body);
+        }
+        if (! $res->successful()) {
+            throw new \RuntimeException('OpenAI Images menolak (HTTP '.$res->status().'): '.Str::limit((string) $res->json('error.message'), 160));
+        }
+        $files = [];
+        foreach ((array) $res->json('data') as $d) {
+            if (! empty($d['b64_json'])) {
+                $files[] = ['bytes' => (string) base64_decode($d['b64_json'], true), 'mime' => 'image/png'];
+            } elseif (! empty($d['url'])) {
+                $files[] = self::download((string) $d['url']);
+            }
+        }
+
+        return self::nonEmpty($files, 'OpenAI Images');
+    }
+
+    /* ---------------- fal.ai (endpoint sinkron https://fal.run/{model_id}) ----------------
+     * Model gambar (mis. fal-ai/flux/schnell), video (mis. fal-ai/kling-video/v1/standard/text-to-video),
+     * hapus latar (fal-ai/birefnet). Berkas sumber dikirim sebagai data URI.
+     */
+    private static function fal(AiProvider $p, AiModel $m, AiJob $job, array $vars): array
+    {
+        $base = rtrim((string) ($p->base_url ?: 'https://fal.run'), '/');
+        $input = ['prompt' => $vars['prompt'], 'negative_prompt' => $vars['negative'], 'image_size' => ['width' => $vars['width'], 'height' => $vars['height']],
+            'num_images' => max(1, min(4, $vars['count'])), 'seed' => $vars['seed'], 'aspect_ratio' => $vars['ratio'], 'duration' => (string) $vars['duration']];
+        if ($src = self::dataUri($job)) {
+            $input['image_url'] = $src;
+            $input['video_url'] = $src;
+        }
+        $res = Http::timeout((int) config('krafio.ai_media_timeout', 100) * 3)->withHeaders(['Authorization' => 'Key '.$p->api_key])->acceptJson()
+            ->post($base.'/'.ltrim($m->model_id, '/'), array_filter($input, fn ($v) => $v !== '' && $v !== null));
+        if (! $res->successful()) {
+            throw new \RuntimeException('fal.ai menolak (HTTP '.$res->status().'): '.Str::limit((string) ($res->json('detail.0.msg') ?? $res->json('detail') ?? $res->body()), 160));
+        }
+        $urls = array_merge(array_column((array) $res->json('images'), 'url'), array_filter([$res->json('image.url'), $res->json('video.url')]));
+
+        return self::nonEmpty(array_map(fn ($u) => self::download((string) $u), $urls), 'fal.ai');
+    }
+
+    /* ---------------- Replicate (POST /v1/models/{owner}/{name}/predictions, header Prefer: wait) ---------------- */
+    private static function replicate(AiProvider $p, AiModel $m, AiJob $job, array $vars): array
+    {
+        $base = rtrim((string) ($p->base_url ?: 'https://api.replicate.com/v1'), '/');
+        $client = Http::timeout(70)->withToken((string) $p->api_key)->acceptJson();
+        $input = ['prompt' => $vars['prompt'], 'negative_prompt' => $vars['negative'], 'aspect_ratio' => $vars['ratio'], 'num_outputs' => max(1, min(4, $vars['count'])), 'seed' => $vars['seed']];
+        if ($src = self::dataUri($job)) {
+            $input['image'] = $src;
+        }
+        $res = $client->withHeaders(['Prefer' => 'wait=60'])->post($base.'/models/'.trim($m->model_id, '/').'/predictions', ['input' => array_filter($input, fn ($v) => $v !== '' && $v !== null)]);
+        if (! $res->successful()) {
+            throw new \RuntimeException('Replicate menolak (HTTP '.$res->status().'): '.Str::limit((string) ($res->json('detail') ?? $res->body()), 160));
+        }
+        $pred = $res->json();
+        $deadline = microtime(true) + (int) config('krafio.ai_media_timeout', 100) * 3;
+        while (! in_array($pred['status'] ?? '', ['succeeded', 'failed', 'canceled'], true) && microtime(true) < $deadline && ! empty($pred['urls']['get'])) {
+            usleep((int) config('krafio.ai_poll_ms', 2000) * 1000);
+            $pred = $client->get($pred['urls']['get'])->json();
+        }
+        if (($pred['status'] ?? '') !== 'succeeded') {
+            throw new \RuntimeException('Replicate gagal: '.Str::limit((string) ($pred['error'] ?? $pred['status'] ?? 'timeout'), 160));
+        }
+        $out = is_array($pred['output']) ? $pred['output'] : [$pred['output']];
+
+        return self::nonEmpty(array_map(fn ($u) => self::download((string) $u), array_filter($out, 'is_string')), 'Replicate');
+    }
+
+    private static function dataUri(AiJob $job): ?string
+    {
+        $up = $job->upload_id ? Upload::find($job->upload_id) : null;
+        if (! $up || $up->size > 20 * 1024 * 1024) {
+            return null;
+        }
+
+        return 'data:'.$up->mime.';base64,'.base64_encode(Storage::disk($up->disk ?: 'local')->get($up->path));
+    }
+
+    /** Unduh hasil dari URL https penyedia (bukan URL pengguna). */
+    private static function download(string $url): array
+    {
+        if (! preg_match('#^https://#i', $url)) {
+            return ['bytes' => '', 'mime' => 'image/png'];
+        }
+        $d = Http::timeout(120)->get($url);
+
+        return ['bytes' => $d->successful() ? $d->body() : '', 'mime' => self::mime($d->header('Content-Type'), $url)];
+    }
+
+    private static function nonEmpty(array $files, string $name): array
+    {
+        $files = array_values(array_filter($files, fn ($f) => ($f['bytes'] ?? '') !== ''));
+        if (! $files) {
+            throw new \RuntimeException($name.' tidak mengembalikan hasil.');
         }
 
         return $files;

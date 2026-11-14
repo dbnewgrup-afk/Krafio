@@ -94,7 +94,7 @@ class BillingController extends Controller
         $u = $r->user();
         $data = $r->validate(['kind' => 'required|in:plan,addon,custom', 'code' => 'required|string|max:40', 'cycle' => 'nullable|in:monthly,yearly', 'source' => 'required|in:balance,gateway', 'coupon' => 'nullable|string|max:40']);
         $item = Billing::resolve($u, $data['kind'], $data['code'], $data['cycle'] ?? null);
-        $idem = $r->header('Idempotency-Key');
+        $idem = \App\Support\Idempotency::key($r, $u->id);
         $purpose = $data['kind'] === 'plan' ? 'subscription' : $data['kind'];
 
         // Downgrade berlaku pada periode tagihan berikutnya (BR-034)
@@ -189,7 +189,7 @@ class BillingController extends Controller
     {
         $q = \App\Models\CreditLedgerEntry::where('user_id', $r->user()->id)->latest('id');
 
-        return Present::paginate($q->paginate(min(100, (int) $r->query('per_page', 25))), fn ($e) => [
+        return Present::paginate($q->paginate(min(100, max(1, (int) $r->query('per_page', 25)))), fn ($e) => [
             'id' => $e->id, 'direction' => $e->direction, 'amount' => (int) $e->amount, 'description' => $e->description, 'created_at' => $e->created_at->toIso8601String(),
         ]);
     }
@@ -234,7 +234,7 @@ class BillingController extends Controller
             return $this->csv('ledger.csv', ['Tanggal', 'Dompet', 'Arah', 'Nominal', 'Saldo setelah', 'Keterangan'], $q->limit(5000)->get()->map(fn ($e) => [$e->created_at, $e->wallet, $e->direction, $e->amount, $e->balance_after, $e->description]));
         }
 
-        return Present::paginate($q->paginate(min(100, (int) $r->query('per_page', 25))), fn ($e) => [
+        return Present::paginate($q->paginate(min(100, max(1, (int) $r->query('per_page', 25)))), fn ($e) => [
             'id' => $e->id, 'wallet' => $e->wallet, 'direction' => $e->direction, 'amount' => (int) $e->amount, 'balance_after' => (int) $e->balance_after, 'description' => $e->description, 'created_at' => $e->created_at->toIso8601String(),
         ]);
     }
@@ -264,7 +264,7 @@ class BillingController extends Controller
         if ($same && ! empty($same->gateway_payload['redirect_url'])) {
             return response()->json(['data' => ['id' => $same->id, 'reference' => $same->reference, 'amount' => (int) $same->amount, 'status' => $same->status, 'redirect_url' => $same->gateway_payload['redirect_url'], 'simulate' => $this->canSimulate(), 'reused' => true]], 200);
         }
-        $p = Billing::newPayment($r->user(), 'topup', null, null, (int) $data['amount'], $data['method'], $r->header('Idempotency-Key'));
+        $p = Billing::newPayment($r->user(), 'topup', null, null, (int) $data['amount'], $data['method'], \App\Support\Idempotency::key($r, $r->user()->id));
         Audit::log('wallet.topup_created', $p, ['amount' => $p->amount]);
         $gw = $this->openGateway($p, $r->user(), 'Top-up saldo Krafio');
 
@@ -460,8 +460,8 @@ class BillingController extends Controller
         $min = (int) Settings::get('wallet.withdraw_min');
         $data = $r->validate(['amount' => "required|integer|min:{$min}", 'destination_id' => 'required|integer'], ['amount.min' => 'Minimal withdrawal Rp'.number_format($min, 0, ',', '.').'.']);
         $dest = WithdrawalDestination::where('id', $data['destination_id'])->where('user_id', $u->id)->firstOrFail();
-        $idem = $r->header('Idempotency-Key');
-        if ($idem && ($w = Withdrawal::where('idempotency_key', $idem)->first())) {
+        $idem = \App\Support\Idempotency::key($r, $u->id);
+        if ($idem && ($w = Withdrawal::where('idempotency_key', $idem)->where('user_id', $u->id)->first())) {
             return ['data' => self::wd($w)];
         }
         $w = DB::transaction(function () use ($u, $data, $dest, $idem) {
@@ -508,7 +508,7 @@ class BillingController extends Controller
             $q->where('status', $s);
         }
 
-        return Present::paginate($q->paginate(min(100, (int) $r->query('per_page', 25))), fn ($c) => [
+        return Present::paginate($q->paginate(min(100, max(1, (int) $r->query('per_page', 25)))), fn ($c) => [
             'id' => $c->id, 'referred' => $c->referred ? Present::mask($c->referred->email) : '—', 'amount' => (int) $c->amount, 'status' => $c->status, 'created_at' => $c->created_at->toIso8601String(),
         ]);
     }

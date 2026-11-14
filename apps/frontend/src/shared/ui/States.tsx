@@ -33,10 +33,11 @@ export function Illustration({ kind, className }: { kind: IllustrationKind; clas
   return <img src={img(`states/${kind}.svg`)} alt="" width={160} height={120} draggable={false} className={cn('select-none', className)} />
 }
 
-export function EmptyState({ kind = 'empty', title, body, action, className }: { kind?: IllustrationKind; title: string; body?: ReactNode; action?: ReactNode; className?: string }) {
+export function EmptyState({ kind = 'empty', title, body, action, className, icon }: { kind?: IllustrationKind; title: string; body?: ReactNode; action?: ReactNode; className?: string; icon?: ReactNode }) {
   return (
     <div className={cn('grid justify-items-center gap-3 rounded-lg border border-dashed border-line px-6 py-10 text-center', className)}>
-      <Illustration kind={kind} />
+      {/* Ikon kontekstual bila ada (ilustrasi folder bawaan bertuliskan "Belum ada proyek" tidak cocok di semua tempat) */}
+      {icon ? <span className="grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary">{icon}</span> : <Illustration kind={kind} />}
       <h3 className="t-h3 text-fg">{title}</h3>
       {body && <p className="t-small max-w-sm text-muted">{body}</p>}
       {action}

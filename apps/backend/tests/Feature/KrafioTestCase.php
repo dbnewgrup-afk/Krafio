@@ -9,6 +9,7 @@ use App\Services\Wallet;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -25,6 +26,8 @@ abstract class KrafioTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Berkas unggahan & hasil AI ditulis ke disk sementara — test tidak mengotori storage lokal pengembang
+        Storage::fake('local');
         // Permintaan SPA dari origin stateful (Sanctum) seperti browser sungguhan
         $this->withHeaders(['Origin' => 'http://localhost:5173', 'Referer' => 'http://localhost:5173/']);
     }

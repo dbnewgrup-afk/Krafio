@@ -59,6 +59,24 @@ class Integrations
                 ['key' => 'webhook_verify_token', 'type' => 'secret'],
             ]],
         ],
+        // Postiz (repository-github/14-postiz): kanal medsos, posting & penjadwalan lewat Public API
+        'postiz' => [
+            'postiz' => ['label' => 'Postiz (Public API)', 'fields' => [
+                ['key' => 'base_url', 'type' => 'text', 'required' => true],
+                ['key' => 'api_key', 'type' => 'secret', 'required' => true],
+            ]],
+        ],
+    ] + self::SOCIAL;
+
+    /** Aplikasi OAuth resmi per platform (client id/secret dari developer console platform). */
+    private const SOCIAL = [
+        'social_instagram' => ['oauth' => ['label' => 'Instagram Login (Meta)', 'fields' => [['key' => 'client_id', 'type' => 'text', 'required' => true], ['key' => 'client_secret', 'type' => 'secret', 'required' => true]]]],
+        'social_facebook' => ['oauth' => ['label' => 'Facebook Login (Meta)', 'fields' => [['key' => 'client_id', 'type' => 'text', 'required' => true], ['key' => 'client_secret', 'type' => 'secret', 'required' => true]]]],
+        'social_threads' => ['oauth' => ['label' => 'Threads API (Meta)', 'fields' => [['key' => 'client_id', 'type' => 'text', 'required' => true], ['key' => 'client_secret', 'type' => 'secret', 'required' => true]]]],
+        'social_tiktok' => ['oauth' => ['label' => 'TikTok Login Kit', 'fields' => [['key' => 'client_id', 'type' => 'text', 'required' => true], ['key' => 'client_secret', 'type' => 'secret', 'required' => true]]]],
+        'social_youtube' => ['oauth' => ['label' => 'Google OAuth (YouTube Data API)', 'fields' => [['key' => 'client_id', 'type' => 'text', 'required' => true], ['key' => 'client_secret', 'type' => 'secret', 'required' => true]]]],
+        'social_linkedin' => ['oauth' => ['label' => 'LinkedIn OAuth', 'fields' => [['key' => 'client_id', 'type' => 'text', 'required' => true], ['key' => 'client_secret', 'type' => 'secret', 'required' => true]]]],
+        'social_x' => ['oauth' => ['label' => 'X OAuth 2.0 (PKCE)', 'fields' => [['key' => 'client_id', 'type' => 'text', 'required' => true], ['key' => 'client_secret', 'type' => 'secret', 'required' => true]]]],
     ];
 
     public static function get(string $kind): ?Integration

@@ -19,13 +19,14 @@ class Entitlements
     public const KEYS = [
         'photo.generate', 'video.generate', 'photo.edit', 'video.edit', 'content.brainstorm', 'templates.premium',
         'website.builder', 'seo.basic', 'seo.advanced', 'social.integrations', 'chatbot.basic', 'chatbot.premium',
-        'video.clipper', 'exports.download',
+        'video.clipper', 'exports.download', 'forum.access',
     ];
 
-    public const CREDIT_KEYS = ['photo.generate', 'photo.edit', 'video.generate', 'video.edit', 'video.clipper'];
+    /** Fitur berbayar kredit. Tool teks (content.brainstorm) ikut kredit sejak 14 Nov 2026 supaya top-up menambah kemampuan menulis. */
+    public const CREDIT_KEYS = ['photo.generate', 'photo.edit', 'video.generate', 'video.edit', 'video.clipper', 'content.brainstorm'];
 
     /** Limit teks: kunci → periode reset */
-    public const TEXT_KEYS = ['chatbot.basic' => 'day', 'chatbot.premium' => 'day', 'content.brainstorm' => 'month', 'seo.basic' => 'month', 'seo.advanced' => 'month'];
+    public const TEXT_KEYS = ['chatbot.basic' => 'day', 'chatbot.premium' => 'day', 'seo.basic' => 'month', 'seo.advanced' => 'month'];
 
     public static function period(string $unit = 'month'): string
     {

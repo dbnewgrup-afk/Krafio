@@ -38,7 +38,19 @@ class Settings
         'smtp.from_name' => 'Krafio',
         'smtp.from_address' => 'no-reply@krafio.local',
         'whatsapp.enabled' => false,
-        'seo.ruleset_version' => '1.0',
+        'seo.ruleset_version' => '2.0',
+        // Analisis konten SEO bergaya Yoast (docs/seo.md) — setup oleh Admin › SEO › Analisis konten
+        'seo.content.enabled' => true,
+        'seo.content.entitlement' => 'seo.basic', // kuota yang dipakai: seo.basic | seo.advanced
+        'seo.content.cost' => 1, // kuota terpakai per analisis
+        'seo.content.url_import' => true, // izinkan "ambil konten dari URL"
+        'seo.content.content_types' => ['post', 'cornerstone', 'taxonomy', 'product'],
+        'seo.content.default_type' => 'post',
+        'seo.content.max_chars' => 100000,
+        'seo.content.readability_full_support' => false, // Bahasa Indonesia = dukungan parsial (penalti merah 4)
+        'seo.lexicon.function_words_extra' => [],
+        'seo.lexicon.transition_words_extra' => [],
+        'seo.lexicon.passive_exceptions_extra' => [],
         'subscription.grace_days' => 3,
         // PRD Bab 55 — nilai awal konfigurasi
         'credits.costs' => [],
@@ -53,7 +65,7 @@ class Settings
         'refund.window_days' => 7,
         'refund.purposes' => ['subscription', 'addon', 'custom', 'topup'],
         // Nilai rupiah 1 kredit untuk menghitung margin AI (harga paket ÷ kredit ≈ Rp180)
-        'billing.credit_value_idr' => 180,
+        'billing.credit_value_idr' => 176, // nilai bersih terburuk per kredit (report/BIAYA_AI_DAN_MARGIN_2026-11-14.md)
     ];
 
     public const SECRET_KEYS = ['security.turnstile_secret'];

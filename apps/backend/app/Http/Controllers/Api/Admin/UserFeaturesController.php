@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 class UserFeaturesController extends Controller
 {
     /** Kuota yang bisa diatur: kredit bulanan + limit fitur teks. */
-    public const QUOTA_KEYS = ['credits', 'chatbot.basic', 'chatbot.premium', 'content.brainstorm', 'seo.basic', 'seo.advanced'];
+    public const QUOTA_KEYS = ['credits', 'chatbot.basic', 'chatbot.premium', 'seo.basic', 'seo.advanced'];
 
     /** Limit struktural yang ditegakkan backend (Entitlements::ensureCount). */
     public const LIMIT_KEYS = ['projects', 'websites', 'social_accounts', 'storage_mb'];

@@ -25,6 +25,12 @@ class Credits
         'video_720_per_5s' => 80, 'video_1080_per_5s' => 150, 'clipper_per_min' => 10, 'video_edit_per_min' => 5,
     ];
 
+    /** Chat AI Assistant: 1 kredit dipotong tiap N pesan (default 10 → 0,1 kredit per pesan). */
+    public static function chatMessagesPerCredit(): int
+    {
+        return max(1, (int) Settings::get('credits.chat_messages_per_credit', 10));
+    }
+
     public static function costs(): array
     {
         return array_merge(self::DEFAULT_COSTS, (array) Settings::get('credits.costs', []));
@@ -46,6 +52,15 @@ class Credits
         if ($exists) {
             return;
         }
+        try {
+            self::createPlanPack($u, $sub, $monthly, $period);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // Request lain di saat bersamaan sudah membuat pack periode ini (B12) — cukup pakai yang ada.
+        }
+    }
+
+    private static function createPlanPack(User $u, $sub, int $monthly, string $period): void
+    {
         DB::transaction(function () use ($u, $sub, $monthly, $period) {
             // Upgrade: kredit diganti penuh dengan kredit paket baru (55.5.3) → pack paket lama periode ini ditutup.
             CreditPack::where(['user_id' => $u->id, 'source' => 'plan', 'period' => $period])->where('subscription_id', '!=', $sub->id)->update(['expires_at' => now()]);

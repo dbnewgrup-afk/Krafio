@@ -1,7 +1,7 @@
 // Definisi resource Admin (selaras backend app/Support/AdminResources.php).
 // Label kolom/field memakai kunci i18n `admin.f.<name>`.
 
-export type CellType = 'text' | 'money' | 'date' | 'status' | 'bool' | 'json' | 'user' | 'mono' | 'number' | 'palette'
+export type CellType = 'text' | 'money' | 'date' | 'status' | 'bool' | 'json' | 'user' | 'mono' | 'number' | 'palette' | 'action' | 'entitlement'
 export type FieldType = 'text' | 'textarea' | 'number' | 'money' | 'select' | 'bool' | 'json' | 'tags' | 'date' | 'palette' | 'secret' | 'features' | 'sections'
 
 export interface ColDef {
@@ -42,7 +42,7 @@ export interface ResourceDef {
 }
 
 const BOOL = ['true', 'false']
-const ENT = ['photo.generate', 'video.generate', 'photo.edit', 'video.edit', 'content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'seo.advanced', 'social.integrations', 'chatbot.basic', 'chatbot.premium', 'video.clipper', 'exports.download']
+const ENT = ['photo.generate', 'video.generate', 'photo.edit', 'video.edit', 'content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'seo.advanced', 'social.integrations', 'chatbot.basic', 'chatbot.premium', 'video.clipper', 'exports.download', 'forum.access']
 
 export const RESOURCES: Record<string, ResourceDef> = {
   plans: {
@@ -93,7 +93,7 @@ export const RESOURCES: Record<string, ResourceDef> = {
   },
   'coupon-redemptions': { endpoint: 'coupon-redemptions', readonly: true, columns: [{ key: 'coupon_id', type: 'number', primary: true }, { key: 'user_id', type: 'number', mobile: true }, { key: 'discount', type: 'money', sortable: true }, { key: 'status', type: 'status', mobile: true }, { key: 'created_at', type: 'date', sortable: true }], filters: [{ key: 'status', options: ['reserved', 'used', 'released'] }] },
   subscriptions: { endpoint: 'subscriptions', can: ['update'], fields: [{ name: 'status', type: 'select', options: ['active', 'past_due', 'cancelled', 'expired'], required: true }, { name: 'ends_at', type: 'date' }], columns: [{ key: 'plan_name', primary: true }, { key: 'user', type: 'user', mobile: true }, { key: 'status', type: 'status', mobile: true }, { key: 'price', type: 'money', sortable: true }, { key: 'cycle' }, { key: 'ends_at', type: 'date', sortable: true }], filters: [{ key: 'status', options: ['active', 'past_due', 'expired', 'cancelled', 'pending_payment'] }] },
-  usage: { endpoint: 'usage', can: ['update', 'delete'], fields: [{ name: 'used', type: 'number', required: true }], columns: [{ key: 'entitlement', primary: true }, { key: 'user_id', type: 'number', mobile: true }, { key: 'period', mobile: true }, { key: 'used', type: 'number', sortable: true }] },
+  usage: { endpoint: 'usage', can: ['update', 'delete'], fields: [{ name: 'used', type: 'number', required: true }], columns: [{ key: 'entitlement', type: 'entitlement', primary: true }, { key: 'user_id', type: 'number', mobile: true }, { key: 'period', mobile: true }, { key: 'used', type: 'number', sortable: true }] },
   'credit-packs': { endpoint: 'credit-packs', can: ['create', 'update'], fields: [{ name: 'user_id', type: 'number', required: true, createOnly: true }, { name: 'credits_total', type: 'number', required: true, createOnly: true }, { name: 'label', type: 'text', required: true }, { name: 'expires_at', type: 'date' }], columns: [{ key: 'label', primary: true }, { key: 'user_id', type: 'number' }, { key: 'source', mobile: true }, { key: 'credits_total', type: 'number' }, { key: 'credits_used', type: 'number', mobile: true }, { key: 'expires_at', type: 'date', sortable: true }], filters: [{ key: 'source', options: ['plan', 'addon', 'bonus', 'trial'] }] },
   'credit-ledger': { endpoint: 'credit-ledger', readonly: true, columns: [{ key: 'description', primary: true }, { key: 'user_id', type: 'number' }, { key: 'direction', mobile: true }, { key: 'amount', type: 'number', sortable: true, mobile: true }, { key: 'created_at', type: 'date', sortable: true }], filters: [{ key: 'direction', options: ['credit', 'debit'] }] },
   payments: { endpoint: 'payments', readonly: true, columns: [{ key: 'reference', type: 'mono', primary: true }, { key: 'user', type: 'user' }, { key: 'purpose', mobile: true }, { key: 'amount', type: 'money', sortable: true, mobile: true }, { key: 'status', type: 'status', mobile: true }, { key: 'gateway' }, { key: 'created_at', type: 'date', sortable: true }], filters: [{ key: 'status', options: ['pending', 'paid', 'failed', 'expired', 'refunded'] }, { key: 'purpose', options: ['topup', 'subscription', 'addon', 'custom'] }] },
@@ -106,7 +106,7 @@ export const RESOURCES: Record<string, ResourceDef> = {
     columns: [{ key: 'name', primary: true }, { key: 'driver', mobile: true }, { key: 'status', type: 'status', mobile: true }, { key: 'health', type: 'status' }, { key: 'priority', type: 'number', sortable: true }, { key: 'api_key_set', type: 'bool' }, { key: 'tokens_used', type: 'number', sortable: true }, { key: 'monthly_token_limit', type: 'number' }],
     filters: [{ key: 'status', options: ['draft', 'active', 'disabled'] }, { key: 'health', options: ['unknown', 'healthy', 'degraded', 'down'] }],
     fields: [
-      { name: 'name', type: 'text', required: true }, { name: 'driver', type: 'select', options: ['openai_compatible', 'comfyui', 'custom_http'], required: true }, { name: 'base_url', type: 'text', hint: 'base_url_hint' },
+      { name: 'name', type: 'text', required: true }, { name: 'driver', type: 'select', options: ['openai_compatible', 'openai_images', 'fal', 'replicate', 'comfyui', 'custom_http'], required: true }, { name: 'base_url', type: 'text', hint: 'base_url_hint' },
       { name: 'api_key', type: 'secret', hint: 'secret_hint' }, { name: 'capabilities', type: 'features', options: ['text', 'image', 'video'] }, { name: 'status', type: 'select', options: ['draft', 'active', 'disabled'], required: true },
       { name: 'priority', type: 'number' }, { name: 'monthly_token_limit', type: 'number' },
     ],
@@ -136,8 +136,57 @@ export const RESOURCES: Record<string, ResourceDef> = {
   'template-categories': { endpoint: 'template-categories', columns: [{ key: 'name_id', primary: true }, { key: 'slug', type: 'mono', mobile: true }, { key: 'type', mobile: true }, { key: 'sort', type: 'number', sortable: true }], filters: [{ key: 'type', options: ['photo', 'video', 'website', 'social', 'business'] }], fields: [{ name: 'slug', type: 'text', required: true }, { name: 'name_id', type: 'text', required: true }, { name: 'name_en', type: 'text' }, { name: 'type', type: 'select', options: ['photo', 'video', 'website', 'social', 'business'], required: true }, { name: 'sort', type: 'number' }] },
   projects: { endpoint: 'projects', can: ['update', 'delete'], fields: [{ name: 'name', type: 'text', required: true }, { name: 'status', type: 'select', options: ['active', 'archived'], required: true }], columns: [{ key: 'name', primary: true }, { key: 'user_id', type: 'number' }, { key: 'type', mobile: true }, { key: 'status', type: 'status', mobile: true }, { key: 'updated_at', type: 'date', sortable: true }] },
   websites: { endpoint: 'websites', can: ['update', 'delete'], fields: [{ name: 'name', type: 'text', required: true }, { name: 'status', type: 'select', options: ['draft', 'published', 'archived'], required: true }, { name: 'custom_domain', type: 'text' }], columns: [{ key: 'name', primary: true }, { key: 'user', type: 'user' }, { key: 'subdomain', type: 'mono', mobile: true }, { key: 'custom_domain' }, { key: 'status', type: 'status', mobile: true }, { key: 'published_at', type: 'date', sortable: true }], filters: [{ key: 'status', options: ['draft', 'published', 'archived'] }] },
-  'seo-rules': { endpoint: 'seo-rules', bulk: true, columns: [{ key: 'name', primary: true }, { key: 'code', type: 'mono' }, { key: 'severity', type: 'status', mobile: true }, { key: 'weight', type: 'number', sortable: true, mobile: true }, { key: 'ruleset_version' }, { key: 'is_active', type: 'bool' }], filters: [{ key: 'severity', options: ['critical', 'warning', 'info'] }, { key: 'is_active', options: BOOL }], fields: [{ name: 'code', type: 'text', required: true }, { name: 'name', type: 'text', required: true }, { name: 'severity', type: 'select', options: ['critical', 'warning', 'info'], required: true }, { name: 'weight', type: 'number', required: true }, { name: 'ruleset_version', type: 'text', required: true }, { name: 'is_active', type: 'bool' }] },
-  'seo-audits': { endpoint: 'seo-audits', can: ['delete'], columns: [{ key: 'url', primary: true }, { key: 'user_id', type: 'number' }, { key: 'score', type: 'number', sortable: true, mobile: true }, { key: 'ruleset_version' }, { key: 'status', type: 'status', mobile: true }, { key: 'created_at', type: 'date', sortable: true }] },
+  'forum-categories': {
+    endpoint: 'forum-categories',
+    bulk: true,
+    columns: [{ key: 'name', primary: true }, { key: 'slug', type: 'mono', mobile: true }, { key: 'plan_codes', type: 'json' }, { key: 'admin_only_posting', type: 'bool' }, { key: 'sort', type: 'number', sortable: true }, { key: 'is_active', type: 'bool', mobile: true }],
+    filters: [{ key: 'is_active', options: BOOL }, { key: 'admin_only_posting', options: BOOL }],
+    fields: [
+      { name: 'name', type: 'text', required: true }, { name: 'slug', type: 'text', required: true, hint: 'forum_slug_hint' }, { name: 'description', type: 'textarea' }, { name: 'icon', type: 'text' },
+      { name: 'plan_codes', type: 'tags', hint: 'forum_plans_hint' }, { name: 'admin_only_posting', type: 'bool', default: false, hint: 'forum_admin_only_hint' }, { name: 'sort', type: 'number' }, { name: 'is_active', type: 'bool' },
+    ],
+  },
+  'forum-threads': {
+    endpoint: 'forum-threads',
+    columns: [{ key: 'title', primary: true }, { key: 'user', type: 'user', mobile: true }, { key: 'category_id', type: 'number' }, { key: 'status', type: 'status', mobile: true }, { key: 'is_pinned', type: 'bool' }, { key: 'is_locked', type: 'bool' }, { key: 'replies_count', type: 'number', sortable: true }, { key: 'created_at', type: 'date', sortable: true }],
+    filters: [{ key: 'status', options: ['published', 'hidden', 'deleted'] }, { key: 'is_pinned', options: BOOL }, { key: 'is_locked', options: BOOL }],
+    fields: [
+      { name: 'category_id', type: 'number', required: true, hint: 'forum_category_id_hint' }, { name: 'title', type: 'text', required: true }, { name: 'body', type: 'textarea', required: true },
+      { name: 'status', type: 'select', options: ['published', 'hidden', 'deleted'] }, { name: 'is_pinned', type: 'bool', default: false }, { name: 'is_locked', type: 'bool', default: false }, { name: 'moderation_note', type: 'textarea', hint: 'forum_moderation_hint' },
+    ],
+  },
+  'forum-posts': {
+    endpoint: 'forum-posts',
+    columns: [{ key: 'body', primary: true }, { key: 'user', type: 'user', mobile: true }, { key: 'thread_id', type: 'number' }, { key: 'status', type: 'status', mobile: true }, { key: 'created_at', type: 'date', sortable: true }],
+    filters: [{ key: 'status', options: ['published', 'hidden', 'deleted'] }],
+    fields: [{ name: 'thread_id', type: 'number', required: true }, { name: 'body', type: 'textarea', required: true }, { name: 'status', type: 'select', options: ['published', 'hidden', 'deleted'] }, { name: 'moderation_note', type: 'textarea', hint: 'forum_moderation_hint' }],
+  },
+  'forum-reports': {
+    endpoint: 'forum-reports',
+    can: ['update'],
+    columns: [{ key: 'message', primary: true }, { key: 'user', type: 'user', mobile: true }, { key: 'type', type: 'status' }, { key: 'reason', type: 'status' }, { key: 'thread_id', type: 'number' }, { key: 'post_id', type: 'number' }, { key: 'reported_user_id', type: 'number' }, { key: 'status', type: 'status', mobile: true }, { key: 'created_at', type: 'date', sortable: true }],
+    filters: [{ key: 'status', options: ['open', 'in_review', 'resolved', 'rejected'] }, { key: 'type', options: ['system', 'thread', 'post', 'user'] }, { key: 'reason', options: ['bug', 'error', 'spam', 'abuse', 'harassment', 'scam', 'off_topic', 'other'] }],
+    fields: [{ name: 'status', type: 'select', options: ['open', 'in_review', 'resolved', 'rejected'], required: true }, { name: 'admin_note', type: 'textarea', hint: 'forum_admin_note_hint' }],
+  },
+  'forum-mutes': {
+    endpoint: 'forum-mutes',
+    columns: [{ key: 'user', type: 'user', primary: true }, { key: 'reason', mobile: true }, { key: 'until', type: 'date', sortable: true }, { key: 'created_at', type: 'date', sortable: true }],
+    fields: [{ name: 'user_id', type: 'number', required: true }, { name: 'until', type: 'date', hint: 'forum_until_hint' }, { name: 'reason', type: 'textarea', required: true }],
+  },
+  'seo-rules': {
+    endpoint: 'seo-rules',
+    bulk: true,
+    columns: [{ key: 'name', primary: true }, { key: 'code', type: 'mono' }, { key: 'engine', type: 'status', mobile: true }, { key: 'category', type: 'status' }, { key: 'tier', type: 'status' }, { key: 'severity', type: 'status', mobile: true }, { key: 'weight', type: 'number', sortable: true }, { key: 'sort', type: 'number', sortable: true }, { key: 'is_active', type: 'bool' }],
+    filters: [{ key: 'engine', options: ['audit', 'content'] }, { key: 'category', options: ['technical', 'seo', 'readability'] }, { key: 'tier', options: ['basic', 'advanced'] }, { key: 'severity', options: ['critical', 'warning', 'info'] }, { key: 'is_active', options: BOOL }],
+    fields: [
+      { name: 'code', type: 'text', required: true, hint: 'seo_rule_code_hint' }, { name: 'name', type: 'text', required: true }, { name: 'engine', type: 'select', options: ['audit', 'content'], hint: 'seo_rule_engine_hint' },
+      { name: 'category', type: 'select', options: ['', 'technical', 'seo', 'readability'] }, { name: 'tier', type: 'select', options: ['basic', 'advanced'], hint: 'seo_rule_tier_hint' },
+      { name: 'severity', type: 'select', options: ['critical', 'warning', 'info'], required: true, hint: 'seo_rule_severity_hint' }, { name: 'weight', type: 'number', required: true, hint: 'seo_rule_weight_hint' },
+      { name: 'params', type: 'json', hint: 'seo_rule_params_hint' }, { name: 'recommendation', type: 'textarea' }, { name: 'description', type: 'textarea' }, { name: 'sort', type: 'number' },
+      { name: 'ruleset_version', type: 'text', required: true }, { name: 'is_active', type: 'bool' },
+    ],
+  },
+  'seo-audits': { endpoint: 'seo-audits', can: ['delete'], columns: [{ key: 'title', primary: true }, { key: 'kind', type: 'status', mobile: true }, { key: 'keyphrase' }, { key: 'url' }, { key: 'user_id', type: 'number' }, { key: 'score', type: 'number', sortable: true, mobile: true }, { key: 'readability_score', type: 'number', sortable: true }, { key: 'content_type', type: 'status' }, { key: 'ruleset_version' }, { key: 'created_at', type: 'date', sortable: true }], filters: [{ key: 'kind', options: ['url', 'content'] }, { key: 'content_type', options: ['post', 'cornerstone', 'taxonomy', 'product'] }, { key: 'status', options: ['completed', 'failed'] }] },
   'social-accounts': { endpoint: 'social-accounts', can: ['delete'], columns: [{ key: 'platform', primary: true }, { key: 'user_id', type: 'number' }, { key: 'account_name', mobile: true }, { key: 'status', type: 'status', mobile: true }, { key: 'expires_at', type: 'date' }], filters: [{ key: 'platform', options: ['whatsapp', 'facebook', 'instagram', 'tiktok', 'threads'] }] },
   'webhook-logs': { endpoint: 'webhook-logs', readonly: true, columns: [{ key: 'event', primary: true }, { key: 'source', mobile: true }, { key: 'signature_valid', type: 'bool', mobile: true }, { key: 'status', type: 'status' }, { key: 'created_at', type: 'date', sortable: true }], filters: [{ key: 'signature_valid', options: BOOL }] },
   'email-templates': { endpoint: 'email-templates', columns: [{ key: 'key', type: 'mono', primary: true }, { key: 'subject_id', mobile: true }, { key: 'is_active', type: 'bool', mobile: true }], fields: [{ name: 'key', type: 'text', required: true }, { name: 'subject_id', type: 'text', required: true }, { name: 'body_id', type: 'textarea', required: true }, { name: 'subject_en', type: 'text' }, { name: 'body_en', type: 'textarea' }, { name: 'is_active', type: 'bool' }] },
@@ -146,7 +195,7 @@ export const RESOURCES: Record<string, ResourceDef> = {
   'blog-posts': { endpoint: 'blog-posts', columns: [{ key: 'title_id', primary: true }, { key: 'slug', type: 'mono' }, { key: 'status', type: 'status', mobile: true }, { key: 'published_at', type: 'date', sortable: true, mobile: true }], filters: [{ key: 'status', options: ['draft', 'published', 'archived'] }], fields: [{ name: 'slug', type: 'text', required: true }, { name: 'title_id', type: 'text', required: true }, { name: 'title_en', type: 'text' }, { name: 'body_id', type: 'textarea' }, { name: 'body_en', type: 'textarea' }, { name: 'status', type: 'select', options: ['draft', 'published', 'archived'], required: true }, { name: 'published_at', type: 'date' }] },
   'legal-documents': { endpoint: 'legal-documents', columns: [{ key: 'title_id', primary: true }, { key: 'type', mobile: true }, { key: 'version', type: 'mono', mobile: true }, { key: 'effective_at', type: 'date', sortable: true }, { key: 'requires_reconsent', type: 'bool' }, { key: 'is_active', type: 'bool' }], filters: [{ key: 'type', options: ['terms', 'privacy', 'refund', 'affiliate_terms', 'cookies'] }], fields: [{ name: 'type', type: 'select', options: ['terms', 'privacy', 'refund', 'affiliate_terms', 'cookies'], required: true }, { name: 'version', type: 'text', required: true }, { name: 'effective_at', type: 'date', required: true }, { name: 'title_id', type: 'text', required: true }, { name: 'title_en', type: 'text' }, { name: 'sections_id', type: 'sections', required: true }, { name: 'summary_id', type: 'textarea' }, { name: 'requires_reconsent', type: 'bool' }, { name: 'is_active', type: 'bool' }] },
   'feature-flags': { endpoint: 'feature-flags', bulk: true, columns: [{ key: 'key', type: 'mono', primary: true }, { key: 'description', mobile: true }, { key: 'enabled', type: 'bool', mobile: true }], fields: [{ name: 'key', type: 'text', required: true }, { name: 'description', type: 'text', required: true }, { name: 'enabled', type: 'bool' }] },
-  'audit-logs': { endpoint: 'audit-logs', readonly: true, columns: [{ key: 'action', type: 'mono', primary: true }, { key: 'actor', type: 'user', mobile: true }, { key: 'subject_type' }, { key: 'subject_id', type: 'number' }, { key: 'ip', type: 'mono' }, { key: 'meta', type: 'json' }, { key: 'created_at', type: 'date', sortable: true, mobile: true }] },
+  'audit-logs': { endpoint: 'audit-logs', readonly: true, columns: [{ key: 'action', type: 'action', primary: true }, { key: 'actor', type: 'user', mobile: true }, { key: 'subject_type' }, { key: 'subject_id', type: 'number' }, { key: 'ip', type: 'mono' }, { key: 'meta', type: 'json' }, { key: 'created_at', type: 'date', sortable: true, mobile: true }] },
   'security-events': { endpoint: 'security-events', readonly: true, columns: [{ key: 'type', type: 'mono', primary: true }, { key: 'severity', type: 'status', mobile: true }, { key: 'user', type: 'user' }, { key: 'ip', type: 'mono' }, { key: 'created_at', type: 'date', sortable: true, mobile: true }], filters: [{ key: 'severity', options: ['info', 'warning', 'critical'] }] },
   'mail-logs': { endpoint: 'mail-logs', readonly: true, columns: [{ key: 'subject', primary: true }, { key: 'to', mobile: true }, { key: 'template', type: 'mono' }, { key: 'mailer' }, { key: 'status', type: 'status', mobile: true }, { key: 'error' }, { key: 'created_at', type: 'date', sortable: true }], filters: [{ key: 'status', options: ['sent', 'failed', 'skipped'] }] },
   'wa-logs': { endpoint: 'wa-logs', readonly: true, columns: [{ key: 'event', type: 'mono', primary: true }, { key: 'to', mobile: true }, { key: 'template', type: 'mono' }, { key: 'status', type: 'status', mobile: true }, { key: 'error' }, { key: 'created_at', type: 'date', sortable: true }], filters: [{ key: 'status', options: ['sent', 'failed', 'skipped'] }] },

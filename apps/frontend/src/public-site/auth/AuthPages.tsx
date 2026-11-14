@@ -281,7 +281,8 @@ export function RegisterPage() {
         turnstile_token: captcha,
       })
       setMe(r.data)
-      nav(`/verify${params.get('next') ? `?next=${encodeURIComponent(params.get('next')!)}` : ''}`, { replace: true })
+      // Verifikasi OTP bisa dimatikan Admin → akun langsung aktif dan diarahkan sesuai status
+      nav(r.data.status === 'pending_verification' ? `/verify${params.get('next') ? `?next=${encodeURIComponent(params.get('next')!)}` : ''}` : routeForStatus(r.data, params.get('next')), { replace: true })
     } catch (err) {
       if (err instanceof ApiError) {
         const fe: Record<string, string> = {}

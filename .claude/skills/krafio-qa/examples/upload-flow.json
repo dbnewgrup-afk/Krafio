@@ -1,0 +1,11 @@
+{
+  "as": "qa",
+  "lang": "id",
+  "steps": [
+    { "goto": "/app/create/edit-photo" },
+    { "waitFor": "Foto sumber" },
+    { "upload": { "selector": "input[type=file]", "file": "contoh-foto.png" }, "after": 2500 },
+    { "expectText": "contoh-foto.png" },
+    { "shot": "foto-terunggah" }
+  ]
+}

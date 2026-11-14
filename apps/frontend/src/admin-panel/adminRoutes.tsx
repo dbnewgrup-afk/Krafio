@@ -6,6 +6,8 @@ import { TemplateStudio } from './TemplateStudio'
 import { HeroEditor } from './HeroEditor'
 import { IntegrationPage, FinanceReportPage, BackupPage } from './OpsPages'
 import { AdminReports } from './Reports'
+import { AiToolsAdmin } from './AiToolsAdmin'
+import { MarginCalculator } from './MarginCalculator'
 import { AdminApprovals, AdminDashboard, AdminEntitlements, AdminInfoPage, AdminSettings, AdminSystem, AdminUsers, AdminWithdrawals, AdminAiUsage, type SettingField } from './AdminPages'
 
 // Struktur Sidebar Admin Panel Final (PRD Bab 13) — 16 grup, setiap grup dengan sub-sidebar.
@@ -33,16 +35,19 @@ function I({ k, body, links }: { k: string; body: string; links?: { to: string; 
   const { t } = useTranslation()
   return <AdminInfoPage title={t(`admin.nav.${k}`)} body={t(body)} links={links?.map((l) => ({ ...l, label: t(l.label) }))} />
 }
+function MARGIN({ k }: { k: string }) {
+  const { t } = useTranslation()
+  return <MarginCalculator title={t(`admin.nav.${k}`)} />
+}
+function TOOLS({ k }: { k: string }) {
+  const { t } = useTranslation()
+  return <AiToolsAdmin title={t(`admin.nav.${k}`)} />
+}
 function AI({ k }: { k: string }) {
   const { t } = useTranslation()
   return <AdminAiUsage title={t(`admin.nav.${k}`)} />
 }
 
-const social = (p: string): SettingField[] => [
-  { key: `social.${p}.enabled`, type: 'bool' },
-  { key: `social.${p}.app_id`, type: 'text' },
-  { key: `social.${p}.oauth_url`, type: 'text' },
-]
 
 export const ADMIN_NAV: Group[] = [
   { key: 'g_overview', children: [
@@ -83,6 +88,7 @@ export const ADMIN_NAV: Group[] = [
     { key: 'coupon_redemptions', path: '/admin/billing/coupon-redemptions', el: () => <R resource="coupon-redemptions" k="coupon_redemptions" g="g_billing" /> },
   ] },
   { key: 'g_financial', children: [
+    { key: 'margin_calculator', path: '/admin/finance/margin-calculator', el: () => <MARGIN k="margin_calculator" /> },
     { key: 'payments', path: '/admin/finance/payments', el: () => <R resource="payments" k="payments" g="g_financial" /> },
     { key: 'topups', path: '/admin/finance/topups', el: () => <R resource="topups" k="topups" g="g_financial" /> },
     { key: 'wallet_ledger', path: '/admin/finance/ledger', el: () => <R resource="ledger" k="wallet_ledger" g="g_financial" /> },
@@ -93,6 +99,7 @@ export const ADMIN_NAV: Group[] = [
     { key: 'reconciliation', path: '/admin/finance/reconciliation', el: () => <R resource="webhook-logs" k="reconciliation" g="g_financial" /> },
   ] },
   { key: 'g_ai', children: [
+    { key: 'ai_tools', path: '/admin/ai/tools', el: () => <TOOLS k="ai_tools" /> },
     { key: 'ai_providers', path: '/admin/ai/providers', el: () => <R resource="ai-providers" k="ai_providers" g="g_ai" /> },
     { key: 'ai_models', path: '/admin/ai/models', el: () => <R resource="ai-models" k="ai_models" g="g_ai" /> },
     { key: 'ai_gateway', path: '/admin/ai/gateway', el: () => <S k="ai_gateway" g="g_ai" info="admin.info.credit_costs" fields={[{ key: 'credits.costs', type: 'json' }, { key: 'trial.plan_code', type: 'text' }, { key: 'trial.days', type: 'number' }, { key: 'trial.credits', type: 'number' }]} /> },
@@ -144,17 +151,30 @@ export const ADMIN_NAV: Group[] = [
     { key: 'seo_dashboard', path: '/admin/seo', el: () => <R resource="seo-audits" k="seo_dashboard" g="g_seo" /> },
     { key: 'seo_rules', path: '/admin/seo/rules', el: () => <R resource="seo-rules" k="seo_rules" g="g_seo" /> },
     { key: 'algorithm_settings', path: '/admin/seo/algorithm', el: () => <S k="algorithm_settings" g="g_seo" fields={[{ key: 'seo.ruleset_version', type: 'text' }]} info="admin.info.seo_algorithm" /> },
+    { key: 'seo_content', path: '/admin/seo/content', el: () => <S k="seo_content" g="g_seo" info="admin.info.seo_content" fields={[
+      { key: 'seo.content.enabled', type: 'bool' }, { key: 'seo.content.entitlement', type: 'select', options: ['seo.basic', 'seo.advanced'] }, { key: 'seo.content.cost', type: 'number' },
+      { key: 'seo.content.url_import', type: 'bool' }, { key: 'seo.content.content_types', type: 'json' }, { key: 'seo.content.default_type', type: 'select', options: ['post', 'cornerstone', 'taxonomy', 'product'] },
+      { key: 'seo.content.max_chars', type: 'number' }, { key: 'seo.content.readability_full_support', type: 'bool' },
+      { key: 'seo.lexicon.function_words_extra', type: 'json' }, { key: 'seo.lexicon.transition_words_extra', type: 'json' }, { key: 'seo.lexicon.passive_exceptions_extra', type: 'json' },
+    ]} /> },
     { key: 'crawl_jobs', path: '/admin/seo/crawl', el: () => <R resource="seo-audits" k="crawl_jobs" g="g_seo" /> },
     { key: 'seo_reports', path: '/admin/seo/reports', el: () => <R resource="seo-audits" k="seo_reports" g="g_seo" /> },
   ] },
   { key: 'g_social', children: [
     { key: 'whatsapp', path: '/admin/social/whatsapp', el: () => <IntegrationPage kind="whatsapp" /> },
-    { key: 'facebook', path: '/admin/social/facebook', el: () => <S k="facebook" g="g_social" info="admin.info.social_official" fields={social('facebook')} /> },
-    { key: 'instagram', path: '/admin/social/instagram', el: () => <S k="instagram" g="g_social" info="admin.info.social_official" fields={social('instagram')} /> },
-    { key: 'tiktok', path: '/admin/social/tiktok', el: () => <S k="tiktok" g="g_social" info="admin.info.social_official" fields={social('tiktok')} /> },
-    { key: 'threads', path: '/admin/social/threads', el: () => <S k="threads" g="g_social" info="admin.info.social_official" fields={social('threads')} /> },
+    // Aplikasi OAuth resmi per platform (client id/secret + URL callback) & Postiz untuk posting/jadwal
+    { key: 'postiz', path: '/admin/social/postiz', el: () => <IntegrationPage kind="postiz" /> },
+    ...['instagram', 'facebook', 'threads', 'tiktok', 'youtube', 'linkedin', 'x'].map((p) => ({ key: p, path: `/admin/social/${p}`, el: () => <IntegrationPage kind={`social_${p}`} /> })),
     { key: 'webhook_logs', path: '/admin/social/webhooks', el: () => <R resource="webhook-logs" k="webhook_logs" g="g_social" /> },
     { key: 'social_accounts', path: '/admin/social/accounts', el: () => <R resource="social-accounts" k="social_accounts" g="g_social" /> },
+  ] },
+  // Forum Diskusi: seluruh pengaturan & moderasi hanya di sini (pengguna hanya menulis & melapor)
+  { key: 'g_forum', children: [
+    { key: 'forum_reports', path: '/admin/forum/reports', el: () => <R resource="forum-reports" k="forum_reports" g="g_forum" /> },
+    { key: 'forum_threads', path: '/admin/forum/threads', el: () => <R resource="forum-threads" k="forum_threads" g="g_forum" /> },
+    { key: 'forum_posts', path: '/admin/forum/posts', el: () => <R resource="forum-posts" k="forum_posts" g="g_forum" /> },
+    { key: 'forum_categories', path: '/admin/forum/categories', el: () => <R resource="forum-categories" k="forum_categories" g="g_forum" /> },
+    { key: 'forum_mutes', path: '/admin/forum/mutes', el: () => <R resource="forum-mutes" k="forum_mutes" g="g_forum" /> },
   ] },
   { key: 'g_communication', children: [
     { key: 'smtp_settings', path: '/admin/communication/smtp', el: () => <IntegrationPage kind="smtp" /> },
@@ -191,7 +211,7 @@ export const ADMIN_NAV: Group[] = [
   ] },
   { key: 'g_settings', children: [
     { key: 'general_settings', path: '/admin/settings/general', el: () => <S k="general_settings" g="g_settings" fields={[{ key: 'general.app_name', type: 'text' }, { key: 'general.environment_label', type: 'text' }, { key: 'wallet.topup_min', type: 'number' }, { key: 'wallet.topup_max', type: 'number' }, { key: 'wallet.withdraw_min', type: 'number' }, { key: 'affiliate.active', type: 'bool' }, { key: 'affiliate.rate_percent', type: 'number' }, { key: 'affiliate.hold_days', type: 'number' }, { key: 'subscription.grace_days', type: 'number' }, { key: 'billing.ppn_percent', type: 'number' }, { key: 'billing.price_includes_ppn', type: 'bool' }, { key: 'payment.gateway', type: 'select', options: ['manual', 'midtrans', 'xendit', 'tripay'] }]} /> },
-    { key: 'admin_security', path: '/admin/settings/security', el: () => <S k="admin_security" g="g_settings" fields={[{ key: 'security.admin_mfa_required', type: 'bool' }, { key: 'security.login_max_attempts', type: 'number' }, { key: 'security.admin_session_minutes', type: 'number' }, { key: 'sso.google', type: 'bool' }]} info="admin.info.admin_security" /> },
+    { key: 'admin_security', path: '/admin/settings/security', el: () => <S k="admin_security" g="g_settings" fields={[{ key: 'security.admin_mfa_required', type: 'bool' }, { key: 'security.user_verification_required', type: 'bool' }, { key: 'security.login_max_attempts', type: 'number' }, { key: 'security.admin_session_minutes', type: 'number' }, { key: 'sso.google', type: 'bool' }]} info="admin.info.admin_security" /> },
     { key: 'feature_flags', path: '/admin/settings/feature-flags', el: () => <R resource="feature-flags" k="feature_flags" g="g_settings" /> },
     { key: 'system_configuration', path: '/admin/settings/system', el: () => <S k="system_configuration" g="g_settings" fields={[{ key: 'billing.margin_alert_percent', type: 'number' }, { key: 'billing.credit_value_idr', type: 'number' }, { key: 'subscription.grace_days', type: 'number' }, { key: 'refund.enabled', type: 'bool' }, { key: 'refund.window_days', type: 'number' }, { key: 'refund.purposes', type: 'json' }, { key: 'payment.webhook_secret.manual', type: 'secret' }]} /> },
   ] },

@@ -160,6 +160,24 @@ npm install
 npm run dev
 ```
 
+### 6.1 AI Tools: penyedia AI, FFmpeg, dan worker
+
+Semua fitur AI di panel user (Naskah Video, Caption, Ide Konten, Kalender, Copywriting, Artikel, Cerita Bersambung, Generate/Edit Foto & Video, Clipper) didefinisikan di `app/Support/AiTools.php` dan dikendalikan dari **Admin → AI → AI Tools** (aktif/nonaktif, label, biaya, batas part, default form, field yang tampil, prompt).
+
+| Kebutuhan | Untuk | Cara pasang |
+|---|---|---|
+| Penyedia AI teks | Semua tool “Tulis Konten” + AI Assistant | **Lokal gratis:** pasang [Ollama](https://ollama.com), `ollama pull qwen2.5:3b`, lalu `php artisan krafio:ai-local`. **Berbayar (disarankan produksi):** isi API key di Admin → AI → Provider pada slot “API teks utama (OpenAI-compatible)” lalu ubah status ke *Active*. Gateway memakai yang utama dulu, Ollama sebagai cadangan. |
+| Penyedia AI gambar/video | Generate Foto/Video, Hapus/Ganti Latar, Inpaint | Tambah provider dengan driver `openai_images`, `fal`, `replicate`, `comfyui`, atau `custom_http` + model di Admin → AI. Tanpa provider: pratinjau simulasi. |
+| FFmpeg | Edit Video & Video Clipper (tanpa AI berbayar) | `apt install ffmpeg` (server) atau set `FFMPEG_PATH`/`FFPROBE_PATH`. |
+| Imagick atau GD | Upscale 2× & Enhance foto (lokal) | Ekstensi PHP `imagick` (disarankan) atau `gd`. |
+| Queue worker | Semua job AI (naskah multi-part bisa beberapa menit) | `php artisan queue:work --queue=ai,default --timeout=1800 --tries=1` dan `KRAFIO_JOBS_INLINE=false`. |
+| Batas unggahan | Video ≤200 MB | PHP: `upload_max_filesize=210M`, `post_max_size=220M`; Nginx: `client_max_body_size 220m;`. |
+
+### 6.2 Integrasi media sosial & Postiz
+
+- **Login resmi lewat popup.** Admin → Social → *Instagram / Facebook / Threads / TikTok / YouTube / LinkedIn / X*: isi Client ID & Client Secret dari developer console platform, aktifkan, lalu daftarkan **URL callback** yang tampil di halaman itu (`<FRONTEND_URL>/api/social/callback/<platform>`). Pengguna menekan *Hubungkan* → login sendiri di jendela platform → callback REST menukar kode jadi token (terenkripsi) dan mengambil data profil (nama, foto, pengikut, dll.). X memakai PKCE; token kedaluwarsa diperbarui otomatis saat *Sinkronkan*.
+- **Postiz (posting & jadwal).** Admin → Social → *Postiz*: isi Base URL backend Postiz dan API key (Postiz → Settings → Public API). Pengguna bisa menghubungkan kanal lewat halaman connect Postiz dan memposting/menjadwalkan dari panel *Integrasi Sosial*.
+
 ## 7. Variabel lingkungan
 
 ### Backend (`apps/backend/.env`)
@@ -238,14 +256,16 @@ server {
     }
 
     # SPA: semua rute lain ke index.html
+    # $uri/index.html: HTML statis per halaman publik (SEO) hasil build — judul, meta, canonical, isi untuk crawler.
+    # spa.html: fallback generik (panel /app, /admin, 404) tanpa canonical beranda, bertanda noindex.
     location / {
-        try_files $uri /index.html;
+        try_files $uri $uri/index.html /spa.html;
     }
     location /assets/ { expires 1y; add_header Cache-Control "public, immutable"; }
 }
 ```
 
-Checklist produksi: HTTPS aktif, `APP_DEBUG=false`, cron scheduler dan queue worker berjalan (bagian 10), backup disalin ke luar server, password admin awal diganti, integrasi pembayaran/SMTP/WhatsApp diisi dan diuji dari Admin Panel.
+Checklist produksi: HTTPS aktif, `APP_DEBUG=false`, `expose_php = Off` di php.ini, MFA admin aktif (`security.admin_mfa_required`), cron scheduler dan queue worker berjalan (bagian 10), backup disalin ke luar server, password admin awal diganti, integrasi pembayaran/SMTP/WhatsApp diisi dan diuji dari Admin Panel.
 
 Update rilis:
 ```bash

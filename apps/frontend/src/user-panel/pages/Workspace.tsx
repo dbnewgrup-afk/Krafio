@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, Send, Bot, Globe, Monitor, Tablet, Smartphone, Save, Rocket, Link2, Unlink, RefreshCw, Trash2, FolderOpen, MonitorSmartphone, Wand2 } from 'lucide-react'
+import { Plus, Send, Bot, Globe, Monitor, Tablet, Smartphone, Save, Rocket, Trash2, FolderOpen, MonitorSmartphone, Wand2, SearchCheck } from 'lucide-react'
 import { http, ApiError } from '@/api-client/http'
 import type { AiJob, TemplateItem } from '@/api-client/types'
 import { useAuth } from '@/shared/context/AuthContext'
@@ -22,6 +22,7 @@ import { previewStyle } from '@/shared/lib/assets'
 import { JobPreview } from './Studio'
 import { dateTime, relative } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
+import { ContentAnalyzerPanel, type SeoAuditItem, type SeoPrefill } from './SeoAnalyzer'
 
 /* ---------------- Template library (§19.4) ---------------- */
 export function UserTemplatesPage() {
@@ -447,6 +448,7 @@ export function WebsiteEditorPage() {
   const toast = useToast()
   const isDesktop = useIsDesktop()
   const site = useApi<Site>(`/app/websites/${id}`)
+  const navigate = useNavigate()
   useDocTitle(site.data?.name ?? t('features.website_builder'))
   const [content, setContent] = useState<Site['content'] | null>(null)
   const [sel, setSel] = useState<string | null>(null)
@@ -472,6 +474,14 @@ export function WebsiteEditorPage() {
     }, 1500)
     return () => window.clearTimeout(h)
   }, [content, dirty, id])
+  // Website tidak ada / bukan milik pengguna → pesan jelas, bukan skeleton selamanya
+  if (site.error)
+    return (
+      <>
+        <PageHeader title={t('websites.not_found')} crumbs={[{ label: t('features.website_builder'), to: '/app/websites' }, { label: t('websites.not_found') }]} />
+        <EmptyState title={site.error.message} action={<ButtonLink to="/app/websites" variant="secondary">{t('websites.back_list')}</ButtonLink>} />
+      </>
+    )
   if (!site.data || !content) return <Skeleton className="h-96" />
   const block = content.blocks.find((b) => b.id === sel)
   const update = (patch: Partial<{ title: string; body: string }>) => {
@@ -490,6 +500,29 @@ export function WebsiteEditorPage() {
       toast.push('error', e instanceof ApiError ? e.message : (e as Error).message)
     }
   }
+  // Analisis SEO lengkap bergaya Yoast: simpan dulu, lalu buka form analisis dengan data website terisi
+  const analyzeSeo = async () => {
+    if (dirty) await http.put(`/app/websites/${id}`, { content }).catch(() => undefined)
+    const esc = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const html = content.blocks
+      .map((b, i) => {
+        const tag = i === 0 ? 'h1' : 'h2'
+        const body = b.body.split(/\n+/).map((p) => p.trim()).filter(Boolean).map((p) => `<p>${esc(p)}</p>`).join('')
+        return `${b.title.trim() ? `<${tag}>${esc(b.title)}</${tag}>` : ''}${body}`
+      })
+      .join('\n')
+    const prefill: SeoPrefill = {
+      source: site.data!.name,
+      content_type: 'post',
+      seo_title: content.seo.title,
+      meta_description: content.seo.description,
+      slug: site.data!.subdomain,
+      // Domain kustom yang sudah terverifikasi dipakai agar tautan internal dikenali dengan benar
+      url: `https://${site.data!.domain?.status === 'verified' && site.data!.domain.domain ? site.data!.domain.domain : `${site.data!.subdomain}.krafio.site`}/`,
+      content: html,
+    }
+    navigate('/app/seo', { state: { seoPrefill: prefill } })
+  }
   const publish = async () => {
     try {
       await http.post(`/app/websites/${id}/publish`, { content })
@@ -503,11 +536,14 @@ export function WebsiteEditorPage() {
   const props = block ? (
     <div className="grid gap-4">
       <TextField label={t('websites.block_title')} value={block.title} onChange={(e) => update({ title: e.target.value })} />
-      <TextArea label={t('websites.block_body')} rows={6} value={block.body} onChange={(e) => update({ body: e.target.value })} />
+      <TextArea label={t('websites.block_body')} rows={6} value={block.body} onChange={(e) => update({ body: e.target.value })} placeholder={t(`websites.body_ph.${block.type}`, { defaultValue: t('websites.body_ph.default') })} />
       <p className="t-label mt-2">SEO</p>
       <TextField label={t('websites.seo_title')} value={content.seo.title} onChange={(e) => { setContent({ ...content, seo: { ...content.seo, title: e.target.value } }); setDirty(true) }} hint={t('websites.chars', { n: content.seo.title.length, max: 60 })} />
       <TextArea label={t('websites.seo_desc')} rows={3} value={content.seo.description} onChange={(e) => { setContent({ ...content, seo: { ...content.seo, description: e.target.value } }); setDirty(true) }} hint={t('websites.chars', { n: content.seo.description.length, max: 160 })} />
-      <Button variant="secondary" size="sm" icon={<Wand2 className="size-4" aria-hidden />} onClick={fixSeo}>{t('websites.seo_fix')}</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" icon={<Wand2 className="size-4" aria-hidden />} onClick={fixSeo}>{t('websites.seo_fix')}</Button>
+        <Button variant="ghost" size="sm" icon={<SearchCheck className="size-4" aria-hidden />} onClick={analyzeSeo}>{t('websites.seo_analyze')}</Button>
+      </div>
     </div>
   ) : null
   const W = { desktop: 'max-w-full', tablet: 'max-w-[768px]', mobile: 'max-w-[390px]' }[device]
@@ -521,6 +557,12 @@ export function WebsiteEditorPage() {
           <>
             <Button variant="secondary" icon={<Save className="size-4" aria-hidden />} onClick={async () => { await http.put(`/app/websites/${id}`, { content }); setDirty(false); toast.push('success', t('common.saved')) }}>{t('common.save')}</Button>
             <Button icon={<Rocket className="size-4" aria-hidden />} onClick={publish}>{t('websites.publish')}</Button>
+            {(site.data as { public_url?: string }).public_url && (
+              <a href={(site.data as { public_url?: string }).public_url} target="_blank" rel="noopener noreferrer" className="t-label inline-flex h-10 items-center gap-1.5 rounded-md px-3 text-primary hover:bg-surface-2">
+                <Globe className="size-4" aria-hidden />
+                {t('websites.open_site')}
+              </a>
+            )}
           </>
         }
       />
@@ -638,33 +680,45 @@ function DomainPanel({ siteId, domain, onChange }: { siteId: number; domain?: Si
 }
 
 /* ---------------- SEO tools (§19.6) ---------------- */
-interface Audit {
-  id: number
-  url: string
-  score: number
-  ruleset_version: string
-  status: string
-  created_at: string
-  findings: { id: number; rule: string; severity: 'critical' | 'warning' | 'info'; location: string; message: string; recommendation: string; state: 'open' | 'resolved' | 'ignored' }[]
-}
 export function SeoPage() {
   const { t } = useTranslation()
   useDocTitle(t('features.seo_basic'))
+  const [tab, setTab] = useState<'content' | 'url'>('content')
+  // Kedua panel tetap terpasang (hanya disembunyikan) agar isian form tidak hilang saat berpindah tab
+  return (
+    <>
+      <PageHeader title={t('features.seo_basic')} subtitle={t('seo.subtitle_all')} />
+      <Tabs label={t('features.seo_basic')} value={tab} onChange={setTab} className="mb-5" items={[{ value: 'content', label: t('seo.tab_content') }, { value: 'url', label: t('seo.tab_url') }]} />
+      <div hidden={tab !== 'content'}>
+        <ContentAnalyzerPanel />
+      </div>
+      <div hidden={tab !== 'url'}>
+        <UrlAuditPanel />
+      </div>
+    </>
+  )
+}
+
+/** Audit teknis URL dengan rules engine Krafio (engine "audit"). */
+function UrlAuditPanel() {
+  const { t } = useTranslation()
   const { openLocked } = useLocked()
-  const audits = useApi<Audit[]>('/app/seo/audits')
+  const list = useApi<SeoAuditItem[]>('/app/seo/audits', { kind: 'url' })
+  const audits = list.data
+  const reload = list.reload
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [sel, setSel] = useState<number | null>(null)
   const [sev, setSev] = useState<'critical' | 'warning' | 'info'>('critical')
-  const cur = audits.data?.find((a) => a.id === sel) ?? audits.data?.[0]
+  const cur = audits?.find((a) => a.id === sel) ?? audits?.[0]
   const run = async (e: FormEvent) => {
     e.preventDefault()
     setErr(null)
     setBusy(true)
     try {
-      const r = await http.post<{ data: Audit }>('/app/seo/audits', { url })
-      audits.reload()
+      const r = await http.post<{ data: SeoAuditItem }>('/app/seo/audits', { url })
+      reload()
       setSel(r.data.id)
     } catch (er) {
       if (er instanceof ApiError) {
@@ -678,11 +732,11 @@ export function SeoPage() {
   }
   const setState = async (fid: number, state: string) => {
     await http.patch(`/app/seo/findings/${fid}`, { state })
-    audits.reload()
+    reload()
   }
   return (
     <>
-      <PageHeader title={t('features.seo_basic')} subtitle={t('seo.subtitle')} />
+      <p className="t-small mb-3 text-muted">{t('seo.subtitle')}</p>
       <Card>
         <form onSubmit={run} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <TextField label={t('seo.url')} type="url" inputMode="url" required value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://contoh.com" error={err} />
@@ -690,7 +744,7 @@ export function SeoPage() {
         </form>
       </Card>
       <div className="mt-6">
-        {!audits.data ? (
+        {!audits ? (
           <Skeleton className="h-60" />
         ) : !cur ? (
           <EmptyState title={t('seo.empty')} body={t('seo.empty_body')} />
@@ -703,9 +757,9 @@ export function SeoPage() {
                 <p className="t-small mt-1 text-muted">{t('seo.ruleset', { v: cur.ruleset_version })}</p>
                 <p className="t-small mt-2 text-muted">{t('seo.score_note')}</p>
               </Card>
-              {audits.data.length > 1 && (
+              {audits.length > 1 && (
                 <ul className="grid gap-1">
-                  {audits.data.map((a) => (
+                  {audits.map((a) => (
                     <li key={a.id}>
                       <button type="button" onClick={() => setSel(a.id)} className={cn('w-full rounded-md px-3 py-2 text-left', cur.id === a.id ? 'bg-primary-soft' : 'hover:bg-surface-2')}>
                         <span className="block truncate text-sm font-medium">{a.url}</span>
@@ -758,95 +812,6 @@ export function SeoPage() {
           </div>
         )}
       </div>
-    </>
-  )
-}
-
-/* ---------------- Integrasi sosial (§19.7, PRD 6.11) ---------------- */
-interface SocialAcc {
-  platform: string
-  available: boolean
-  status: 'connected' | 'disconnected' | 'expired' | 'not_available'
-  account_name: string | null
-  expires_at: string | null
-  permissions: string[]
-}
-export function SocialPage() {
-  const { t } = useTranslation()
-  useDocTitle(t('features.social_integrations'))
-  const list = useApi<SocialAcc[]>('/app/social')
-  const [ask, setAsk] = useState<SocialAcc | null>(null)
-  const [disc, setDisc] = useState<SocialAcc | null>(null)
-  const toast = useToast()
-  return (
-    <>
-      <PageHeader title={t('features.social_integrations')} subtitle={t('social.subtitle')} />
-      {!list.data ? (
-        <Skeleton className="h-60" />
-      ) : (
-        <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {list.data.map((a) => (
-            <li key={a.platform} className="grid content-start gap-3 rounded-lg border border-line bg-surface p-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="t-h3">{t(`platforms.${a.platform}`)}</p>
-                <StatusChip status={a.status} label={t(`social.st_${a.status}`)} />
-              </div>
-              {a.account_name && <p className="t-small text-fg">{a.account_name}</p>}
-              {a.expires_at && <p className="t-small text-muted">{t('social.token_until', { date: dateTime(a.expires_at, false) })}</p>}
-              <div className="flex flex-wrap gap-2">
-                {!a.available ? (
-                  <Badge>{t('social.not_available')}</Badge>
-                ) : a.status === 'connected' ? (
-                  <>
-                    <Button size="sm" variant="secondary" icon={<RefreshCw className="size-4" aria-hidden />} onClick={() => setAsk(a)}>{t('social.reconnect')}</Button>
-                    <Button size="sm" variant="ghost" icon={<Unlink className="size-4" aria-hidden />} onClick={() => setDisc(a)}>{t('social.disconnect')}</Button>
-                  </>
-                ) : (
-                  <Button size="sm" icon={<Link2 className="size-4" aria-hidden />} onClick={() => setAsk(a)}>{a.status === 'expired' ? t('social.reconnect') : t('social.connect')}</Button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      {/* Layar izin dalam bahasa sederhana sebelum OAuth resmi (§11.4) */}
-      <Modal
-        open={!!ask}
-        onClose={() => setAsk(null)}
-        size="info"
-        title={ask ? t('social.permission_title', { platform: t(`platforms.${ask.platform}`) }) : ''}
-        footer={
-          <Button
-            onClick={async () => {
-              try {
-                const r = await http.post<{ data: { redirect_url: string | null } }>(`/app/social/${ask!.platform}/connect`)
-                if (r.data.redirect_url) window.location.href = r.data.redirect_url
-              } catch (e) {
-                toast.push('error', e instanceof ApiError ? e.message : t('errors.server_body'))
-                setAsk(null)
-              }
-            }}
-          >
-            {t('social.continue_oauth')}
-          </Button>
-        }
-      >
-        <p className="t-body text-muted">{t('social.permission_body')}</p>
-        <ul className="mt-3 grid gap-1.5">
-          {ask?.permissions.map((p) => <li key={p} className="t-small rounded-md bg-surface-2 px-3 py-2 text-fg">{t(`social.perm.${p}`, { defaultValue: p })}</li>)}
-        </ul>
-      </Modal>
-      <ConfirmDialog
-        open={!!disc}
-        onClose={() => setDisc(null)}
-        destructive
-        title={disc ? t('social.disconnect_title', { platform: t(`platforms.${disc.platform}`) }) : ''}
-        confirmLabel={t('social.disconnect')}
-        onConfirm={async () => {
-          await http.post(`/app/social/${disc!.platform}/disconnect`)
-          list.reload()
-        }}
-      />
     </>
   )
 }

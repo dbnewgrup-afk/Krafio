@@ -8,7 +8,6 @@ use App\Models\AuditLog;
 use App\Models\Project;
 use App\Models\SeoAudit;
 use App\Models\SeoFinding;
-use App\Models\SocialAccount;
 use App\Models\Ticket;
 use App\Models\Website;
 use App\Services\Billing;
@@ -41,7 +40,7 @@ class WorkspaceController extends Controller
     {
         $q = AuditLog::where('actor_id', $r->user()->id)->latest('id');
 
-        return Present::paginate($q->paginate(min(100, (int) $r->query('per_page', 25))), fn ($a) => ['id' => $a->id, 'action' => $a->action, 'ip' => $a->ip, 'created_at' => $a->created_at->toIso8601String()]);
+        return Present::paginate($q->paginate(min(100, max(1, (int) $r->query('per_page', 25)))), fn ($a) => ['id' => $a->id, 'action' => $a->action, 'ip' => $a->ip, 'created_at' => $a->created_at->toIso8601String()]);
     }
 
     /* ---------------- Website builder ---------------- */
@@ -51,6 +50,8 @@ class WorkspaceController extends Controller
             'id' => $w->id, 'name' => $w->name, 'subdomain' => $w->subdomain, 'status' => $w->status, 'updated_at' => $w->updated_at->toIso8601String(),
             'content' => $content ? $w->content : null,
             'domain' => \App\Services\CustomDomains::present($w),
+            // Alamat publik website yang sudah terbit (dilayani SiteController)
+            'public_url' => $w->status === 'published' ? 'https://'.($w->domain_status === 'verified' && $w->custom_domain ? $w->custom_domain : $w->subdomain.'.'.config('krafio.site_domain')).'/' : null,
         ], fn ($v) => $v !== null);
     }
 
@@ -90,7 +91,7 @@ class WorkspaceController extends Controller
         Entitlements::ensure($u, 'website.builder', 1);
         $data = $r->validate([
             'name' => 'required|string|max:120', 'business' => 'required|string|max:1000', 'services' => 'nullable|string|max:1000',
-            'subdomain' => ['required', 'regex:/^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$/', 'unique:websites,subdomain', 'not_in:www,admin,app,api,mail,status,assets'],
+            'subdomain' => ['required', 'regex:/^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$/', 'unique:websites,subdomain', 'not_in:www,admin,app,api,mail,status,assets,sites,cdn'],
         ], ['subdomain.unique' => 'Subdomain sudah dipakai.', 'subdomain.regex' => 'Gunakan huruf kecil, angka, dan tanda hubung (3–63 karakter).']);
         // Paket + add-on "website-extra" (sebelumnya add-on tidak terhitung)
         Entitlements::ensureCount($u, 'websites', Website::where('user_id', $u->id)->count(), 1, 'website.builder', 'jumlah website');
@@ -101,8 +102,8 @@ class WorkspaceController extends Controller
                 'blocks' => [
                     ['id' => (string) Str::uuid(), 'type' => 'hero', 'title' => $data['name'], 'body' => Str::limit($data['business'], 160)],
                     ['id' => (string) Str::uuid(), 'type' => 'about', 'title' => 'Tentang kami', 'body' => $data['business']],
-                    ['id' => (string) Str::uuid(), 'type' => 'services', 'title' => 'Layanan', 'body' => $services ? implode("\n", $services) : 'Tuliskan layanan utama Anda di sini.'],
-                    ['id' => (string) Str::uuid(), 'type' => 'contact', 'title' => 'Hubungi kami', 'body' => 'Tambahkan alamat, jam buka, dan kontak.'],
+                    ['id' => (string) Str::uuid(), 'type' => 'services', 'title' => 'Layanan', 'body' => $services ? implode("\n", $services) : ''],
+                    ['id' => (string) Str::uuid(), 'type' => 'contact', 'title' => 'Hubungi kami', 'body' => ''],
                 ],
                 // SEO disusun berbasis aturan agar draft langsung lolos validasi publish (judul 10–60, deskripsi 50–160)
                 'seo' => ['title' => SeoWriter::title($data['name'], $services, $data['business']), 'description' => SeoWriter::description($data['name'], $data['business'], $services)],
@@ -143,6 +144,7 @@ class WorkspaceController extends Controller
     {
         abort_unless($website->user_id === $r->user()->id, 404);
         $website->update(['content' => $this->validContent($r), 'version' => $website->version + 1]);
+        \App\Models\WebsiteVersion::record($website, 'save', $website->content, $r->user()->id);
 
         return ['data' => $this->site($website, true)];
     }
@@ -179,6 +181,29 @@ class WorkspaceController extends Controller
             throw new ApiException('publish_blocked', 'Website belum dapat dipublikasikan.', 422, ['issues' => $issues]);
         }
         $website->update(['content' => $content, 'published_content' => $content, 'status' => 'published', 'published_at' => now()]);
+        \App\Models\WebsiteVersion::record($website, 'publish', $content, $r->user()->id);
+
+        return ['data' => $this->site($website, true)];
+    }
+
+    /** Riwayat versi (maks. 30 terbaru). */
+    public function websiteVersions(Request $r, Website $website)
+    {
+        abort_unless($website->user_id === $r->user()->id, 404);
+
+        return ['data' => \App\Models\WebsiteVersion::where('website_id', $website->id)->latest('id')->get()->map(fn ($v) => [
+            'id' => $v->id, 'kind' => $v->kind, 'created_at' => $v->created_at->toIso8601String(),
+            'blocks' => count($v->content['blocks'] ?? []), 'title' => $v->content['blocks'][0]['title'] ?? null, 'seo_title' => $v->content['seo']['title'] ?? null,
+        ])];
+    }
+
+    /** Pulihkan versi → menjadi draft (tidak langsung terbit). */
+    public function restoreWebsiteVersion(Request $r, Website $website, int $version)
+    {
+        abort_unless($website->user_id === $r->user()->id, 404);
+        $v = \App\Models\WebsiteVersion::where('website_id', $website->id)->findOrFail($version);
+        $website->update(['content' => $v->content, 'version' => $website->version + 1]);
+        \App\Models\WebsiteVersion::record($website, 'restore', $v->content, $r->user()->id);
 
         return ['data' => $this->site($website, true)];
     }
@@ -186,15 +211,23 @@ class WorkspaceController extends Controller
     /* ---------------- SEO ---------------- */
     private function audit(SeoAudit $a): array
     {
-        return [
-            'id' => $a->id, 'url' => $a->url, 'score' => $a->score, 'ruleset_version' => $a->ruleset_version, 'status' => $a->status, 'created_at' => $a->created_at->toIso8601String(),
-            'findings' => $a->findings->map(fn ($f) => ['id' => $f->id, 'rule' => $f->rule, 'severity' => $f->severity, 'location' => $f->location, 'message' => $f->message, 'recommendation' => $f->recommendation, 'state' => $f->state])->values(),
-        ];
+        return SeoController::present($a);
     }
 
+    /** Riwayat audit (?kind=url|content). Isi konten penuh tidak ikut dimuat; ambil lewat GET seo/audits/{id}. */
     public function seoAudits(Request $r)
     {
-        return ['data' => SeoAudit::with('findings')->where('user_id', $r->user()->id)->latest()->limit(20)->get()->map(fn ($a) => $this->audit($a))];
+        $kind = $r->input('kind');
+        $q = SeoAudit::query()
+            ->select(['id', 'user_id', 'kind', 'url', 'title', 'keyphrase', 'content_type', 'score', 'readability_score', 'stats', 'ruleset_version', 'status', 'created_at', 'updated_at'])
+            ->selectRaw("JSON_REMOVE(input, '$.content') as input")
+            ->with(['findings' => fn ($q) => $q->orderBy('id')])
+            ->where('user_id', $r->user()->id);
+        if (in_array($kind, ['url', 'content'], true)) {
+            $q->where('kind', $kind);
+        }
+
+        return ['data' => $q->latest()->latest('id')->limit(30)->get()->map(fn ($a) => $this->audit($a))];
     }
 
     public function runSeo(Request $r)
@@ -204,7 +237,7 @@ class WorkspaceController extends Controller
         Entitlements::ensure($u, 'seo.basic', 1);
         $res = SeoAuditor::audit($data['url']);
         Entitlements::consume($u, 'seo.basic', 1);
-        $a = SeoAudit::create(['user_id' => $u->id, 'url' => $data['url'], 'score' => $res['score'], 'ruleset_version' => (string) Settings::get('seo.ruleset_version'), 'status' => 'completed']);
+        $a = SeoAudit::create(['user_id' => $u->id, 'url' => $data['url'], 'title' => $res['title'] ?? null, 'score' => $res['score'], 'ruleset_version' => (string) Settings::get('seo.ruleset_version'), 'status' => 'completed']);
         foreach ($res['findings'] as $f) {
             SeoFinding::create($f + ['audit_id' => $a->id]);
         }
@@ -221,54 +254,6 @@ class WorkspaceController extends Controller
     }
 
     /* ---------------- Social (PRD 30, 46) ---------------- */
-    public const PLATFORMS = [
-        'whatsapp' => ['setting' => 'whatsapp.enabled', 'perms' => ['send_messages', 'read_status']],
-        'facebook' => ['setting' => 'social.facebook.enabled', 'perms' => ['manage_pages', 'publish_posts']],
-        'instagram' => ['setting' => 'social.instagram.enabled', 'perms' => ['publish_content', 'read_insights']],
-        'tiktok' => ['setting' => 'social.tiktok.enabled', 'perms' => ['upload_video', 'read_profile']],
-        'threads' => ['setting' => 'social.threads.enabled', 'perms' => ['publish_posts']],
-    ];
-
-    public function social(Request $r)
-    {
-        $acc = SocialAccount::where('user_id', $r->user()->id)->get()->keyBy('platform');
-
-        return ['data' => collect(self::PLATFORMS)->map(function ($cfg, $key) use ($acc) {
-            $available = (bool) Settings::get($cfg['setting'], false);
-            $a = $acc[$key] ?? null;
-            $status = ! $available ? 'not_available' : (! $a ? 'disconnected' : ($a->expires_at && $a->expires_at->isPast() ? 'expired' : $a->status));
-
-            return ['platform' => $key, 'available' => $available, 'status' => $status, 'account_name' => $a?->account_name, 'expires_at' => $a?->expires_at?->toIso8601String(), 'permissions' => $cfg['perms']];
-        })->values()];
-    }
-
-    public function connectSocial(Request $r, string $platform)
-    {
-        abort_unless(isset(self::PLATFORMS[$platform]), 404);
-        Entitlements::ensure($r->user(), 'social.integrations', 0);
-        $connected = SocialAccount::where('user_id', $r->user()->id);
-        if (! (clone $connected)->where('platform', $platform)->exists()) { // menyambung ulang platform yang sama tidak menambah jumlah
-            Entitlements::ensureCount($r->user(), 'social_accounts', (clone $connected)->count(), 1, 'social.integrations', 'akun sosial');
-        }
-        if (! Settings::get(self::PLATFORMS[$platform]['setting'], false)) {
-            throw new ApiException('integration_not_available', 'Integrasi ini belum tersedia. Admin perlu mengonfigurasi aplikasi resmi platform terlebih dahulu.', 422);
-        }
-        $redirect = Settings::get("social.{$platform}.oauth_url");
-        if (! $redirect) {
-            throw new ApiException('integration_not_configured', 'URL OAuth resmi belum dikonfigurasi Admin.', 422);
-        }
-
-        return ['data' => ['redirect_url' => $redirect.(str_contains($redirect, '?') ? '&' : '?').'state='.encrypt($r->user()->id)]];
-    }
-
-    public function disconnectSocial(Request $r, string $platform)
-    {
-        SocialAccount::where('user_id', $r->user()->id)->where('platform', $platform)->delete();
-
-        return response()->noContent();
-    }
-
-    /* ---------------- Tiket user ---------------- */
     public function tickets(Request $r)
     {
         $q = Ticket::where('user_id', $r->user()->id);
@@ -279,7 +264,7 @@ class WorkspaceController extends Controller
             $q->where('subject', 'like', "%{$s}%");
         }
 
-        return Present::paginate($q->latest('updated_at')->paginate(min(100, (int) $r->query('per_page', 25))), fn ($t) => ['id' => $t->id, 'number' => $t->number, 'subject' => $t->subject, 'status' => $t->status, 'updated_at' => $t->updated_at->toIso8601String()]);
+        return Present::paginate($q->latest('updated_at')->paginate(min(100, max(1, (int) $r->query('per_page', 25)))), fn ($t) => ['id' => $t->id, 'number' => $t->number, 'subject' => $t->subject, 'status' => $t->status, 'updated_at' => $t->updated_at->toIso8601String()]);
     }
 
     public static function ticketDetail(Ticket $t): array

@@ -48,6 +48,9 @@ class DatabaseSeeder extends Seeder
         $password = env('KRAFIO_ADMIN_PASSWORD') ?: Str::password(16, symbols: false);
         $u = new User(['name' => 'Super Admin', 'email' => $email, 'password' => $password]);
         $u->forceFill(['role' => 'admin', 'status' => 'active', 'email_verified_at' => now(), 'referral_code' => 'ADMIN'.strtoupper(Str::random(3))])->save();
+        if (app()->environment('testing')) {
+            return; // jangan menimpa kredensial admin database lokal saat test berjalan
+        }
         @mkdir(storage_path('app/private'), 0700, true);
         file_put_contents(storage_path('app/private/admin-credentials.txt'), "Admin Krafio (lokal)\nEmail: {$email}\nPassword: {$password}\nMFA TOTP wajib disiapkan saat login pertama.\n");
         $this->command?->warn("Admin dibuat: {$email} / {$password} (juga tersimpan di storage/app/private/admin-credentials.txt)");
@@ -64,19 +67,19 @@ class DatabaseSeeder extends Seeder
         $plans = [
             ['free', 'Gratis', 'Free', 'Coba fitur dasar untuk mengenal Krafio.', 'Try the basics and get to know Krafio.', 0, 0,
                 ['photo.generate', 'photo.edit', 'content.brainstorm', 'website.builder', 'seo.basic', 'chatbot.basic', 'exports.download'],
-                ['credits' => 50, 'chatbot.basic' => 10, 'content.brainstorm' => 5, 'seo.basic' => 3],
+                ['credits' => 55, 'chatbot.basic' => 10, 'seo.basic' => 3],
                 ['projects' => 1, 'websites' => 1, 'website_preview_only' => true, 'storage_mb' => 500, 'social_accounts' => 0, 'parallel_jobs' => 1, 'priority' => 'low', 'photo_max_px' => 1024, 'video_max_seconds' => 0, 'clipper_max_minutes' => 0, 'watermark' => true, 'templates' => 'free', 'ai_agent' => false], false, 1],
             ['starter', 'Starter', 'Starter', 'Untuk kreator yang mulai rutin membuat konten.', 'For creators starting a regular content routine.', 59000, 590000,
-                array_merge($media, ['content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'social.integrations', 'chatbot.basic', 'exports.download']),
-                ['credits' => 300, 'chatbot.basic' => 30, 'content.brainstorm' => 30, 'seo.basic' => 20],
+                array_merge($media, ['content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'social.integrations', 'forum.access', 'chatbot.basic', 'exports.download']),
+                ['credits' => 330, 'chatbot.basic' => 30, 'seo.basic' => 20],
                 ['projects' => 3, 'websites' => 1, 'storage_mb' => 5120, 'social_accounts' => 2, 'parallel_jobs' => 2, 'priority' => 'normal', 'photo_max_px' => 2048, 'video_resolution' => '720p', 'video_max_seconds' => 5, 'clipper_max_minutes' => 15, 'watermark' => false, 'templates' => 'partial', 'ai_agent' => false], false, 2],
             ['pro', 'Pro', 'Pro', 'Foto, video, dan website untuk bisnis yang tumbuh.', 'Photo, video, and website for growing businesses.', 179000, 1790000,
-                array_merge($media, ['content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'seo.advanced', 'social.integrations', 'chatbot.basic', 'chatbot.premium', 'exports.download']),
-                ['credits' => 1000, 'chatbot.basic' => 80, 'chatbot.premium' => 20, 'content.brainstorm' => 150, 'seo.basic' => 100, 'seo.advanced' => 100],
+                array_merge($media, ['content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'seo.advanced', 'social.integrations', 'forum.access', 'chatbot.basic', 'chatbot.premium', 'exports.download']),
+                ['credits' => 1150, 'chatbot.basic' => 80, 'chatbot.premium' => 20, 'seo.basic' => 100, 'seo.advanced' => 100],
                 ['projects' => 15, 'websites' => 3, 'custom_domains' => 1, 'storage_mb' => 25600, 'social_accounts' => 5, 'scheduling' => true, 'parallel_jobs' => 3, 'priority' => 'high', 'photo_max_px' => 4096, 'video_resolution' => '1080p', 'video_max_seconds' => 10, 'clipper_max_minutes' => 60, 'watermark' => false, 'templates' => 'all', 'ai_agent' => 'limited'], true, 3],
             ['business', 'Business', 'Business', 'Kapasitas besar dan fitur lanjutan untuk agensi.', 'High capacity and advanced features for agencies.', 449000, 4490000,
-                array_merge($media, ['content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'seo.advanced', 'social.integrations', 'chatbot.basic', 'chatbot.premium', 'exports.download']),
-                ['credits' => 2500, 'chatbot.basic' => 200, 'chatbot.premium' => 60, 'content.brainstorm' => 500, 'seo.basic' => 300, 'seo.advanced' => 300],
+                array_merge($media, ['content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'seo.advanced', 'social.integrations', 'forum.access', 'chatbot.basic', 'chatbot.premium', 'exports.download']),
+                ['credits' => 3000, 'chatbot.basic' => 200, 'chatbot.premium' => 60, 'seo.basic' => 300, 'seo.advanced' => 300],
                 ['projects' => 50, 'websites' => 10, 'custom_domains' => 10, 'website_export' => true, 'storage_mb' => 102400, 'social_accounts' => 15, 'whatsapp_business' => true, 'scheduling' => true, 'parallel_jobs' => 5, 'priority' => 'highest', 'photo_max_px' => 4096, 'video_resolution' => '1080p', 'video_max_seconds' => 15, 'clipper_max_minutes' => 120, 'seo_crawl_pages' => 50, 'watermark' => false, 'templates' => 'all', 'ai_agent' => true], false, 4],
             ['enterprise', 'Enterprise', 'Enterprise', 'Kebutuhan khusus — harga dan kapasitas melalui pengajuan Custom Package.', 'Custom needs — price and capacity via a Custom Package request.', 0, 0,
                 [], [], ['custom' => true, 'priority' => 'dedicated'], false, 5],
@@ -87,7 +90,7 @@ class DatabaseSeeder extends Seeder
         $addons = [
             ['credits-200', 'Kredit 200', '200 credits', 'Kredit tambahan, berlaku 90 hari. Dipakai setelah kredit paket.', 'Extra credits, valid 90 days. Used after plan credits.', 49000, 'one_time', 90, ['credits' => 200], null],
             ['credits-500', 'Kredit 500', '500 credits', 'Kredit tambahan, berlaku 90 hari. Dipakai setelah kredit paket.', 'Extra credits, valid 90 days. Used after plan credits.', 109000, 'one_time', 90, ['credits' => 500], null],
-            ['credits-1500', 'Kredit 1.500', '1,500 credits', 'Kredit tambahan, berlaku 90 hari. Dipakai setelah kredit paket.', 'Extra credits, valid 90 days. Used after plan credits.', 299000, 'one_time', 90, ['credits' => 1500], null],
+            ['credits-1500', 'Kredit 1.500', '1,500 credits', 'Kredit tambahan, berlaku 90 hari. Dipakai setelah kredit paket.', 'Extra credits, valid 90 days. Used after plan credits.', 315000, 'one_time', 90, ['credits' => 1500], null],
             ['storage-20gb', 'Storage +20 GB', 'Storage +20 GB', 'Tambahan ruang penyimpanan, ikut masa langganan.', 'Extra storage, follows your subscription.', 25000, 'follow_subscription', 30, ['limits.storage_mb' => 20480], null],
             ['social-5', 'Akun sosial +5', '+5 social accounts', 'Tambahan 5 akun media sosial. Minimal Starter.', '5 extra social accounts. Starter or above.', 35000, 'recurring', 30, ['limits.social_accounts' => 5], ['starter', 'pro', 'business']],
             ['website-extra', 'Website tambahan', 'Extra website', 'Satu website tambahan per bulan. Minimal Starter.', 'One extra website per month. Starter or above.', 29000, 'recurring', 30, ['limits.websites' => 1], ['starter', 'pro', 'business']],
@@ -179,8 +182,9 @@ class DatabaseSeeder extends Seeder
     {
         $rules = [['title_present', 'Judul halaman ada', 'critical', 10], ['title_length', 'Panjang judul ideal', 'warning', 5], ['meta_description', 'Meta description ada', 'critical', 8], ['single_h1', 'Tepat satu H1', 'warning', 6], ['img_alt', 'Gambar memiliki alt', 'warning', 6], ['html_lang', 'Atribut bahasa', 'info', 3], ['viewport', 'Meta viewport', 'critical', 8], ['canonical', 'Tag canonical', 'info', 4], ['https', 'Memakai HTTPS', 'critical', 10], ['open_graph', 'Open Graph', 'info', 3]];
         foreach ($rules as [$code, $name, $sev, $w]) {
-            SeoRule::updateOrCreate(['code' => $code], ['name' => $name, 'severity' => $sev, 'weight' => $w, 'is_active' => true, 'ruleset_version' => '1.0']);
+            SeoRule::updateOrCreate(['code' => $code], ['name' => $name, 'engine' => 'audit', 'category' => 'technical', 'severity' => $sev, 'weight' => $w, 'is_active' => true, 'ruleset_version' => '1.0']);
         }
+        \App\Services\Seo\ContentRules::seed(); // analisis konten bergaya Yoast (docs/seo.md)
     }
 
     private function misc(): void

@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
+use App\Models\Backup;
 use App\Models\Integration;
 use App\Models\MailLog;
 use App\Models\WaLog;
 use App\Services\Backups;
 use App\Services\Messenger;
+use App\Services\Settings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -94,16 +97,16 @@ class OpsIntegrationTest extends KrafioTestCase
 
     public function test_e7_backup_rotation_keeps_daily_and_weekly(): void
     {
-        \App\Services\Settings::set('backup.keep_daily', 2);
-        \App\Services\Settings::set('backup.keep_weekly', 1);
+        Settings::set('backup.keep_daily', 2);
+        Settings::set('backup.keep_weekly', 1);
         foreach ([0, 1, 2, 3, 9] as $daysAgo) {
             $f = "db-uji-{$daysAgo}.sql.gz";
             file_put_contents(Backups::dir().DIRECTORY_SEPARATOR.$f, 'x');
-            \App\Models\Backup::create(['type' => 'database', 'file' => $f, 'size' => 1, 'status' => 'success', 'created_at' => now()->startOfWeek()->subDays($daysAgo)]);
+            Backup::create(['type' => 'database', 'file' => $f, 'size' => 1, 'status' => 'success', 'created_at' => now()->startOfWeek()->subDays($daysAgo)]);
         }
         $deleted = Backups::rotate();
         $this->assertGreaterThanOrEqual(2, $deleted);
-        $this->assertLessThanOrEqual(3, \App\Models\Backup::count());
+        $this->assertLessThanOrEqual(3, Backup::count());
         foreach (glob(Backups::dir().DIRECTORY_SEPARATOR.'db-uji-*') as $f) {
             @unlink($f);
         }
@@ -118,7 +121,7 @@ class OpsIntegrationTest extends KrafioTestCase
         $this->json_('POST', '/admin/r/ledger', [])->assertStatus(405)->assertJsonPath('code', 'read_only');
         $this->json_('POST', '/admin/r/coupons/bulk', ['ids' => [$c['id']], 'action' => 'delete'])->assertStatus(422);
         $this->json_('POST', '/admin/r/coupons/bulk', ['ids' => [$c['id']], 'action' => 'delete', 'confirm' => 'HAPUS'])->assertNoContent();
-        $this->assertTrue(\App\Models\AuditLog::where('action', 'admin.coupons.created')->exists());
+        $this->assertTrue(AuditLog::where('action', 'admin.coupons.created')->exists());
         $this->json_('GET', '/admin/r/ai-providers')->assertOk();
         $this->json_('POST', '/admin/r/ai-providers', ['name' => 'OpenAI', 'driver' => 'openai_compatible', 'capabilities' => ['text'], 'status' => 'draft', 'api_key' => 'sk-rahasia'])->assertCreated()->assertJsonMissingPath('data.api_key')->assertJsonPath('data.api_key_set', true);
     }

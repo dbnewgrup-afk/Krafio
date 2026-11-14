@@ -6,11 +6,12 @@ use App\Models\Approval;
 use App\Models\MailLog;
 use App\Models\User;
 use App\Services\Settings;
+use App\Services\Totp;
 
 /** Alur A — Registrasi, OTP, login, status akun, MFA admin (PRD 44, Design Spec §9). */
 class AuthFlowTest extends KrafioTestCase
 {
-    public function test_a1_register_verify_otp_activates_account_with_free_plan_and_50_credits(): void
+    public function test_a1_register_verify_otp_activates_account_with_free_plan_and_55_credits(): void
     {
         $r = $this->json_('POST', '/auth/register', ['name' => 'Budi Kreator', 'email' => 'budi@uji.test', 'phone' => '+6281234567890', 'password' => 'KopiSusu2026x', 'password_confirmation' => 'KopiSusu2026x', 'agree_terms' => true]);
         $r->assertCreated()->assertJsonPath('data.status', 'pending_verification');
@@ -21,7 +22,7 @@ class AuthFlowTest extends KrafioTestCase
         $this->knownOtp($u, '654321');
         $this->json_('POST', '/auth/otp/verify', ['code' => '000000'])->assertStatus(422)->assertJsonPath('code', 'otp_invalid');
         $v = $this->json_('POST', '/auth/otp/verify', ['code' => '654321']);
-        $v->assertOk()->assertJsonPath('data.status', 'active')->assertJsonPath('data.plan.code', 'free')->assertJsonPath('data.entitlements.credits.remaining', 50);
+        $v->assertOk()->assertJsonPath('data.status', 'active')->assertJsonPath('data.plan.code', 'free')->assertJsonPath('data.entitlements.credits.remaining', 55);
     }
 
     public function test_a2_register_rejects_weak_or_personal_password_and_duplicate_email(): void
@@ -88,7 +89,7 @@ class AuthFlowTest extends KrafioTestCase
         $r = $this->json_('POST', '/auth/admin/login', ['email' => $a->email, 'password' => 'AdminKuat2026x'])->assertOk()->assertJsonPath('data.mfa', 'setup');
         $secret = $r->json('data.secret');
         $this->json_('POST', '/auth/admin/mfa', ['code' => '000000'])->assertStatus(422)->assertJsonPath('code', 'mfa_invalid');
-        $this->json_('POST', '/auth/admin/mfa', ['code' => \App\Services\Totp::code($secret)])->assertOk()->assertJsonPath('data.mfa_passed', true);
+        $this->json_('POST', '/auth/admin/mfa', ['code' => Totp::code($secret)])->assertOk()->assertJsonPath('data.mfa_passed', true);
         $this->assertTrue($a->fresh()->mfa_enabled);
     }
 }

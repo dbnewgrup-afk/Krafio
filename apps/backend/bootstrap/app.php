@@ -25,12 +25,17 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->throttleApi('api'); // batas global (RateLimiter 'api' di AppServiceProvider)
         $middleware->prepend(RequestId::class);
-        $middleware->alias(['active' => EnsureActiveUser::class, 'admin' => EnsureAdmin::class]);
-        $middleware->trustProxies(at: '*');
+        $middleware->alias(['active' => EnsureActiveUser::class, 'admin' => EnsureAdmin::class, 'admin.mfa' => \App\Http\Middleware\AdminMfaGate::class]);
+        // Proxy tepercaya dari TRUSTED_PROXIES (config krafio.trusted_proxies), bukan '*'
+        $middleware->replace(\Illuminate\Http\Middleware\TrustProxies::class, \App\Http\Middleware\TrustProxies::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
+        // Penolakan bisnis (ApiException 4xx: kuota habis, validasi, akses ditolak) bukan error sistem → tidak ditulis ke log;
+        // ApiException 5xx tetap dilaporkan. Tanpa ini log penuh stack trace dan error sungguhan tenggelam.
+        $exceptions->report(fn (ApiException $e) => $e->status >= 500 ? null : false);
 
         // Format error standar {code, message, errors, request_id} — tanpa stack trace/SQL (Design Spec §17.4)
         $json = fn (Request $r, string $code, string $msg, int $status, array $errors = [], array $extra = []) => response()->json(array_merge(
@@ -40,7 +45,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(fn (ValidationException $e, Request $r) => $r->is('api/*') ? $json($r, 'validation_failed', 'Data yang dikirim belum valid.', 422, $e->errors()) : null);
         $exceptions->render(fn (AuthenticationException $e, Request $r) => $r->is('api/*') ? $json($r, 'unauthenticated', 'Silakan masuk.', 401) : null);
-        $exceptions->render(fn (ThrottleRequestsException $e, Request $r) => $r->is('api/*') ? $json($r, 'too_many_attempts', 'Terlalu banyak permintaan.', 429, [], ['retry_after' => (int) ($e->getHeaders()['Retry-After'] ?? 60)]) : null);
+        // Header Retry-After / X-RateLimit-* dipertahankan agar klien tahu kapan boleh mencoba lagi
+        $exceptions->render(fn (ThrottleRequestsException $e, Request $r) => $r->is('api/*') ? $json($r, 'too_many_attempts', 'Terlalu banyak permintaan.', 429, [], ['retry_after' => (int) ($e->getHeaders()['Retry-After'] ?? 60)])->withHeaders($e->getHeaders()) : null);
         $exceptions->render(fn (TokenMismatchException $e, Request $r) => $r->is('api/*') ? $json($r, 'csrf_mismatch', 'Sesi keamanan kedaluwarsa. Muat ulang halaman.', 419) : null);
         $exceptions->render(fn (NotFoundHttpException $e, Request $r) => $r->is('api/*') ? $json($r, 'not_found', 'Data tidak ditemukan.', 404) : null);
         $exceptions->render(fn (ModelNotFoundException $e, Request $r) => $r->is('api/*') ? $json($r, 'not_found', 'Data tidak ditemukan.', 404) : null);

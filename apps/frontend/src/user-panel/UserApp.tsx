@@ -7,7 +7,9 @@ import Studio from './pages/Studio'
 import { WalletPage, TopupPage, WithdrawalsPage } from './pages/Wallet'
 import { SubscriptionPage, AddonsUserPage, CustomPackagesPage, AffiliateUserPage } from './pages/Billing'
 import { UsagePage, NotificationsPage, SettingsPage } from './pages/Account'
-import { UserTemplatesPage, ProjectDetailPage, AssetsPage, AssistantPage, WebsitesPage, WebsiteEditorPage, SeoPage, SocialPage } from './pages/Workspace'
+import { ForumPage, ForumThreadPage, ForumReportsPage } from './pages/Forum'
+import { UserTemplatesPage, ProjectDetailPage, AssetsPage, AssistantPage, WebsitesPage, WebsiteEditorPage, SeoPage } from './pages/Workspace'
+import { SocialPage } from './pages/Social'
 import { NotFoundPage } from '@/public-site/pages/Catalog'
 
 /** Tautan lama /app/support/:id (notifikasi) → percakapan di inbox */
@@ -31,6 +33,10 @@ export default function UserApp() {
         <Route path="websites" element={<WebsitesPage />} />
         <Route path="websites/:id" element={<WebsiteEditorPage />} />
         <Route path="seo" element={<SeoPage />} />
+        <Route path="forum" element={<ForumPage />} />
+        <Route path="forum/c/:slug" element={<ForumPage />} />
+        <Route path="forum/t/:id" element={<ForumThreadPage />} />
+        <Route path="forum/reports" element={<ForumReportsPage />} />
         <Route path="social" element={<SocialPage />} />
         <Route path="subscription" element={<SubscriptionPage />} />
         <Route path="addons" element={<AddonsUserPage />} />

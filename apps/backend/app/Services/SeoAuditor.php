@@ -14,42 +14,96 @@ use Illuminate\Support\Facades\Http;
  */
 class SeoAuditor
 {
-    public static function assertPublicUrl(string $url): void
+    /** Batas unduhan halaman (byte). Unduhan dihentikan di tengah jalan bila lebih besar. */
+    public const MAX_BYTES = 3_000_000;
+
+    /**
+     * Validasi URL publik dan kembalikan IP (IPv4) hasil resolve yang aman dipakai.
+     *
+     * @return array{host: string, port: int, ips: string[]}
+     */
+    public static function assertPublicUrl(string $url): array
     {
         $parts = parse_url($url);
         if (! $parts || ! in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true) || empty($parts['host'])) {
             throw new ApiException('invalid_url', 'URL harus diawali http:// atau https://.', 422, [], ['url' => ['URL tidak valid.']]);
         }
+        if (isset($parts['user']) || isset($parts['pass'])) {
+            throw new ApiException('invalid_url', 'URL tidak boleh memuat nama pengguna atau kata sandi.', 422, [], ['url' => ['URL tidak valid.']]);
+        }
         if (isset($parts['port']) && ! in_array((int) $parts['port'], [80, 443], true)) {
             throw new ApiException('invalid_url', 'Port tidak diizinkan.', 422, [], ['url' => ['Port tidak diizinkan.']]);
         }
-        $host = $parts['host'];
+        $host = strtolower($parts['host']);
         $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (gethostbynamel($host) ?: []);
         if (! $ips) {
             throw new ApiException('invalid_url', 'Domain tidak dapat ditemukan.', 422, [], ['url' => ['Domain tidak dapat ditemukan.']]);
         }
         foreach ($ips as $ip) {
-            if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            if (! self::isPublicIp($ip)) {
                 throw new ApiException('blocked_url', 'Alamat internal tidak dapat diaudit.', 422, [], ['url' => ['Alamat internal tidak dapat diaudit.']]);
             }
         }
+        $port = (int) ($parts['port'] ?? (strtolower($parts['scheme']) === 'https' ? 443 : 80));
+
+        return ['host' => $host, 'port' => $port, 'ips' => $ips];
     }
 
-    /** @return array{score:int, findings: array<int, array>} */
-    public static function audit(string $url): array
+    /** IPv4 publik saja: bukan privat, reserved, loopback, link-local, maupun CGNAT (100.64.0.0/10). */
+    public static function isPublicIp(string $ip): bool
     {
-        self::assertPublicUrl($url);
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return false;
+        }
+        $n = ip2long($ip);
+
+        return ! ($n >= ip2long('100.64.0.0') && $n <= ip2long('100.127.255.255'));
+    }
+
+    /**
+     * Ambil HTML halaman publik dengan proteksi SSRF (dipakai audit URL & impor konten analisis SEO):
+     * koneksi dipaksa ke IP yang sudah divalidasi (mencegah DNS rebinding), IPv4 saja, tanpa redirect,
+     * maksimal 12 detik dan MAX_BYTES, serta hanya menerima respons HTML.
+     */
+    public static function fetchHtml(string $url): string
+    {
+        $target = self::assertPublicUrl($url);
+        $options = ['allow_redirects' => false, 'stream' => false, 'force_ip_resolve' => 'v4',
+            'progress' => function ($total, $downloaded) {
+                if ($total > self::MAX_BYTES || $downloaded > self::MAX_BYTES) {
+                    throw new \RuntimeException('response_too_large');
+                }
+            },
+        ];
+        if (! filter_var($target['host'], FILTER_VALIDATE_IP)) {
+            $options['curl'] = [CURLOPT_RESOLVE => ["{$target['host']}:{$target['port']}:{$target['ips'][0]}"]];
+        }
         try {
-            $res = Http::timeout(12)->withOptions(['allow_redirects' => false, 'stream' => false])
-                ->withHeaders(['User-Agent' => 'KrafioSEOBot/1.0'])->get($url);
+            $res = Http::timeout(12)->connectTimeout(5)->withOptions($options)
+                ->withHeaders(['User-Agent' => 'KrafioSEOBot/1.0', 'Accept' => 'text/html,application/xhtml+xml'])->get($url);
         } catch (\Throwable $e) {
-            throw new ApiException('fetch_failed', 'Halaman tidak dapat diambil.', 422, [], ['url' => ['Halaman tidak dapat diambil.']]);
+            $tooLarge = str_contains($e->getMessage().' '.($e->getPrevious()?->getMessage() ?? ''), 'response_too_large');
+            throw new ApiException('fetch_failed', $tooLarge ? 'Halaman terlalu besar untuk diambil (maksimal 3 MB).' : 'Halaman tidak dapat diambil.', 422, [], ['url' => [$tooLarge ? 'Halaman terlalu besar.' : 'Halaman tidak dapat diambil.']]);
         }
         if ($res->redirect()) {
             throw new ApiException('redirected', 'Halaman dialihkan. Masukkan URL tujuan akhirnya.', 422, [], ['url' => ['Halaman dialihkan ke: '.$res->header('Location')]]);
         }
-        $html = substr($res->body(), 0, 2_000_000);
-        $rules = SeoRule::where('is_active', true)->get()->keyBy('code');
+        if (! $res->successful()) {
+            throw new ApiException('fetch_failed', "Halaman merespons HTTP {$res->status()}. Pastikan URL benar dan halaman dapat dibuka publik.", 422, [], ['url' => ["Halaman merespons HTTP {$res->status()}."]]);
+        }
+        $type = strtolower((string) $res->header('Content-Type'));
+        if ($type !== '' && ! str_contains($type, 'html') && ! str_contains($type, 'xml')) {
+            throw new ApiException('not_html', 'URL tersebut bukan halaman web (HTML).', 422, [], ['url' => ['URL bukan halaman HTML.']]);
+        }
+
+        return substr($res->body(), 0, self::MAX_BYTES);
+    }
+
+    /** @return array{score:int, title: ?string, findings: array<int, array>} */
+    public static function audit(string $url): array
+    {
+        $html = self::fetchHtml($url);
+        $rules = SeoRule::where('engine', 'audit')->where('is_active', true)->get()->keyBy('code');
         $doc = new \DOMDocument;
         libxml_use_internal_errors(true);
         $doc->loadHTML('<?xml encoding="utf-8"?>'.$html);
@@ -101,6 +155,6 @@ class SeoAuditor
         }
         $score = $total > 0 ? (int) round(100 * ($total - $lost) / $total) : 0;
 
-        return ['score' => $score, 'findings' => $findings];
+        return ['score' => $score, 'title' => $title !== '' ? mb_substr(html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8'), 0, 300) : null, 'findings' => $findings];
     }
 }

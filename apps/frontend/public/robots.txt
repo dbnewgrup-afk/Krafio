@@ -1,0 +1,12 @@
+# Krafio — situs publik boleh diindeks; panel & API tidak
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /sanctum/
+Disallow: /verify
+Disallow: /reset-password
+Disallow: /account-status
+
+Sitemap: https://krafio.id/sitemap.xml

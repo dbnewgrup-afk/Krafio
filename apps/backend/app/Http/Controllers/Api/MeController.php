@@ -117,7 +117,7 @@ class MeController extends Controller
             $q->whereNull('read_at');
         }
 
-        return ['data' => $q->limit(min(100, (int) $r->query('per_page', 20)))->get()->map(fn ($n) => [
+        return ['data' => $q->limit(min(100, max(1, (int) $r->query('per_page', 20))))->get()->map(fn ($n) => [
             'id' => $n->id, 'title' => $n->data['title'] ?? '', 'body' => $n->data['body'] ?? '', 'category' => $n->data['category'] ?? 'system',
             'link' => $n->data['link'] ?? null, 'read_at' => $n->read_at?->toIso8601String(), 'created_at' => $n->created_at->toIso8601String(),
         ])];

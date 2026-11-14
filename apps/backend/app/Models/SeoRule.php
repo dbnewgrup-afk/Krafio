@@ -14,6 +14,9 @@ class SeoRule extends Model
     {
         return [
             'is_active' => 'boolean',
+            'params' => 'array',
+            'weight' => 'integer',
+            'sort' => 'integer',
         ];
     }
 }

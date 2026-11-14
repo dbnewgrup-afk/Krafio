@@ -182,6 +182,7 @@ class Present
             'id' => $j->id,
             'type' => $j->type,
             'prompt' => $j->prompt,
+            'params' => $j->params ?? [],
             'status' => $j->status,
             'progress' => (int) $j->progress,
             'cost' => (int) $j->cost,

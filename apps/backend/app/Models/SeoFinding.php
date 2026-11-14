@@ -13,7 +13,7 @@ class SeoFinding extends Model
     protected function casts(): array
     {
         return [
-
+            'score' => 'integer',
         ];
     }
 }

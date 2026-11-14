@@ -10,6 +10,7 @@ use App\Support\AdminResources;
 use App\Support\ApiException;
 use App\Support\Present;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -168,10 +169,11 @@ class ResourceController extends Controller
         $q = $def['model']::whereIn((new $def['model'])->getKeyName(), $data['ids']);
         $field = isset($def['rules']['is_active']) ? 'is_active' : (isset($def['rules']['enabled']) ? 'enabled' : null);
         match ($data['action']) {
-            'delete' => $q->get()->each(function ($m) use ($resource) {
+            // Semua-atau-tidak: bila satu data ditolak hook (mis. rule analisis konten), tidak ada yang terhapus
+            'delete' => DB::transaction(fn () => $q->get()->each(function ($m) use ($resource) {
                 AdminResourceHooks::beforeDelete($resource, $m);
                 $m->delete();
-            }),
+            })),
             'activate' => $field ? $q->update([$field => true]) : null,
             'deactivate' => $field ? $q->update([$field => false]) : null,
         };

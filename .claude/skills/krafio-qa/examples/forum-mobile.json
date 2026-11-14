@@ -1,0 +1,4 @@
+{ "as": "qa", "lang": "id", "viewport": "mobile", "steps": [
+  { "goto": "/app/forum" }, { "waitFor": "Semua topik" }, { "shot": "forum-mobile", "full": false },
+  { "eval": "document.documentElement.scrollWidth <= window.innerWidth", "expect": true }
+] }

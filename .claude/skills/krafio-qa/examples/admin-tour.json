@@ -1,0 +1,10 @@
+{
+  "as": "admin",
+  "lang": "id",
+  "steps": [
+    { "goto": "/admin" }, { "wait": 1500 }, { "shot": "dashboard-admin", "full": false },
+    { "goto": "/admin/seo/rules" }, { "waitFor": "yoast_text_alignment", "timeout": 10000 }, { "shot": "seo-rules", "full": false },
+    { "goto": "/admin/seo/content" }, { "waitFor": "Aktifkan analisis konten" },
+    { "goto": "/admin/settings/security" }, { "waitFor": "MFA", "timeout": 8000 }, { "shot": "keamanan-admin", "full": false }
+  ]
+}

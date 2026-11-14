@@ -255,16 +255,16 @@ class BlueprintGapsTest extends KrafioTestCase
     {
         $p = AiProvider::create(['name' => 'Teks', 'driver' => 'openai_compatible', 'base_url' => 'https://llm.test/v1', 'api_key' => 'sk-test', 'capabilities' => ['text'], 'status' => 'active', 'priority' => 1]);
         AiModel::create(['provider_id' => $p->id, 'name' => 'mini', 'model_id' => 'gpt-mini', 'capability' => 'text', 'credit_cost' => 1, 'cost_idr' => 20, 'is_active' => true]);
-        // Admin mengubah prompt di Prompt Library → dipakai tanpa deploy
-        AiPrompt::where('key', 'brainstorm.default')->update(['version' => '2.0', 'status' => 'active', 'template' => 'VERSI-DUA {{n}} ide {{platform}}: {{topic}}']);
-        Http::fake(['llm.test/*' => Http::response(['choices' => [['message' => ['content' => "1. Ide A\n2. Ide B\n3. Ide C"]]], 'usage' => ['total_tokens' => 2000]])]);
+        // Admin mengubah prompt di Prompt Library → dipakai tanpa deploy (registry AI Tools: tool.<key>.instruction)
+        AiPrompt::where('key', 'tool.content_brainstorm.instruction')->update(['version' => '2.0', 'status' => 'active', 'template' => 'VERSI-DUA ide {{platform}}: {{topic}}']);
+        Http::fake(['llm.test/*' => Http::response(['choices' => [['message' => ['content' => '{"items":[{"title":"Ide A"},{"title":"Ide B"},{"title":"Ide C"}]}']]], 'usage' => ['total_tokens' => 2000]])]);
         $u = $this->user();
         $this->actingUser($u)->json_('POST', '/app/jobs', ['type' => 'content_brainstorm', 'prompt' => 'sambal', 'params' => ['ideas' => '3', 'platform' => 'tiktok']])->assertCreated();
-        Http::assertSent(fn ($r) => str_contains($r->body(), 'VERSI-DUA 3 ide tiktok: sambal'));
-        // Prompt dinonaktifkan → kembali ke teks bawaan
-        AiPrompt::where('key', 'brainstorm.default')->update(['status' => 'draft']);
+        Http::assertSent(fn ($r) => str_contains($r->body(), 'VERSI-DUA ide TikTok: sambal'));
+        // Prompt dinonaktifkan → kembali ke teks bawaan registry
+        AiPrompt::where('key', 'tool.content_brainstorm.instruction')->update(['status' => 'draft']);
         $this->json_('POST', '/app/jobs', ['type' => 'content_brainstorm', 'prompt' => 'rendang', 'params' => ['ideas' => '3']])->assertCreated();
-        Http::assertSent(fn ($r) => str_contains($r->body(), 'Buat 3 ide konten untuk instagram dengan nada friendly tentang: rendang'));
+        Http::assertSent(fn ($r) => str_contains($r->body(), 'Buat ide konten TikTok untuk: rendang'));
         $this->assertSame(80, (int) $p->fresh()->cost_month, '2 job × 2.000 token × Rp20/1K');
     }
 

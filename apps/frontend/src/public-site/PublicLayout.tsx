@@ -12,6 +12,7 @@ import { useAuth } from '@/shared/context/AuthContext'
 import { useIsMobile } from '@/shared/hooks/useMediaQuery'
 import { useBackClose, useFocusTrap, useScrollLock } from '@/shared/hooks/useOverlay'
 import { cn } from '@/shared/lib/cn'
+import { usePublicMeta } from '@/shared/hooks/usePublicMeta'
 
 const NAV = [
   { to: '/features', key: 'features' },
@@ -27,6 +28,7 @@ export function PublicLayout() {
   const { me } = useAuth()
   const isMobile = useIsMobile()
   const loc = useLocation()
+  usePublicMeta(loc.pathname)
   const [hidden, setHidden] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [menu, setMenu] = useState(false)
@@ -172,7 +174,7 @@ function PublicFooter() {
   const { settings } = useAuth()
   const groups: { key: string; links: { to: string; label: string }[] }[] = [
     { key: 'product', links: [{ to: '/features', label: t('public.nav.features') }, { to: '/pricing', label: t('public.nav.pricing') }, { to: '/templates', label: t('public.nav.templates') }, { to: '/addons', label: t('footer.addons') }, { to: '/promo', label: t('public.nav.promo') }] },
-    { key: 'resources', links: [{ to: '/faq', label: t('public.nav.faq') }, { to: '/affiliate', label: t('public.nav.affiliate') }, { to: '/status', label: t('footer.status') }] },
+    { key: 'resources', links: [{ to: '/blog', label: t('blog.title') }, { to: '/faq', label: t('public.nav.faq') }, { to: '/affiliate', label: t('public.nav.affiliate') }, { to: '/status', label: t('footer.status') }] },
     { key: 'company', links: [{ to: '/about', label: t('footer.about') }, { to: '/contact', label: t('footer.contact') }] },
     { key: 'legal', links: [{ to: '/terms', label: t('legal.terms_short') }, { to: '/privacy', label: t('legal.privacy_short') }, { to: '/refund', label: t('legal.refund_short') }, { to: '/affiliate-terms', label: t('legal.affiliate_terms_short') }, { to: '/cookies', label: t('legal.cookies') }] },
   ]

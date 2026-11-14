@@ -19,6 +19,17 @@ import { useAdmin } from './AdminContext'
 
 type Row = Record<string, any> & { id: number | string }
 
+/** Kode aksi audit (mis. admin.plans.updated) → label terbaca "Admin · Paket · diubah"; bagian tak dikenal tetap ditampilkan. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function auditLabel(code: string, t: any): string {
+  const parts = code.split('.')
+  if (parts.length < 2) return code
+  const scope = t(`audit.scopes.${parts[0]}`, { defaultValue: parts[0] })
+  const verb = t(`audit.verbs.${parts[parts.length - 1]}`, { defaultValue: parts[parts.length - 1].replace(/_/g, ' ') })
+  const subject = parts.slice(1, -1).map((x) => t(`audit.subjects.${x.replace(/-/g, '_')}`, { defaultValue: x.replace(/[-_]/g, ' ') }))
+  return [scope, ...subject, verb].join(' · ')
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function renderCell(row: Row, c: ColDef, t: any) {
   const v = row[c.key]
@@ -38,6 +49,10 @@ export function renderCell(row: Row, c: ColDef, t: any) {
       return <span className="inline-grid">{v.name ?? '—'}{v.email && <span className="t-small text-muted">{v.email}</span>}</span>
     case 'mono':
       return <span className="t-mono">{String(v)}</span>
+    case 'action':
+      return <span className="inline-grid">{auditLabel(String(v), t)}<span className="t-mono t-small text-muted">{String(v)}</span></span>
+    case 'entitlement':
+      return <span className="inline-grid">{t(`features.${String(v).replace('.', '_')}`, { defaultValue: String(v) })}<span className="t-mono t-small text-muted">{String(v)}</span></span>
     case 'json':
       return <span className="t-mono line-clamp-1 max-w-[280px] text-muted">{JSON.stringify(v)}</span>
     case 'palette':

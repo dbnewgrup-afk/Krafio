@@ -118,6 +118,73 @@ export interface FaqItem {
   category: string
 }
 
+export interface DocSection {
+  key: string
+  label: string
+  content: string
+}
+export interface AiJobResult {
+  preview_palette?: string[]
+  preview_images?: string[]
+  text?: string
+  /** Lama: daftar string. Baru (format doc): daftar objek sesuai item_fields. */
+  items?: (string | Record<string, string>)[]
+  note?: string
+  media?: { url: string; kind: 'image' | 'video' }[]
+  clips?: { url: string; thumb?: string | null; start: number; end: number | null; score: number | null; label?: string | null }[]
+  notes?: string[]
+  source_duration?: number
+  engine?: string
+  fallback?: boolean
+  format?: 'doc'
+  tool?: string
+  title?: string | null
+  parts?: { title: string; sections: DocSection[] }[]
+  sections?: { key: string; label: string }[]
+  item_fields?: { key: string; label: string }[]
+  partial?: boolean
+  simulated?: boolean
+}
+
+export interface AiToolField {
+  key: string
+  type: 'text' | 'textarea' | 'select' | 'segmented' | 'multiselect' | 'number' | 'toggle'
+  label: string
+  group: 'basic' | 'advanced'
+  required?: boolean
+  default?: unknown
+  options?: { value: string; label: string }[]
+  min?: number
+  max?: number
+  rows?: number
+  hint?: string
+  placeholder?: string
+  show_if?: Record<string, unknown>
+}
+
+export interface AiTool {
+  key: string
+  type: string
+  capability: 'text' | 'image' | 'video'
+  entitlement: string
+  group: 'write' | 'create' | 'edit'
+  icon: string
+  label: string
+  description: string
+  upload: 'image' | 'video' | null
+  mode: 'parts' | 'list' | 'media'
+  prompt_field: string
+  max_parts: number | null
+  cost_per_unit: number | null
+  enabled: boolean
+  provider_ready: boolean
+  /** Operasi yang diproses lokal tanpa provider AI (mis. upscale & enhance foto). */
+  local_ops?: string[]
+  fields: AiToolField[]
+  sections: { key: string; label: string }[]
+  item_fields: { key: string; label: string }[]
+}
+
 export interface AiJob {
   id: number
   type: string
@@ -125,7 +192,8 @@ export interface AiJob {
   status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled'
   progress: number
   cost: number
-  result: { preview_palette?: string[]; preview_images?: string[]; text?: string; items?: string[]; note?: string; media?: { url: string; kind: 'image' | 'video' }[]; fallback?: boolean } | null
+  params?: Record<string, unknown>
+  result: AiJobResult | null
   error: string | null
   created_at: string
   completed_at: string | null

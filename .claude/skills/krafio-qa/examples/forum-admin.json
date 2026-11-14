@@ -1,0 +1,6 @@
+{ "as": "admin", "lang": "id", "steps": [
+  { "goto": "/admin/forum/reports" }, { "waitFor": "Uji E2E: tombol muat lebih banyak" }, { "shot": "admin-laporan", "full": false },
+  { "goto": "/admin/forum/threads" }, { "waitFor": "Uji E2E: strategi promosi kopi susu" },
+  { "goto": "/admin/forum/categories" }, { "waitFor": "UMKM & Bisnis Lokal" }, { "shot": "admin-kategori", "full": false },
+  { "goto": "/admin/forum/mutes" }, { "wait": 1200 }, { "expectNoText": "admin.nav." }
+] }

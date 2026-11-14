@@ -604,6 +604,7 @@ export function AdminSettings({ title, fields, info, group }: { title: string; f
   useDocTitle(title)
   const toast = useToast()
   const s = useApi<Record<string, any>>('/admin/settings')
+  const { withReauth } = useAdmin()
   const [vals, setVals] = useState<Record<string, any> | null>(null)
   const [busy, setBusy] = useState(false)
   useEffect(() => {
@@ -627,7 +628,7 @@ export function AdminSettings({ title, fields, info, group }: { title: string; f
             if (f.type === 'select')
               return (
                 <SelectField key={f.key} label={label} value={v ?? ''} onChange={(e) => set(e.target.value)}>
-                  {f.options!.map((o) => <option key={o} value={o}>{t(`status.${o}`, { defaultValue: o })}</option>)}
+                  {f.options!.map((o) => <option key={o} value={o}>{o.includes('.') ? t(`features.${o.replace('.', '_')}`, { defaultValue: o }) : t(`status.${o}`, { defaultValue: o })}</option>)}
                 </SelectField>
               )
             if (f.type === 'secret') return <TextField key={f.key} label={label} type="password" autoComplete="new-password" value={v === '__set__' ? '' : v ?? ''} placeholder={v === '__set__' ? '••••••••' : ''} onChange={(e) => set(e.target.value || (s.data![f.key] === '__set__' ? '__set__' : ''))} hint={s.data![f.key] === '__set__' ? t('admin.secret_set') : t('admin.secret_never_shown')} />
@@ -645,7 +646,7 @@ export function AdminSettings({ title, fields, info, group }: { title: string; f
                     const v = vals[f.key]
                     values[f.key] = f.type === 'number' ? (v === '' ? null : Number(v)) : f.type === 'json' ? JSON.parse(v || 'null') : v === '' ? null : v
                   }
-                  await http.put('/admin/settings', { values })
+                  await withReauth(() => http.put('/admin/settings', { values }))
                   toast.push('success', t('common.saved'))
                   s.reload()
                 } catch (e) {
@@ -783,7 +784,7 @@ export function AdminEntitlements() {
   const { t } = useTranslation()
   useDocTitle(t('admin.nav.entitlements'))
   const plans = useApi<any[]>('/public/plans')
-  const keys = ['photo.generate', 'photo.edit', 'video.generate', 'video.edit', 'video.clipper', 'content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'seo.advanced', 'social.integrations', 'chatbot.basic', 'chatbot.premium', 'exports.download']
+  const keys = ['photo.generate', 'photo.edit', 'video.generate', 'video.edit', 'video.clipper', 'content.brainstorm', 'templates.premium', 'website.builder', 'seo.basic', 'seo.advanced', 'social.integrations', 'chatbot.basic', 'chatbot.premium', 'exports.download', 'forum.access']
   return (
     <>
       <PageHeader title={t('admin.nav.entitlements')} subtitle={t('admin.entitlements_sub')} actions={<Link to="/admin/billing/plans" className="t-label text-primary hover:underline">{t('admin.nav.plans')}</Link>} />
@@ -801,7 +802,7 @@ export function AdminEntitlements() {
             <tbody>
               {['credits', ...keys].map((k) => (
                 <tr key={k} className="border-t border-line">
-                  <td className="t-mono sticky left-0 bg-surface px-3 py-2">{k}</td>
+                  <td className="sticky left-0 bg-surface px-3 py-2"><span className="block">{t(`features.${k.replace('.', '_')}`, { defaultValue: k })}</span><span className="t-mono t-small text-muted">{k}</span></td>
                   {plans.data!.map((p) => {
                     const on = k === 'credits' ? Number(p.quotas.credits ?? 0) > 0 : p.features.includes(k)
                     const q = p.quotas[k]

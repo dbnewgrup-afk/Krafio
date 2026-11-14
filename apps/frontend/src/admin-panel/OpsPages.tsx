@@ -22,7 +22,7 @@ interface FieldDef {
   options?: string[]
 }
 interface IntegrationData {
-  kind: 'payment' | 'smtp' | 'whatsapp'
+  kind: string
   driver: string
   drivers: { key: string; label: string; fields: FieldDef[] }[]
   values: Record<string, any>
@@ -31,15 +31,18 @@ interface IntegrationData {
   last_test_message: string | null
   last_tested_at: string | null
   webhook_urls?: Record<string, string>
+  /** URL callback OAuth / kembali dari Postiz yang wajib didaftarkan di developer console. */
+  callback_url?: string
 }
 
 /**
  * Integrasi dari Admin Panel: pilih driver, isi credential (disimpan terenkripsi, secret tidak pernah
  * ditampilkan ulang), aktif/nonaktif, dan "Uji koneksi" (§7.2 butir 13: Draft/Aktif, Uji, Simpan saat dirty).
  */
-export function IntegrationPage({ kind }: { kind: 'payment' | 'smtp' | 'whatsapp' }) {
+export function IntegrationPage({ kind }: { kind: string }) {
   const { t } = useTranslation()
-  useDocTitle(t(`ops.${kind}_title`))
+  const pageTitle = kind.startsWith('social_') ? t('ops.social_title', { platform: t(`platforms.${kind.slice(7)}`) }) : t(`ops.${kind}_title`)
+  useDocTitle(pageTitle)
   const toast = useToast()
   const { withReauth } = useAdmin()
   const { data, reload } = useApi<IntegrationData>(`/admin/integrations/${kind}`)
@@ -96,7 +99,7 @@ export function IntegrationPage({ kind }: { kind: 'payment' | 'smtp' | 'whatsapp
   return (
     <>
       <PageHeader
-        title={t(`ops.${kind}_title`)}
+        title={pageTitle}
         subtitle={t(`ops.${kind}_sub`)}
         actions={
           <>
@@ -153,6 +156,18 @@ export function IntegrationPage({ kind }: { kind: 'payment' | 'smtp' | 'whatsapp
               <p className="t-small text-muted">{t('ops.never_tested')}</p>
             )}
           </Card>
+          {data.callback_url && (
+            <Card>
+              <CardTitle>{t('ops.callback_title')}</CardTitle>
+              <p className="t-small mb-3 text-muted">{t(kind === 'postiz' ? 'ops.postiz_hint' : 'ops.callback_hint')}</p>
+              <span className="flex min-w-0 items-center gap-2">
+                <code className="t-mono min-w-0 flex-1 break-all rounded-md bg-surface-2 px-2 py-1.5">{data.callback_url}</code>
+                <button type="button" aria-label={t('common.copy')} onClick={() => navigator.clipboard?.writeText(data.callback_url!)} className="grid size-9 place-items-center rounded-md hover:bg-surface-2">
+                  <Copy className="size-4" aria-hidden />
+                </button>
+              </span>
+            </Card>
+          )}
           {kind === 'payment' && data.webhook_urls && (
             <Card>
               <CardTitle>{t('ops.webhook_urls')}</CardTitle>
@@ -319,6 +334,7 @@ export function BackupPage() {
   useDocTitle(t('ops.backup_title'))
   const toast = useToast()
   const { data, reload } = useApi<{ items: BackupItem[]; settings: Record<string, any>; directory: string; disk_free_gb: number }>('/admin/backups')
+  const { withReauth } = useAdmin()
   const [running, setRunning] = useState(false)
   const [withFiles, setWithFiles] = useState(true)
   const [del, setDel] = useState<BackupItem | null>(null)
@@ -379,7 +395,7 @@ export function BackupPage() {
                 ),
               )}
               <div className="flex flex-wrap gap-2">
-                <Button onClick={async () => { await http.put('/admin/settings', { values: Object.fromEntries(Object.entries(ret).map(([k, v]) => [k, typeof v === 'boolean' ? v : Number(v)])) }); toast.push('success', t('common.saved')); reload() }}>{t('common.save')}</Button>
+                <Button onClick={async () => { await withReauth(() => http.put('/admin/settings', { values: Object.fromEntries(Object.entries(ret).map(([k, v]) => [k, typeof v === 'boolean' ? v : Number(v)])) })); toast.push('success', t('common.saved')); reload() }}>{t('common.save')}</Button>
                 <Button variant="secondary" onClick={() => setPruneOpen(true)}>{t('ops.prune_now')}</Button>
               </div>
             </div>

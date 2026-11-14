@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  LayoutDashboard, Users, ClipboardCheck, Package, Landmark, Cpu, LayoutTemplate, Images, Globe, SearchCheck, Share2, Mail, FileText, ShieldCheck, LifeBuoy, Settings, Activity,
-} from 'lucide-react'
+  LayoutDashboard, Users, ClipboardCheck, Package, Landmark, Cpu, LayoutTemplate, Images, Globe, SearchCheck, Share2, Mail, FileText, ShieldCheck, LifeBuoy, Settings, Activity, MessagesSquare } from 'lucide-react'
 import { AppShell, PanelFooter, type NavSection, type ShellConfig } from '@/shared/layout/AppShell'
 import { FabStack } from '@/shared/layout/Fab'
 import { useAuth } from '@/shared/context/AuthContext'
@@ -17,7 +16,8 @@ import { MessagesProvider } from '@/shared/messages/MessagesProvider'
 import { MessagesMenu } from '@/shared/messages/MessagesMenu'
 import { PasswordAlert } from '@/shared/account/PasswordAlert'
 
-const ICONS = [LayoutDashboard, Users, ClipboardCheck, Package, Landmark, Cpu, LayoutTemplate, Images, Globe, SearchCheck, Share2, Mail, FileText, ShieldCheck, LifeBuoy, Settings]
+// Urutan harus sama dengan ADMIN_NAV (adminRoutes.tsx)
+const ICONS = [LayoutDashboard, Users, ClipboardCheck, Package, Landmark, Cpu, LayoutTemplate, Images, Globe, SearchCheck, Share2, MessagesSquare, Mail, FileText, ShieldCheck, LifeBuoy, Settings]
 
 interface Badges {
   approvals: number

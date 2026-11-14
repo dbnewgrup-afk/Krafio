@@ -1,0 +1,10 @@
+{
+  "as": "qa",
+  "lang": "id",
+  "viewport": "mobile",
+  "steps": [
+    { "goto": "/app" }, { "wait": 1500 }, { "shot": "dashboard-mobile", "full": false },
+    { "goto": "/app/seo" }, { "waitFor": "Isi data halaman" }, { "shot": "seo-mobile", "full": false },
+    { "eval": "document.documentElement.scrollWidth <= window.innerWidth", "expect": true }
+  ]
+}

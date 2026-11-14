@@ -38,6 +38,8 @@ use Illuminate\Support\Facades\Http;
 class AdminController extends Controller
 {
     /** Tindakan keuangan butuh re-autentikasi bila sesi > 15 menit (Design Spec §7.2 butir 6). */
+    private const SENSITIVE_SETTINGS = '/^(security|payment|wallet|affiliate|refund|billing|credits|registration|retention|backup)\./';
+
     private function requireRecentAuth(): void
     {
         if (time() - (int) session('admin_reauth_at', 0) > 15 * 60) {
@@ -168,7 +170,7 @@ class AdminController extends Controller
             return BillingController::csv('users.csv', ['ID', 'Nama', 'Email', 'Status', 'Paket', 'Daftar'], $q->limit(10000)->get()->map(fn ($u) => [$u->id, $u->name, Present::mask($u->email), $u->status, $u->activeSubscription()?->plan_name, $u->created_at]));
         }
 
-        return Present::paginate($q->paginate(min(100, (int) $r->query('per_page', 25))), $map);
+        return Present::paginate($q->paginate(min(100, max(1, (int) $r->query('per_page', 25)))), $map);
     }
 
     public function user(User $user)
@@ -246,7 +248,7 @@ class AdminController extends Controller
             $q->where('title', 'like', "%{$s}%");
         }
 
-        return Present::paginate($q->paginate(min(100, (int) $r->query('per_page', 25))), fn ($a) => [
+        return Present::paginate($q->paginate(min(100, max(1, (int) $r->query('per_page', 25)))), fn ($a) => [
             'id' => $a->id, 'type' => $a->type, 'title' => $a->title, 'status' => $a->status, 'reason' => $a->reason, 'payload' => $a->payload,
             'user' => $a->user ? ['id' => $a->user->id, 'name' => $a->user->name, 'email' => Present::mask($a->user->email)] : null,
             'decider' => $a->decider?->name, 'decided_at' => $a->decided_at?->toIso8601String(), 'created_at' => $a->created_at->toIso8601String(), 'subject_id' => $a->subject_id,
@@ -266,6 +268,11 @@ class AdminController extends Controller
             $this->requireRecentAuth(); // keputusan keuangan wajib re-autentikasi
         }
         DB::transaction(function () use ($approval, $data, $r) {
+            // Kunci baris & cek ulang: klik ganda / dua admin bersamaan tidak boleh memproses dua kali
+            $approval = Approval::whereKey($approval->id)->lockForUpdate()->firstOrFail();
+            if ($approval->status !== 'pending') {
+                throw new ApiException('already_decided', 'Approval sudah diputuskan.', 422);
+            }
             $status = ['approve' => 'approved', 'reject' => 'rejected', 'revision' => 'revision'][$data['decision']];
             $approval->update(['status' => $status, 'reason' => $data['reason'] ?? null, 'decided_by' => $r->user()->id, 'decided_at' => now()]);
             $u = $approval->user;
@@ -280,6 +287,9 @@ class AdminController extends Controller
                     break;
                 case 'withdrawal':
                     $w = Withdrawal::lockForUpdate()->findOrFail($approval->subject_id);
+                    if (! in_array($w->status, ['requested', 'under_review'], true)) {
+                        throw new ApiException('invalid_transition', 'Withdrawal sudah diproses.', 422);
+                    }
                     if ($data['decision'] === 'approve') {
                         $w->update(['status' => 'approved', 'processed_by' => $r->user()->id]);
                     } else {
@@ -333,20 +343,28 @@ class AdminController extends Controller
         $this->requireRecentAuth();
         $data = $r->validate(['status' => 'required|in:under_review,processing,paid', 'reference' => 'required_if:status,paid|nullable|string|max:120', 'note' => 'nullable|string|max:500']);
         $allowed = ['requested' => ['under_review'], 'under_review' => [], 'approved' => ['processing'], 'processing' => ['paid']];
-        if (! in_array($data['status'], $allowed[$withdrawal->status] ?? [], true)) {
-            throw new ApiException('invalid_transition', 'Perubahan status tidak valid.', 422);
-        }
-        $withdrawal->update(['status' => $data['status'], 'reference' => $data['reference'] ?? $withdrawal->reference, 'admin_note' => $data['note'] ?? $withdrawal->admin_note, 'processed_at' => $data['status'] === 'paid' ? now() : $withdrawal->processed_at]);
-        if ($data['status'] === 'paid') {
-            // FIFO: hanya komisi tertua yang tertutup penuh oleh nominal withdrawal ini yang ditandai dibayar
-            $left = (int) $withdrawal->amount;
-            foreach (\App\Models\Commission::where('referrer_id', $withdrawal->user_id)->where('status', 'available')->orderBy('available_at')->orderBy('id')->get() as $c) {
-                if ((int) $c->amount > $left) {
-                    break;
-                }
-                $c->update(['status' => 'paid']);
-                $left -= (int) $c->amount;
+        // Kunci baris: dua klik "dibayar" bersamaan tidak boleh menandai komisi/mengirim notifikasi dua kali
+        $withdrawal = DB::transaction(function () use ($withdrawal, $data, $allowed) {
+            $w = Withdrawal::whereKey($withdrawal->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($data['status'], $allowed[$w->status] ?? [], true)) {
+                throw new ApiException('invalid_transition', 'Perubahan status tidak valid.', 422);
             }
+            $w->update(['status' => $data['status'], 'reference' => $data['reference'] ?? $w->reference, 'admin_note' => $data['note'] ?? $w->admin_note, 'processed_at' => $data['status'] === 'paid' ? now() : $w->processed_at]);
+            if ($data['status'] === 'paid') {
+                // FIFO: hanya komisi tertua yang tertutup penuh oleh nominal withdrawal ini yang ditandai dibayar
+                $left = (int) $w->amount;
+                foreach (\App\Models\Commission::where('referrer_id', $w->user_id)->where('status', 'available')->orderBy('available_at')->orderBy('id')->lockForUpdate()->get() as $c) {
+                    if ((int) $c->amount > $left) {
+                        break;
+                    }
+                    $c->update(['status' => 'paid']);
+                    $left -= (int) $c->amount;
+                }
+            }
+
+            return $w;
+        });
+        if ($data['status'] === 'paid') {
             Messenger::notify($withdrawal->user, 'withdrawal_paid', ['amount' => 'Rp'.number_format($withdrawal->amount, 0, ',', '.'), 'reference' => (string) $data['reference']], 'Withdrawal dibayar', 'Dana Rp'.number_format($withdrawal->amount, 0, ',', '.').' telah ditransfer. Ref: '.$data['reference'], '/app/wallet/withdrawals');
         }
         Audit::log('admin.withdrawal.'.$data['status'], $withdrawal, $data);
@@ -373,6 +391,14 @@ class AdminController extends Controller
     public function saveSettings(Request $r)
     {
         $data = $r->validate(['values' => 'required|array']);
+        // Keamanan, pembayaran, dan aturan uang hanya boleh diubah setelah konfirmasi kata sandi (PRD 10.2, 31)
+        $current = Settings::all();
+        foreach ($data['values'] as $k => $v) {
+            if ($v !== '__set__' && preg_match(self::SENSITIVE_SETTINGS, (string) $k) && ($current[$k] ?? null) != $v) {
+                $this->requireRecentAuth();
+                break;
+            }
+        }
         $changed = [];
         foreach ($data['values'] as $k => $v) {
             if (! preg_match('/^[a-z_]+(\.[a-z0-9_]+)+$/', $k)) {

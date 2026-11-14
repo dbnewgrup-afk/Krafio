@@ -149,7 +149,7 @@ class PaymentFlowE2ETest extends KrafioTestCase
         $this->payAtJualKirim($o['payment']['id']);
 
         $this->assertSame('starter', $this->planCode());
-        $this->assertSame(300, $this->credits());
+        $this->assertSame(330, $this->credits());
         $sub = Subscription::where('user_id', $u->id)->where('plan_code', 'starter')->firstOrFail();
         $this->assertSame($paid, (int) $sub->price);
         $this->assertEqualsWithDelta(30, $sub->starts_at->diffInDays($sub->ends_at), 0.01);
@@ -224,7 +224,7 @@ class PaymentFlowE2ETest extends KrafioTestCase
 
         $this->payAtJualKirim($o['payment']['id']);
         $this->assertSame('pro', $this->planCode());
-        $this->assertSame(1000, $this->credits(), 'Kredit diganti penuh dengan kredit paket baru');
+        $this->assertSame(1150, $this->credits(), 'Kredit diganti penuh dengan kredit paket baru');
         $sub = $u->fresh()->activeSubscription();
         $this->assertEqualsWithDelta(30, now()->diffInDays($sub->ends_at), 0.01, 'Siklus dimulai ulang pada hari upgrade');
     }
@@ -281,7 +281,7 @@ class PaymentFlowE2ETest extends KrafioTestCase
         Billing::renewals(); // pengingat H-7/H-3 sebelum diperpanjang
         Credits::consume($u->fresh(), 50, 'test', null, 'Pemakaian uji');
         $creditsBefore = $this->credits();
-        $this->assertSame(250, $creditsBefore);
+        $this->assertSame(280, $creditsBefore);
 
         // Perpanjang manual 5 hari sebelum habis
         $renew = $this->buy('plan', 'starter');
@@ -304,7 +304,7 @@ class PaymentFlowE2ETest extends KrafioTestCase
         $this->assertSame('starter', $now->plan_code);
         $this->assertTrue($now->starts_at->equalTo($endsFirst), 'Periode baru lanjut dari akhir periode lama');
         $this->assertEqualsWithDelta(30, $now->starts_at->diffInDays($now->ends_at), 0.01);
-        $this->assertSame(300, $this->credits(), 'Kredit periode baru diberikan saat periode baru mulai');
+        $this->assertSame(330, $this->credits(), 'Kredit periode baru diberikan saat periode baru mulai');
     }
 
     public function test_renewing_twice_in_advance_stacks_periods_without_overlap(): void

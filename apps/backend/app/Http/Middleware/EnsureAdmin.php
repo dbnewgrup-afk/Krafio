@@ -13,7 +13,7 @@ class EnsureAdmin
     public function handle(Request $request, Closure $next)
     {
         $u = $request->user();
-        if (! $u || ! $u->isAdmin()) {
+        if (! $u || ! $u->isAdmin() || in_array($u->status, ['suspended', 'banned', 'deactivated'], true)) {
             throw new ApiException('forbidden', 'Akses ditolak.', 403);
         }
         if (! session('admin_mfa_passed')) {

@@ -88,7 +88,7 @@ class PublicController extends Controller
         }
         $r->query('sort') === 'newest' ? $q->latest() : $q->orderByDesc('usage_count');
 
-        return ['data' => $q->limit(min(100, (int) $r->query('per_page', 48)))->get()->map(fn ($t) => Present::template($t))];
+        return ['data' => $q->limit(min(100, max(1, (int) $r->query('per_page', 48))))->get()->map(fn ($t) => Present::template($t))];
     }
 
     /** Etalase promo publik (halaman /promo & section beranda). */
@@ -123,6 +123,30 @@ class PublicController extends Controller
         }
 
         return ['data' => Present::legal($doc)];
+    }
+
+    /** Blog publik: artikel berstatus published dengan tanggal terbit ≤ sekarang. */
+    public function blog(Request $r)
+    {
+        $en = $r->query('lang') === 'en';
+        $q = \App\Models\BlogPost::where('status', 'published')->where(fn ($w) => $w->whereNull('published_at')->orWhere('published_at', '<=', now()))->orderByDesc('published_at')->orderByDesc('id');
+
+        return \App\Support\Present::paginate($q->paginate(min(30, max(1, (int) $r->query('per_page', 12)))), fn ($p) => [
+            'slug' => $p->slug, 'title' => ($en && $p->title_en) ? $p->title_en : $p->title_id,
+            'excerpt' => \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', strip_tags(preg_replace('/^#+\s*/m', '', (string) (($en && $p->body_en) ? $p->body_en : $p->body_id))))), 180),
+            'published_at' => ($p->published_at ?? $p->created_at)?->toIso8601String(),
+        ]);
+    }
+
+    public function blogPost(Request $r, string $slug)
+    {
+        $en = $r->query('lang') === 'en';
+        $p = \App\Models\BlogPost::where('slug', $slug)->where('status', 'published')->where(fn ($w) => $w->whereNull('published_at')->orWhere('published_at', '<=', now()))->firstOrFail();
+
+        return ['data' => [
+            'slug' => $p->slug, 'title' => ($en && $p->title_en) ? $p->title_en : $p->title_id, 'body' => (string) (($en && $p->body_en) ? $p->body_en : $p->body_id),
+            'published_at' => ($p->published_at ?? $p->created_at)?->toIso8601String(), 'updated_at' => $p->updated_at?->toIso8601String(),
+        ]];
     }
 
     public function status()

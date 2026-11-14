@@ -1,0 +1,23 @@
+{
+  "as": "qa",
+  "lang": "id",
+  "viewport": "desktop",
+  "steps": [
+    { "goto": "/app/seo" },
+    { "waitFor": "Isi data halaman" },
+    { "fill": { "label": "Focus keyphrase", "value": "jasa pembuatan website" } },
+    { "fill": { "label": "URL halaman", "value": "contoh-umkm.id/jasa-pembuatan-website" } },
+    { "fill": { "label": "Judul SEO", "value": "Jasa Pembuatan Website untuk UMKM, Siap dalam 7 Hari" } },
+    { "fill": { "label": "Slug", "value": "jasa-pembuatan-website" } },
+    { "fill": { "label": "Meta description", "value": "Jasa pembuatan website untuk UMKM: desain rapi, cepat, dan mudah Anda kelola. Gratis domain, hosting, dan revisi tiga kali. Konsultasi sekarang!" } },
+    { "fill": { "label": "Konten", "file": "artikel-seo.html" } },
+    { "click": "Analisis SEO", "after": 2500 },
+    { "waitFor": "Skor SEO" },
+    { "expectText": "Hasil bagus" },
+    { "shot": "hasil-analisis" },
+    { "click": "Audit URL" },
+    { "expectText": "Jalankan audit" },
+    { "click": "Analisis konten" },
+    { "eval": "[...document.querySelectorAll('input')].some((i) => i.value === 'jasa pembuatan website')", "expect": true }
+  ]
+}

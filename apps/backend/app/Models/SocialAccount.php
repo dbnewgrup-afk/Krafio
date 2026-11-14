@@ -10,13 +10,17 @@ class SocialAccount extends Model
 
     protected $guarded = ['id'];
 
-    protected $hidden = ['access_token'];
+    protected $hidden = ['access_token', 'refresh_token'];
 
     protected function casts(): array
     {
         return [
             'access_token' => 'encrypted',
+            'refresh_token' => 'encrypted',
+            'scopes' => 'array',
+            'profile' => 'array',
             'expires_at' => 'datetime',
+            'synced_at' => 'datetime',
         ];
     }
 }

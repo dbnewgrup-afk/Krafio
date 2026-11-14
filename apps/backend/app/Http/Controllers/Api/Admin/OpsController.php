@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 /** Integrasi (payment, SMTP, WhatsApp), laporan, dan backup — dikelola dari Admin Panel. */
 class OpsController extends Controller
 {
-    private const KINDS = ['payment', 'smtp', 'whatsapp'];
+    private const KINDS = ['payment', 'smtp', 'whatsapp', 'postiz', 'social_instagram', 'social_facebook', 'social_threads', 'social_tiktok', 'social_youtube', 'social_linkedin', 'social_x'];
 
     private function kind(string $k): string
     {
@@ -35,6 +35,13 @@ class OpsController extends Controller
     public function integration(string $kind)
     {
         $data = Integrations::present($this->kind($kind));
+        if (str_starts_with($kind, 'social_')) {
+            // URL callback yang wajib didaftarkan di developer console platform
+            $data['callback_url'] = \App\Services\Social\Platforms::redirectUri(substr($kind, 7));
+        }
+        if ($kind === 'postiz') {
+            $data['callback_url'] = rtrim((string) config('krafio.frontend_url'), '/').'/api/social/postiz-return';
+        }
         if ($kind === 'payment') {
             $data['webhook_urls'] = collect(['midtrans', 'xendit', 'tripay'])->mapWithKeys(fn ($d) => [$d => url("/api/webhooks/payment/{$d}")]);
         }
@@ -62,6 +69,12 @@ class OpsController extends Controller
             [$ok, $msg] = PaymentGateway::test($c);
         } elseif ($kind === 'whatsapp') {
             [$ok, $msg] = Messenger::testWhatsappConnection($c);
+        } elseif ($kind === 'postiz') {
+            [$ok, $msg] = $i->is_active ? \App\Services\Social\Postiz::test() : [false, 'Aktifkan Postiz untuk menguji koneksi.'];
+        } elseif (str_starts_with($kind, 'social_')) {
+            // Tidak ada endpoint uji tanpa login pengguna; cek kelengkapan kredensial & tampilkan URL callback
+            $ok = ! empty($c['client_id']) && ! empty($c['client_secret']);
+            $msg = $ok ? 'Kredensial lengkap. Pastikan URL callback '.\App\Services\Social\Platforms::redirectUri(substr($kind, 7)).' terdaftar di developer console, lalu uji dengan tombol Hubungkan di panel user.' : 'Client ID / Client Secret belum lengkap.';
         } else {
             $to = (string) $r->input('to', $r->user()->email);
             if (! $i->is_active) {

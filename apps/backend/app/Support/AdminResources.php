@@ -68,7 +68,7 @@ class AdminResources
             'withdrawals' => ['model' => Models\Withdrawal::class, 'readonly' => true, 'with' => ['user'], 'search' => ['reference'], 'filters' => ['status'], 'sort' => ['created_at', 'amount']],
             'approvals' => ['model' => Models\Approval::class, 'readonly' => true, 'with' => ['user', 'decider'], 'search' => ['title'], 'filters' => ['type', 'status'], 'sort' => ['created_at', 'decided_at']],
             'ai-providers' => ['model' => Models\AiProvider::class, 'search' => ['name', 'driver'], 'filters' => ['status', 'health'], 'sort' => ['priority', 'tokens_used', 'cost_month'], 'secret' => ['api_key'], 'rules' => [
-                'name' => 'required|string|max:80', 'driver' => 'required|in:openai_compatible,comfyui,custom_http', 'base_url' => 'nullable|url|max:255', 'capabilities' => 'required|array|min:1', 'capabilities.*' => 'in:text,image,video',
+                'name' => 'required|string|max:80', 'driver' => 'required|in:openai_compatible,comfyui,custom_http,openai_images,fal,replicate', 'base_url' => 'nullable|url|max:255', 'capabilities' => 'required|array|min:1', 'capabilities.*' => 'in:text,image,video',
                 'status' => 'required|in:draft,active,disabled', 'priority' => 'integer|min:1|max:999', 'monthly_token_limit' => 'nullable|integer|min:0',
             ]],
             'ai-models' => ['model' => Models\AiModel::class, 'with' => ['provider'], 'search' => ['name', 'model_id'], 'filters' => ['capability', 'is_active'], 'sort' => ['credit_cost', 'created_at'], 'rules' => [
@@ -103,10 +103,32 @@ class AdminResources
             'websites' => ['model' => Models\Website::class, 'can' => ['update', 'delete'], 'with' => ['user'], 'search' => ['name', 'subdomain'], 'filters' => ['status'], 'sort' => ['updated_at', 'published_at'], 'rules' => [
                 'name' => 'required|string|max:120', 'status' => 'required|in:draft,published,archived', 'custom_domain' => 'nullable|string|max:190|regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i',
             ]],
-            'seo-rules' => ['model' => Models\SeoRule::class, 'search' => ['code', 'name'], 'filters' => ['severity', 'is_active'], 'sort' => ['weight', 'code'], 'rules' => [
-                'code' => 'required|alpha_dash|max:60', 'name' => 'required|string|max:120', 'severity' => 'required|in:critical,warning,info', 'weight' => 'required|integer|min:1|max:20', 'is_active' => $bool, 'ruleset_version' => 'required|string|max:10',
+            // engine audit = audit URL teknis; engine content = analisis konten bergaya Yoast (docs/seo.md). Parameter divalidasi di AdminResourceHooks.
+            // Forum Diskusi — seluruh pengaturan & moderasi hanya oleh Admin (efek samping di AdminResourceHooks)
+            'forum-categories' => ['model' => Models\ForumCategory::class, 'search' => ['name', 'slug'], 'filters' => ['is_active', 'admin_only_posting'], 'sort' => ['sort', 'name', 'created_at'], 'rules' => [
+                'slug' => 'required|alpha_dash|max:60', 'name' => 'required|string|max:80', 'description' => 'nullable|string|max:300', 'icon' => 'nullable|string|max:30',
+                'plan_codes' => 'nullable|array', 'plan_codes.*' => 'string|exists:plans,code', 'admin_only_posting' => $bool, 'is_active' => $bool, 'sort' => 'integer|min:0|max:9999',
             ]],
-            'seo-audits' => ['model' => Models\SeoAudit::class, 'can' => ['delete'], 'search' => ['url'], 'filters' => ['status'], 'sort' => ['created_at', 'score']],
+            'forum-threads' => ['model' => Models\ForumThread::class, 'with' => ['user', 'category'], 'search' => ['title', 'body'], 'filters' => ['status', 'category_id', 'is_pinned', 'is_locked', 'user_id'], 'sort' => ['created_at', 'last_reply_at', 'replies_count'], 'rules' => [
+                'category_id' => 'required|integer|exists:forum_categories,id', 'title' => 'required|string|min:5|max:150', 'body' => 'required|string|min:10|max:10000',
+                'status' => 'nullable|in:published,hidden,deleted', 'is_pinned' => $bool, 'is_locked' => $bool, 'moderation_note' => 'nullable|string|max:300',
+            ]],
+            'forum-posts' => ['model' => Models\ForumPost::class, 'with' => ['user', 'thread'], 'search' => ['body'], 'filters' => ['status', 'thread_id', 'user_id'], 'sort' => ['created_at'], 'rules' => [
+                'thread_id' => 'required|integer|exists:forum_threads,id', 'body' => 'required|string|min:2|max:5000', 'status' => 'nullable|in:published,hidden,deleted', 'moderation_note' => 'nullable|string|max:300',
+            ]],
+            'forum-reports' => ['model' => Models\ForumReport::class, 'can' => ['update'], 'with' => ['user', 'reportedUser'], 'search' => ['message'], 'filters' => ['status', 'type', 'reason'], 'sort' => ['created_at', 'status'], 'rules' => [
+                'status' => 'required|in:open,in_review,resolved,rejected', 'admin_note' => 'nullable|string|max:2000',
+            ]],
+            'forum-mutes' => ['model' => Models\ForumMute::class, 'with' => ['user'], 'search' => ['reason'], 'filters' => ['user_id'], 'sort' => ['created_at', 'until'], 'rules' => [
+                'user_id' => 'required|integer|exists:users,id', 'until' => 'nullable|date|after:now', 'reason' => 'required|string|max:300',
+            ]],
+            'seo-rules' => ['model' => Models\SeoRule::class, 'search' => ['code', 'name'], 'filters' => ['engine', 'category', 'tier', 'severity', 'is_active'], 'sort' => ['sort', 'weight', 'code'], 'rules' => [
+                'code' => 'required|alpha_dash|max:60', 'name' => 'required|string|max:120', 'engine' => 'nullable|in:audit,content', 'category' => 'nullable|in:technical,seo,readability',
+                'tier' => 'nullable|in:basic,advanced', 'severity' => 'required|in:critical,warning,info', 'weight' => 'required|integer|min:1|max:20',
+                'params' => 'nullable|array', 'description' => 'nullable|string|max:2000', 'recommendation' => 'nullable|string|max:2000', 'sort' => 'sometimes|integer|min:0|max:9999',
+                'is_active' => $bool, 'ruleset_version' => 'required|string|max:10',
+            ]],
+            'seo-audits' => ['model' => Models\SeoAudit::class, 'can' => ['delete'], 'search' => ['url', 'title', 'keyphrase'], 'filters' => ['status', 'kind', 'content_type'], 'sort' => ['created_at', 'score', 'readability_score']],
             'social-accounts' => ['model' => Models\SocialAccount::class, 'can' => ['delete'], 'search' => ['account_name'], 'filters' => ['platform', 'status'], 'sort' => ['updated_at']],
             'webhook-logs' => ['model' => Models\WebhookLog::class, 'readonly' => true, 'search' => ['event', 'source'], 'filters' => ['source', 'signature_valid'], 'sort' => ['created_at']],
             'email-templates' => ['model' => Models\EmailTemplate::class, 'search' => ['key', 'subject_id'], 'filters' => ['is_active'], 'sort' => ['key'], 'rules' => [

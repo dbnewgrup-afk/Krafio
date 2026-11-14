@@ -1,16 +1,21 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\Admin\MarginCalculatorController;
 use App\Http\Controllers\Api\Admin\UserFeaturesController;
 use App\Http\Controllers\Api\Admin\OpsController;
 use App\Http\Controllers\Api\Admin\ResourceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\AiToolsController;
 use App\Http\Controllers\Api\BillingController;
+use App\Http\Controllers\Api\ForumController;
 use App\Http\Controllers\Api\InboxController;
 use App\Http\Controllers\Api\ShowcaseController;
+use App\Http\Controllers\Api\SocialController;
 use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\PublicController;
+use App\Http\Controllers\Api\SeoController;
 use App\Http\Controllers\Api\StudioController;
 use App\Http\Controllers\Api\WorkspaceController;
 use Illuminate\Support\Facades\Route;
@@ -27,12 +32,17 @@ Route::prefix('public')->middleware('throttle:120,1,r1')->group(function () {
     Route::get('promos', [PublicController::class, 'promos']);
     Route::get('legal/{type}', [PublicController::class, 'legal'])->whereIn('type', ['terms', 'privacy', 'refund', 'affiliate_terms', 'cookies']);
     Route::get('status', [PublicController::class, 'status']);
+    Route::get('blog', [PublicController::class, 'blog']);
+    Route::get('blog/{slug}', [PublicController::class, 'blogPost'])->where('slug', '[A-Za-z0-9_-]+');
     Route::post('ref/{code}', [BillingController::class, 'trackClick'])->middleware('throttle:30,1,r2');
 });
 
 Route::post('support/tickets', [PublicController::class, 'ticket']);
 Route::get('media/{media}/{name?}', [ShowcaseController::class, 'serve'])->where('name', '.*');
 Route::post('webhooks/payment/{gateway}', [BillingController::class, 'webhook'])->middleware('throttle:300,1,r3');
+// Callback OAuth medsos (publik; pengguna diidentifikasi dari state sekali pakai) & kembali dari Postiz
+Route::get('social/callback/{platform}', [SocialController::class, 'callback'])->middleware('throttle:30,1,soc1');
+Route::get('social/postiz-return', [SocialController::class, 'postizReturn'])->middleware('throttle:30,1,soc2');
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:20,1,r4');
@@ -50,11 +60,12 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+// admin.mfa: admin yang belum lolos MFA hanya boleh GET /me (B8)
+Route::middleware(['auth:sanctum', 'admin.mfa'])->group(function () {
     Route::get('me', [MeController::class, 'show']);
     Route::patch('me', [MeController::class, 'update']);
     Route::patch('me/preferences', [MeController::class, 'preferences']);
-    Route::put('me/password', [MeController::class, 'password']);
+    Route::put('me/password', [MeController::class, 'password'])->middleware('throttle:5,1,pw1'); // cegah tebak kata sandi lama
     // Akun buatan Admin: verifikasi email ATAU nomor HP
     Route::get('me/contact-verification', [AccountController::class, 'verifyStatus']);
     Route::post('me/contact-verification/send', [AccountController::class, 'verifySend'])->middleware('throttle:10,1,acv1');
@@ -77,12 +88,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('dashboard', [WorkspaceController::class, 'dashboard']);
         Route::get('activity', [WorkspaceController::class, 'activity']);
 
+        Route::get('ai-tools', [AiToolsController::class, 'index']);
+        Route::get('ai-tools/{key}', [AiToolsController::class, 'show']);
         Route::get('jobs/estimate', [StudioController::class, 'estimate']);
         Route::get('jobs/history', [StudioController::class, 'history']);
         Route::get('jobs', [StudioController::class, 'index']);
         Route::post('jobs', [StudioController::class, 'store'])->middleware('throttle:30,1,r13');
         Route::post('jobs/{job}/cancel', [StudioController::class, 'cancel']);
         Route::get('jobs/{job}/files/{n}', [StudioController::class, 'file'])->whereNumber('n');
+        Route::get('jobs/{job}/export/{format}', [StudioController::class, 'export'])->whereIn('format', ['docx', 'xlsx']);
         Route::post('uploads', [StudioController::class, 'upload'])->middleware('throttle:30,1,r14');
         Route::get('assets', [StudioController::class, 'assets']);
         Route::get('projects', [StudioController::class, 'projects']);
@@ -104,12 +118,34 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('websites/{website}/domain', [WorkspaceController::class, 'setDomain'])->middleware('throttle:10,1,dm1');
         Route::post('websites/{website}/domain/verify', [WorkspaceController::class, 'verifyDomain'])->middleware('throttle:20,1,dm2');
         Route::delete('websites/{website}/domain', [WorkspaceController::class, 'removeDomain']);
+        Route::get('websites/{website}/versions', [WorkspaceController::class, 'websiteVersions']);
+        Route::post('websites/{website}/versions/{version}/restore', [WorkspaceController::class, 'restoreWebsiteVersion'])->whereNumber('version');
         Route::get('seo/audits', [WorkspaceController::class, 'seoAudits']);
         Route::post('seo/audits', [WorkspaceController::class, 'runSeo'])->middleware('throttle:10,1,r16');
         Route::patch('seo/findings/{finding}', [WorkspaceController::class, 'updateFinding']);
-        Route::get('social', [WorkspaceController::class, 'social']);
-        Route::post('social/{platform}/connect', [WorkspaceController::class, 'connectSocial']);
-        Route::post('social/{platform}/disconnect', [WorkspaceController::class, 'disconnectSocial']);
+        // Forum Diskusi privat — akses dari paket (entitlement forum.access), tanpa kredit
+        Route::get('forum/categories', [ForumController::class, 'categories']);
+        Route::get('forum/threads', [ForumController::class, 'threads']);
+        Route::post('forum/threads', [ForumController::class, 'createThread'])->middleware('throttle:5,1,fr1');
+        Route::get('forum/threads/{thread}', [ForumController::class, 'showThread']);
+        Route::patch('forum/threads/{thread}', [ForumController::class, 'updateThread'])->middleware('throttle:20,1,fr2');
+        Route::delete('forum/threads/{thread}', [ForumController::class, 'deleteThread']);
+        Route::post('forum/threads/{thread}/posts', [ForumController::class, 'reply'])->middleware('throttle:20,1,fr3');
+        Route::patch('forum/posts/{post}', [ForumController::class, 'updatePost'])->middleware('throttle:20,1,fr4');
+        Route::delete('forum/posts/{post}', [ForumController::class, 'deletePost']);
+        Route::get('forum/reports', [ForumController::class, 'myReports']);
+        Route::post('forum/reports', [ForumController::class, 'report'])->middleware('throttle:10,1,fr5');
+        // Analisis konten SEO bergaya Yoast (docs/seo.md) — form + satu tombol
+        Route::get('seo/config', [SeoController::class, 'config']);
+        Route::get('seo/audits/{audit}', [SeoController::class, 'show']);
+        Route::post('seo/analyze', [SeoController::class, 'analyze'])->middleware('throttle:20,1,seo2');
+        Route::post('seo/import', [SeoController::class, 'import'])->middleware('throttle:10,1,seo3');
+        Route::get('social', [SocialController::class, 'index']);
+        Route::get('social/posts', [SocialController::class, 'posts']);
+        Route::post('social/posts', [SocialController::class, 'createPost'])->middleware('throttle:20,1,soc3');
+        Route::post('social/{platform}/connect', [SocialController::class, 'connect'])->middleware('throttle:20,1,soc4');
+        Route::post('social/{platform}/sync', [SocialController::class, 'sync'])->middleware('throttle:20,1,soc5');
+        Route::post('social/{platform}/disconnect', [SocialController::class, 'disconnect']);
         Route::get('tickets', [WorkspaceController::class, 'tickets']);
         Route::get('tickets/{ticket}', [WorkspaceController::class, 'ticket']);
         Route::post('tickets/{ticket}/messages', [WorkspaceController::class, 'replyTicket']);
@@ -168,10 +204,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('users', [AccountController::class, 'store'])->middleware('throttle:20,1,acc1');
         Route::post('users/{user}/reset-password', [AccountController::class, 'resetPassword'])->middleware('throttle:10,1,acc2');
         Route::get('users/{user}', [AdminController::class, 'user']);
-        Route::post('users/{user}/reveal', [AdminController::class, 'reveal']);
-        Route::post('users/{user}/status', [AdminController::class, 'setStatus']);
-        Route::post('users/{user}/balance', [AdminController::class, 'adjustBalance']);
-        Route::post('users/{user}/quota-reset', [AdminController::class, 'resetQuota']);
+        Route::post('users/{user}/reveal', [AdminController::class, 'reveal'])->middleware('throttle:20,1,ad1');
+        Route::post('users/{user}/status', [AdminController::class, 'setStatus'])->middleware('throttle:30,1,ad2');
+        Route::post('users/{user}/balance', [AdminController::class, 'adjustBalance'])->middleware('throttle:20,1,ad3');
+        Route::post('users/{user}/quota-reset', [AdminController::class, 'resetQuota'])->middleware('throttle:20,1,ad4');
         Route::get('users/{user}/features', [UserFeaturesController::class, 'show']);
         Route::post('users/{user}/features', [UserFeaturesController::class, 'store'])->middleware('throttle:20,1,uf1');
         Route::delete('users/{user}/features', [UserFeaturesController::class, 'destroy'])->middleware('throttle:20,1,uf2');
@@ -179,11 +215,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('approvals/{approval}/decide', [AdminController::class, 'decide']);
         Route::post('withdrawals/{withdrawal}/status', [AdminController::class, 'withdrawalStatus']);
         Route::get('settings', [AdminController::class, 'settings']);
-        Route::put('settings', [AdminController::class, 'saveSettings']);
+        Route::put('settings', [AdminController::class, 'saveSettings'])->middleware('throttle:30,1,ad5');
         Route::get('system', [AdminController::class, 'system']);
         Route::get('ai/usage', [AdminController::class, 'aiUsage']);
         Route::post('ai-providers/{provider}/rotate', [AdminController::class, 'rotateKey']);
         Route::post('ai-providers/{provider}/test', [AdminController::class, 'testProvider'])->middleware('throttle:10,1,r24');
+        Route::get('ai-tools', [AiToolsController::class, 'adminIndex']);
+        Route::put('ai-tools/{key}', [AiToolsController::class, 'adminUpdate']);
+        Route::post('ai-tools/test-text', [AiToolsController::class, 'adminTestText'])->middleware('throttle:10,1,ait1');
+        Route::get('margin-calculator', [MarginCalculatorController::class, 'show']);
+        Route::put('margin-calculator', [MarginCalculatorController::class, 'save']);
+        Route::get('ai-local', [AiToolsController::class, 'localModels']);
+        Route::post('ai-local/pull', [AiToolsController::class, 'localPull'])->middleware('throttle:10,1,ait2');
+        Route::post('ai-local/use', [AiToolsController::class, 'localUse']);
         Route::get('tickets/{ticket}', [AdminController::class, 'ticket']);
         Route::post('tickets/{ticket}/messages', [AdminController::class, 'replyTicket']);
         Route::patch('tickets/{ticket}', [AdminController::class, 'updateTicket']);

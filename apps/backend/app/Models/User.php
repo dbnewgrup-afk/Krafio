@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Http\Controllers\Api\AuthController;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -42,7 +43,8 @@ class User extends Authenticatable
     /** Akun user yang dibuat Admin wajib memverifikasi email ATAU nomor HP sebelum memakai User Panel. */
     public function needsContactVerification(): bool
     {
-        return ! $this->isAdmin() && $this->created_by !== null && ! $this->email_verified_at && ! $this->phone_verified_at;
+        return ! $this->isAdmin() && $this->created_by !== null && ! $this->email_verified_at && ! $this->phone_verified_at
+            && AuthController::verificationRequired(); // bisa dimatikan sementara oleh Admin
     }
 
     public function subscriptions()

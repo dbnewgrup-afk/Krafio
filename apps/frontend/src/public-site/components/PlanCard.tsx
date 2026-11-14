@@ -23,7 +23,8 @@ export function PlanCard({ plan, cycle, current, onChoose, choosing }: { plan: P
     : [
         { on: credits > 0, text: t('pricing.r_credits', { n: number(credits), photos: number(Math.floor(credits / 8)) }) },
         { on: !!q['chatbot.basic'], text: t('pricing.r_chat', { n: number(q['chatbot.basic'] ?? 0) }) + (q['chatbot.premium'] ? t('pricing.r_chat_premium', { n: number(q['chatbot.premium']) }) : '') },
-        { on: !!q['content.brainstorm'], text: t('pricing.r_brainstorm', { n: number(q['content.brainstorm'] ?? 0) }) },
+        // Tool Tulis Konten memakai kredit yang sama (bukan kuota terpisah)
+        { on: plan.features.includes('content.brainstorm'), text: t('pricing.r_write_credits') },
         { on: Number(l.video_max_seconds ?? 0) > 0, text: Number(l.video_max_seconds ?? 0) > 0 ? t('pricing.r_video', { res: l.video_resolution ?? '720p', s: l.video_max_seconds }) : t('pricing.r_no_video') },
         { on: true, text: l.website_preview_only ? t('pricing.r_web_preview') : t('pricing.r_web', { n: l.websites ?? 0 }) },
         { on: !!q['seo.basic'], text: t('pricing.r_seo', { n: number(q['seo.basic'] ?? 0) }) + (plan.features.includes('seo.advanced') ? t('pricing.r_seo_adv') : '') },

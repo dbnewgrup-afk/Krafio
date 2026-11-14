@@ -68,17 +68,22 @@ class AuthController extends Controller
     {
         $r->validate(['login' => 'required|string|max:190', 'password' => 'required|string|max:1024']);
         $key = $this->throttleKey($r, $r->input('login'));
+        // Batas per akun (lintas IP) = 4× batas per IP; mencegah brute force terdistribusi
+        $acct = 'login-acct:'.mb_strtolower(trim((string) $r->input('login')));
         $max = (int) Settings::get('security.login_max_attempts');
-        if (RateLimiter::tooManyAttempts($key, $max)) {
-            Audit::security('login_locked', null, 'warning', ['login' => Str::mask($r->input('login'), '*', 3)]);
-            throw new ApiException('too_many_attempts', 'Terlalu banyak percobaan.', 429, ['retry_after' => RateLimiter::availableIn($key)]);
+        foreach ([[$key, $max], [$acct, $max * 4]] as [$k, $limit]) {
+            if (RateLimiter::tooManyAttempts($k, $limit)) {
+                Audit::security('login_locked', null, 'warning', ['login' => Str::mask($r->input('login'), '*', 3)]);
+                throw new ApiException('too_many_attempts', 'Terlalu banyak percobaan.', 429, ['retry_after' => RateLimiter::availableIn($k)]);
+            }
         }
-        if (RateLimiter::attempts($key) >= 3) {
+        if (RateLimiter::attempts($key) >= 3 || RateLimiter::attempts($acct) >= 3) {
             $this->verifyTurnstile($r);
         }
         $user = $this->findByLogin($r->input('login'));
         if (! $user || ! Hash::check($r->input('password'), $user->password)) {
             RateLimiter::hit($key, 15 * 60);
+            RateLimiter::hit($acct, 15 * 60);
             Audit::security('login_failed', $user?->id);
             throw new ApiException('invalid_credentials', 'Email atau kata sandi salah.', 422);
         }
@@ -87,6 +92,11 @@ class AuthController extends Controller
             throw new ApiException('admin_use_admin_login', 'Gunakan halaman login Admin.', 422);
         }
         RateLimiter::clear($key);
+        RateLimiter::clear($acct);
+        if (! self::verificationRequired()) {
+            self::activateWithoutOtp($user); // akun lama yang masih menunggu OTP ikut aktif
+            $user->refresh();
+        }
         Auth::guard('web')->login($user, $r->boolean('remember'));
         $r->session()->regenerate();
         $user->forceFill(['last_login_at' => now(), 'last_login_ip' => $r->ip()])->save();
@@ -137,14 +147,43 @@ class AuthController extends Controller
         }
         Auth::guard('web')->login($user);
         $r->session()->regenerate();
-        try {
-            Otp::issue($user);
-        } catch (ApiException) {
-            // pengiriman bisa diulang dari layar OTP
+        if (self::verificationRequired()) {
+            try {
+                Otp::issue($user);
+            } catch (ApiException) {
+                // pengiriman bisa diulang dari layar OTP
+            }
+        } else {
+            self::activateWithoutOtp($user); // verifikasi dimatikan Admin (mis. selama pengembangan lokal)
         }
-        Audit::log('auth.register', $user, ['referred' => (bool) $referrer], $user->id);
+        Audit::log('auth.register', $user, ['referred' => (bool) $referrer, 'otp' => self::verificationRequired()], $user->id);
 
         return response()->json(['data' => Present::me($user->fresh())], 201);
+    }
+
+    /**
+     * Verifikasi akun user (OTP saat daftar & verifikasi kontak akun buatan Admin). Bisa dimatikan sementara oleh pemilik
+     * lewat Settings `security.user_verification_required` — kode verifikasi tetap ada dan aktif lagi saat dinyalakan.
+     */
+    public static function verificationRequired(): bool
+    {
+        return (bool) Settings::get('security.user_verification_required', true);
+    }
+
+    /** Aktifkan akun tanpa OTP: email ditandai terverifikasi, lalu alur sama seperti setelah OTP benar. */
+    public static function activateWithoutOtp(User $u): void
+    {
+        if ($u->status !== 'pending_verification') {
+            return;
+        }
+        $manual = Settings::get('registration.mode') === 'manual';
+        $u->forceFill(['email_verified_at' => $u->email_verified_at ?? now(), 'status' => $manual ? 'pending_approval' : 'active'])->save();
+        if ($manual) {
+            Approval::firstOrCreate(['type' => 'account', 'subject_type' => 'User', 'subject_id' => $u->id, 'status' => 'pending'], ['user_id' => $u->id, 'title' => 'Persetujuan akun '.$u->email, 'payload' => ['name' => $u->name, 'email' => $u->email, 'phone' => $u->phone]]);
+        } else {
+            self::grantFreePlan($u);
+        }
+        Audit::log('auth.verified', $u, ['otp' => 'disabled'], $u->id);
     }
 
     public static function newReferralCode(): string
@@ -197,6 +236,10 @@ class AuthController extends Controller
     public function otpStatus(Request $r)
     {
         $u = $this->pendingUser($r);
+        if (! self::verificationRequired()) {
+            self::activateWithoutOtp($u);
+            $u->refresh();
+        }
         if ($u->status === 'pending_verification' && ! Otp::current($u)) {
             try {
                 Otp::issue($u);
@@ -301,16 +344,22 @@ class AuthController extends Controller
     {
         $r->validate(['email' => 'required|email', 'password' => 'required|string|max:1024']);
         $key = 'admin-login:'.$r->ip();
-        if (RateLimiter::tooManyAttempts($key, 5)) {
-            throw new ApiException('too_many_attempts', 'Terlalu banyak percobaan.', 429, ['retry_after' => RateLimiter::availableIn($key)]);
+        // Kunci kedua per akun: menebak sandi dari banyak IP tetap terhenti
+        $acct = 'admin-login-acct:'.mb_strtolower((string) $r->input('email'));
+        foreach ([[$key, 5], [$acct, 10]] as [$k, $max]) {
+            if (RateLimiter::tooManyAttempts($k, $max)) {
+                throw new ApiException('too_many_attempts', 'Terlalu banyak percobaan.', 429, ['retry_after' => RateLimiter::availableIn($k)]);
+            }
         }
         $u = User::where('email', mb_strtolower($r->input('email')))->where('role', 'admin')->first();
         if (! $u || ! Hash::check($r->input('password'), $u->password) || in_array($u->status, ['suspended', 'banned', 'deactivated'], true)) {
             RateLimiter::hit($key, 15 * 60);
+            RateLimiter::hit($acct, 15 * 60);
             Audit::security('admin_login_failed', $u?->id, 'warning');
             throw new ApiException('invalid_credentials', 'Email atau kata sandi salah.', 422);
         }
         RateLimiter::clear($key);
+        RateLimiter::clear($acct);
         Auth::guard('web')->login($u);
         $r->session()->regenerate();
         session()->forget('admin_mfa_passed');
@@ -336,7 +385,7 @@ class AuthController extends Controller
     public function adminMfa(Request $r)
     {
         $u = $r->user();
-        if (! $u || ! $u->isAdmin()) {
+        if (! $u || ! $u->isAdmin() || in_array($u->status, ['suspended', 'banned', 'deactivated'], true)) {
             throw new ApiException('unauthenticated', 'Silakan masuk.', 401);
         }
         $r->validate(['code' => 'required|string']);

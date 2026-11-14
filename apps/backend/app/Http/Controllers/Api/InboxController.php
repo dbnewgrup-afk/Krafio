@@ -147,7 +147,7 @@ class InboxController extends Controller
 
     public function adminReply(Request $r, Ticket $ticket)
     {
-        $d = $r->validate(['body' => 'required|string|max:5000', 'client_id' => 'nullable|string|max:40', 'attachments' => 'nullable|array|max:5', 'attachments.*.url' => 'required_with:attachments|string|max:255', 'attachments.*.name' => 'nullable|string|max:120']);
+        $d = $r->validate(['body' => 'required|string|max:5000', 'client_id' => 'nullable|string|max:40', 'attachments' => 'nullable|array|max:5', 'attachments.*.url' => ['required_with:attachments', 'string', 'max:255', 'regex:#^/api/media/\d+/[A-Za-z0-9._-]+$#'], 'attachments.*.name' => 'nullable|string|max:120']);
         $m = Inbox::post($ticket, 'admin', $d['body'], $r->user(), $d['client_id'] ?? null, $d['attachments'] ?? []);
         if (! $ticket->assignee_id) {
             $ticket->update(['assignee_id' => $r->user()->id]);
@@ -345,7 +345,7 @@ class InboxController extends Controller
     public function userReply(Request $r, Ticket $ticket)
     {
         $this->own($r, $ticket);
-        $d = $r->validate(['body' => 'required|string|max:5000', 'client_id' => 'nullable|string|max:40', 'attachments' => 'nullable|array|max:5', 'attachments.*.url' => 'required_with:attachments|string|max:255', 'attachments.*.name' => 'nullable|string|max:120']);
+        $d = $r->validate(['body' => 'required|string|max:5000', 'client_id' => 'nullable|string|max:40', 'attachments' => 'nullable|array|max:5', 'attachments.*.url' => ['required_with:attachments', 'string', 'max:255', 'regex:#^/api/media/\d+/[A-Za-z0-9._-]+$#'], 'attachments.*.name' => 'nullable|string|max:120']);
         if ($ticket->status === 'closed') {
             throw new ApiException('conversation_closed', 'Percakapan ini sudah ditutup. Buat percakapan baru.', 422);
         }

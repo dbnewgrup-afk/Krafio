@@ -1,0 +1,4 @@
+{ "as": "demo", "lang": "id", "allowStatus": [401, 403], "steps": [
+  { "goto": "/app/forum" }, { "waitFor": "Forum khusus pelanggan" }, { "expectText": "Lihat paket" }, { "shot": "forum-terkunci", "full": false },
+  { "goto": "/app/forum/t/1" }, { "waitFor": "Forum khusus pelanggan" }
+] }
