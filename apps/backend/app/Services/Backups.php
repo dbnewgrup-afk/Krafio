@@ -45,17 +45,68 @@ class Backups
         $path = self::dir().DIRECTORY_SEPARATOR.$file;
         $bin = (string) config('krafio.mysqldump');
         $cmd = [$bin, '--host='.$c['host'], '--port='.$c['port'], '--user='.$c['username'], '--single-transaction', '--quick', '--routines', '--default-character-set=utf8mb4', $c['database']];
-        $proc = new Process($cmd, null, ['MYSQL_PWD' => (string) $c['password']], null, 600);
+        $note = null;
         try {
-            $proc->run();
-            if (! $proc->isSuccessful()) {
-                throw new \RuntimeException(trim($proc->getErrorOutput()) ?: 'mysqldump gagal.');
+            try {
+                // Hosting tanpa proc_open (shared hosting/CloudLinux) → langsung pakai dump PHP
+                if (! function_exists('proc_open')) {
+                    throw new \RuntimeException('proc_open tidak tersedia');
+                }
+                $proc = new Process($cmd, null, ['MYSQL_PWD' => (string) $c['password']], null, 600);
+                $proc->run();
+                if (! $proc->isSuccessful()) {
+                    throw new \RuntimeException(trim($proc->getErrorOutput()) ?: 'mysqldump gagal.');
+                }
+                file_put_contents($path, gzencode($proc->getOutput(), 6));
+            } catch (\Throwable $e) {
+                // Cadangan: dump lewat PDO agar backup tetap jalan walau mysqldump tidak bisa dijalankan
+                self::phpDump($path);
+                $note = 'Dump PHP (mysqldump tidak tersedia: '.mb_substr($e->getMessage(), 0, 200).')';
             }
-            file_put_contents($path, gzencode($proc->getOutput(), 6));
 
-            return Backup::create(['type' => 'database', 'file' => $file, 'size' => filesize($path), 'status' => 'success', 'trigger' => $trigger]);
+            return Backup::create(['type' => 'database', 'file' => $file, 'size' => filesize($path), 'status' => 'success', 'message' => $note, 'trigger' => $trigger]);
         } catch (\Throwable $e) {
+            @unlink($path);
+
             return Backup::create(['type' => 'database', 'file' => $file, 'size' => 0, 'status' => 'failed', 'message' => mb_substr($e->getMessage(), 0, 480), 'trigger' => $trigger]);
+        }
+    }
+
+    /**
+     * Dump SQL murni PHP (struktur + data, per tabel, batch INSERT) ke .sql.gz — setara `mysqldump` untuk dipulihkan
+     * dengan `gunzip < file | mysql nama_db`. Dibaca per potongan berdasarkan urutan agar memori tetap kecil.
+     */
+    public static function phpDump(string $path): void
+    {
+        $pdo = DB::connection()->getPdo();
+        $gz = gzopen($path, 'wb6');
+        if ($gz === false) {
+            throw new \RuntimeException('Tidak dapat menulis berkas backup.');
+        }
+        try {
+            gzwrite($gz, '-- Krafio database dump (PHP) '.now()->toIso8601String()."\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\nSET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';\n\n");
+            foreach (DB::select("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'") as $row) {
+                $table = (string) array_values((array) $row)[0];
+                $q = '`'.str_replace('`', '``', $table).'`';
+                $create = (string) array_values((array) DB::selectOne("SHOW CREATE TABLE {$q}"))[1];
+                gzwrite($gz, "DROP TABLE IF EXISTS {$q};\n{$create};\n\n");
+                // Urutkan per primary key agar potongan LIMIT/OFFSET konsisten (tidak ada baris terlewat/ganda)
+                $pk = array_map(fn ($k) => '`'.str_replace('`', '``', (string) $k->Column_name).'`', DB::select("SHOW KEYS FROM {$q} WHERE Key_name = 'PRIMARY'"));
+                $order = $pk ? ' ORDER BY '.implode(',', $pk) : '';
+                $offset = 0;
+                do {
+                    $rows = $pdo->query("SELECT * FROM {$q}{$order} LIMIT 500 OFFSET {$offset}")->fetchAll(\PDO::FETCH_NUM);
+                    if ($rows) {
+                        $values = array_map(fn ($r) => '('.implode(',', array_map(fn ($v) => $v === null ? 'NULL' : $pdo->quote((string) $v), $r)).')', $rows);
+                        gzwrite($gz, "INSERT INTO {$q} VALUES\n".implode(",\n", $values).";\n");
+                    }
+                    $offset += 500;
+                } while (count($rows) === 500);
+                gzwrite($gz, "\n");
+            }
+            gzwrite($gz, "SET FOREIGN_KEY_CHECKS=1;\n");
+        } finally {
+            gzclose($gz);
         }
     }
 

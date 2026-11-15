@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AdminMfaGate;
 use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\RequestId;
@@ -10,6 +11,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
@@ -27,9 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
         $middleware->throttleApi('api'); // batas global (RateLimiter 'api' di AppServiceProvider)
         $middleware->prepend(RequestId::class);
-        $middleware->alias(['active' => EnsureActiveUser::class, 'admin' => EnsureAdmin::class, 'admin.mfa' => \App\Http\Middleware\AdminMfaGate::class]);
+        $middleware->alias(['active' => EnsureActiveUser::class, 'admin' => EnsureAdmin::class, 'admin.mfa' => AdminMfaGate::class]);
         // Proxy tepercaya dari TRUSTED_PROXIES (config krafio.trusted_proxies), bukan '*'
-        $middleware->replace(\Illuminate\Http\Middleware\TrustProxies::class, \App\Http\Middleware\TrustProxies::class);
+        $middleware->replace(TrustProxies::class, App\Http\Middleware\TrustProxies::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
@@ -57,7 +59,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return $res->setData($data);
         });
-        $exceptions->render(function (\Throwable $e, Request $r) use ($json) {
+        $exceptions->render(function (Throwable $e, Request $r) use ($json) {
             if (! $r->is('api/*')) {
                 return null;
             }

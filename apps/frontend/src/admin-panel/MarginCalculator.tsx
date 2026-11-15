@@ -169,8 +169,8 @@ export function MarginCalculator({ title }: { title: string }) {
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
-        <Card className="grid h-fit gap-4">
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+        <Card className="grid h-fit gap-4 md:grid-cols-2 2xl:grid-cols-1">
           <CardTitle>
             <span className="inline-flex items-center gap-2">
               <Calculator className="size-4 text-primary" aria-hidden />

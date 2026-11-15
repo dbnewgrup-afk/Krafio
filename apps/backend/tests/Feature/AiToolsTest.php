@@ -81,6 +81,25 @@ class AiToolsTest extends KrafioTestCase
         $this->assertSame('Beli 2 gratis 1 setiap Jumat', $sec['caption']['content']);
     }
 
+    public function test_provider_rejecting_optional_params_is_retried_without_them(): void
+    {
+        // Gemini (endpoint OpenAI-compatible) menolak frequency_penalty dengan 400 → kirim ulang tanpa parameter itu
+        $p = $this->textProvider();
+        $bodies = [];
+        Http::fake(['llm.test/*' => function ($req) use (&$bodies) {
+            $bodies[] = $req->data();
+
+            return isset($req->data()['frequency_penalty']) || isset($req->data()['response_format'])
+                ? Http::response(['error' => ['message' => 'Unknown name "frequency_penalty"']], 400)
+                : Http::response(['choices' => [['message' => ['content' => 'Halo dari Gemini']]], 'usage' => ['total_tokens' => 10]]);
+        }]);
+        $res = AiGateway::chat([['role' => 'user', 'content' => 'hai']], 50, ['frequency_penalty' => 0.4, 'json' => true]);
+        $this->assertSame('Halo dari Gemini', $res['text'] ?? null);
+        $this->assertSame($p->id, $res['provider_id']);
+        $this->assertCount(3, $bodies);
+        $this->assertSame('healthy', $p->fresh()->health);
+    }
+
     public function test_truncated_object_keeps_its_keys_instead_of_inner_array(): void
     {
         $raw = "{\n \"title\": \"Part 2\",\n \"hook\": \"Gak percaya?\",\n \"scenes\": [\n  \"1. Close-up\",\n  \"2. Wide\"\n ],\n \"script\": [\"baris satu\", \"baris du";
@@ -262,5 +281,15 @@ class AiToolsTest extends KrafioTestCase
         $this->assertSame($start - 1, $credits(), 'Pesan 2–3 tidak memotong lagi');
         $this->json_('POST', '/app/assistant', ['message' => 'empat'])->assertOk();
         $this->assertSame($start - 2, $credits());
+    }
+
+    /** APP_KEY diganti setelah key provider tersimpan → provider dilewati, halaman tetap jalan (bukan error 500). */
+    public function test_undecryptable_provider_key_is_skipped_not_500(): void
+    {
+        $p = $this->textProvider();
+        \DB::table('ai_providers')->where('id', $p->id)->update(['api_key' => 'eyJpdiI6InJ1c2FrIn0=']);
+        $this->actingUser($this->user());
+        $this->json_('GET', '/app/ai-tools/content_script')->assertOk()->assertJsonPath('data.provider_ready', false);
+        $this->assertSame('down', $p->fresh()->health);
     }
 }

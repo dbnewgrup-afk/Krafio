@@ -8,13 +8,25 @@ class ForumThread extends Model
 {
     protected $guarded = ['id'];
 
-    public function category() { return $this->belongsTo(ForumCategory::class, 'category_id'); }
+    public function category()
+    {
+        return $this->belongsTo(ForumCategory::class, 'category_id');
+    }
 
-    public function user() { return $this->belongsTo(User::class); }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
-    public function posts() { return $this->hasMany(ForumPost::class, 'thread_id'); }
+    public function posts()
+    {
+        return $this->hasMany(ForumPost::class, 'thread_id');
+    }
 
-    public function lastReplyUser() { return $this->belongsTo(User::class, 'last_reply_user_id'); }
+    public function lastReplyUser()
+    {
+        return $this->belongsTo(User::class, 'last_reply_user_id');
+    }
 
     protected function casts(): array
     {

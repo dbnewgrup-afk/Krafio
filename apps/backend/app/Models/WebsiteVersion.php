@@ -17,11 +17,17 @@ class WebsiteVersion extends Model
         return ['content' => 'array', 'created_at' => 'datetime'];
     }
 
-    /** Simpan snapshot; isi sama dengan versi terakhir tidak dicatat ulang; hanya KEEP versi terbaru yang disimpan. */
+    /** Simpan snapshot (autosave digabung per 10 menit); isi sama dengan versi terakhir tidak dicatat ulang; hanya KEEP versi terbaru yang disimpan. */
     public static function record(Website $w, string $kind, array $content, ?int $userId): void
     {
         $last = self::where('website_id', $w->id)->latest('id')->first();
         if ($last && $last->kind === $kind && $last->content == $content) {
+            return;
+        }
+        // Autosave editor (tiap ±1,5 dtk) digabung: satu versi "save" per 10 menit agar 30 slot tidak cepat habis
+        if ($kind === 'save' && $last && $last->kind === 'save' && $last->created_at->gt(now()->subMinutes(10))) {
+            $last->update(['content' => $content]);
+
             return;
         }
         self::create(['website_id' => $w->id, 'user_id' => $userId, 'kind' => $kind, 'content' => $content]);

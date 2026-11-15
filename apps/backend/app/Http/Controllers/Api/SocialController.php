@@ -10,9 +10,11 @@ use App\Services\Audit;
 use App\Services\Entitlements;
 use App\Services\Social\Platforms;
 use App\Services\Social\Postiz;
+use App\Services\Social\Publisher;
 use App\Support\ApiException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -45,7 +47,7 @@ class SocialController extends Controller
                     'platform' => $p, 'label' => Platforms::DEFS[$p]['label'], 'available' => $direct || $postiz, 'via' => ['direct' => $direct, 'postiz' => $postiz],
                     'status' => $status, 'provider' => $a?->provider, 'account_name' => $a?->account_name, 'username' => $a?->username, 'avatar_url' => $a?->avatar_url,
                     'stats' => $a?->profile['stats'] ?? [], 'synced_at' => $a?->synced_at?->toIso8601String(), 'expires_at' => $a?->expires_at?->toIso8601String(),
-                    'last_error' => $a?->last_error, 'scopes' => Platforms::DEFS[$p]['scopes'], 'can_publish' => $a && $a->provider === 'postiz' && $status === 'connected',
+                    'last_error' => $a?->last_error, 'scopes' => Platforms::DEFS[$p]['scopes'], 'can_publish' => $a && $status === 'connected' && ($a->provider === 'postiz' || in_array($p, Publisher::SUPPORTED, true)),
                 ];
             }, Platforms::LIST),
         ]];
@@ -164,7 +166,8 @@ class SocialController extends Controller
     {
         return ['data' => SocialPost::where('user_id', $r->user()->id)->latest('id')->limit(50)->get()->map(fn ($p) => [
             'id' => $p->id, 'content' => $p->content, 'platforms' => $p->platforms, 'type' => $p->type, 'status' => $p->status, 'error' => $p->error,
-            'scheduled_at' => $p->scheduled_at?->toIso8601String(), 'created_at' => $p->created_at->toIso8601String(), 'media' => count((array) $p->media),
+            'scheduled_at' => $p->scheduled_at?->toIso8601String(), 'created_at' => $p->created_at->toIso8601String(), 'media' => count((array) $p->media), 'provider' => $p->provider,
+            'results' => collect($p->external['results'] ?? [])->map(fn ($x) => ['ok' => (bool) $x['ok'], 'url' => $x['url'] ?? null, 'error' => $x['error'] ?? null])->all(),
         ])];
     }
 
@@ -179,22 +182,69 @@ class SocialController extends Controller
             'scheduled_at' => 'required_if:type,schedule|nullable|date|after:now',
             'upload_ids' => 'nullable|array|max:4', 'upload_ids.*' => 'integer',
         ]);
-        if (! Postiz::enabled()) {
-            throw new ApiException('postiz_not_configured', 'Posting & penjadwalan memerlukan Postiz yang dikonfigurasi Admin.', 422);
+        $platforms = array_values(array_unique($d['platforms']));
+        $uploads = Upload::whereIn('id', $d['upload_ids'] ?? [])->where('user_id', $u->id)->get();
+        if ($uploads->count() !== count(array_unique($d['upload_ids'] ?? []))) {
+            throw new ApiException('validation_failed', 'Media tidak ditemukan.', 422, [], ['upload_ids' => ['Media tidak ditemukan.']]);
         }
-        $media = Upload::whereIn('id', $d['upload_ids'] ?? [])->where('user_id', $u->id)->pluck('id')->map(fn ($id) => ['upload_id' => $id])->all();
-        $post = SocialPost::create(['user_id' => $u->id, 'content' => $d['content'], 'platforms' => array_values(array_unique($d['platforms'])), 'type' => $d['type'],
-            'scheduled_at' => $d['type'] === 'schedule' ? $d['scheduled_at'] : null, 'media' => $media, 'status' => 'queued', 'provider' => 'postiz']);
-        try {
-            Postiz::publish($post);
-        } catch (ApiException $e) {
-            $post->update(['status' => 'failed', 'error' => mb_substr($e->getMessage(), 0, 250)]);
+        $media = $uploads->map(fn ($m) => ['upload_id' => $m->id])->values()->all();
+        // Jalur: langsung ke API platform bila SEMUA platform terpilih terhubung langsung; selain itu Postiz.
+        $accounts = SocialAccount::where('user_id', $u->id)->whereIn('platform', $platforms)->where('status', 'connected')->get()->keyBy('platform');
+        $direct = collect($platforms)->every(fn ($p) => ($accounts[$p]->provider ?? null) === 'direct');
+        if ($direct) {
+            Publisher::validate($platforms, $uploads->all(), $d['content']);
+            $post = SocialPost::create(['user_id' => $u->id, 'content' => $d['content'], 'platforms' => $platforms, 'type' => $d['type'],
+                'scheduled_at' => $d['type'] === 'schedule' ? $d['scheduled_at'] : null, 'media' => $media, 'provider' => 'direct',
+                'status' => ['now' => 'queued', 'schedule' => 'scheduled', 'draft' => 'draft'][$d['type']]]);
+            if ($d['type'] === 'now') {
+                $id = $post->id;
+                dispatch(fn () => Publisher::run($id))->onQueue('default');
+            }
+        } else {
+            if (! Postiz::enabled()) {
+                $missing = collect($platforms)->reject(fn ($p) => ($accounts[$p]->provider ?? null) === 'direct')->map(fn ($p) => Platforms::DEFS[$p]['label'])->implode(', ');
+                throw new ApiException('account_not_connected', 'Hubungkan dulu akun berikut: '.$missing.'.', 422);
+            }
+            $post = SocialPost::create(['user_id' => $u->id, 'content' => $d['content'], 'platforms' => $platforms, 'type' => $d['type'],
+                'scheduled_at' => $d['type'] === 'schedule' ? $d['scheduled_at'] : null, 'media' => $media, 'status' => 'queued', 'provider' => 'postiz']);
+            try {
+                Postiz::publish($post);
+            } catch (ApiException $e) {
+                $post->update(['status' => 'failed', 'error' => mb_substr($e->getMessage(), 0, 250)]);
 
-            throw $e;
+                throw $e;
+            }
         }
         Audit::log('social.post_'.$post->type, $post, ['platforms' => $post->platforms], $u->id);
 
         return response()->json(['data' => ['id' => $post->id, 'status' => $post->fresh()->status]], 201);
+    }
+
+    /** Kirim ulang posting gagal/sebagian, terbitkan draf, atau batalkan jadwal (posting langsung). */
+    public function postAction(Request $r, SocialPost $post, string $action)
+    {
+        abort_unless($post->user_id === $r->user()->id && $post->provider === 'direct', 404);
+        Entitlements::ensure($r->user(), 'social.integrations', 0);
+        if ($action === 'cancel') {
+            abort_unless(in_array($post->status, ['scheduled', 'draft'], true), 422, 'Posting ini tidak dapat dibatalkan.');
+            $post->delete();
+
+            return response()->noContent();
+        }
+        abort_unless($action === 'publish' && in_array($post->status, ['failed', 'partial', 'draft', 'scheduled'], true), 422, 'Posting ini tidak dapat dikirim ulang.');
+        $post->update(['status' => 'queued', 'scheduled_at' => null, 'type' => 'now', 'error' => null]);
+        $id = $post->id;
+        dispatch(fn () => Publisher::run($id))->onQueue('default');
+
+        return ['data' => ['id' => $post->id, 'status' => $post->fresh()->status]];
+    }
+
+    /** File media untuk platform yang menarik dari URL (Instagram/Threads/TikTok) — hanya lewat URL bertanda tangan & berjangka. */
+    public function media(Upload $upload)
+    {
+        abort_unless(Storage::disk($upload->disk ?: 'local')->exists($upload->path), 404);
+
+        return Storage::disk($upload->disk ?: 'local')->response($upload->path, $upload->original_name, ['Content-Type' => $upload->mime, 'Cache-Control' => 'private, max-age=3600']);
     }
 
     /* ---------------- Halaman popup ---------------- */

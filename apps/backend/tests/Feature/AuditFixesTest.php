@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Approval;
+use App\Models\User;
 use App\Services\Settings;
 use App\Services\Wallet;
 use Illuminate\Support\Facades\RateLimiter;
@@ -124,8 +125,8 @@ class AuditFixesTest extends KrafioTestCase
     /** B8: admin yang baru login dengan kata sandi (MFA belum lolos) tidak boleh mengubah akun. */
     public function test_admin_session_before_mfa_is_read_only(): void
     {
-        \App\Services\Settings::set('security.admin_mfa_required', true);
-        $admin = \App\Models\User::where('role', 'admin')->first();
+        Settings::set('security.admin_mfa_required', true);
+        $admin = User::where('role', 'admin')->first();
         $admin->forceFill(['password' => 'AdminKuat12345'])->save();
         $this->json('POST', '/api/auth/admin/login', ['email' => $admin->email, 'password' => 'AdminKuat12345'], ['Accept' => 'application/json'])->assertOk()->assertJsonPath('data.mfa', 'setup');
         $this->json('GET', '/api/me', [], ['Accept' => 'application/json'])->assertOk();

@@ -35,7 +35,7 @@ export function routeForStatus(me: Me, next: string | null): string {
 }
 
 function useCountdown(target: number | null): number {
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!target) return
     const id = window.setInterval(() => setNow(Date.now()), 1000)

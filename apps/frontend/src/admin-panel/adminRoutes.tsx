@@ -166,6 +166,8 @@ export const ADMIN_NAV: Group[] = [
     { key: 'postiz', path: '/admin/social/postiz', el: () => <IntegrationPage kind="postiz" /> },
     ...['instagram', 'facebook', 'threads', 'tiktok', 'youtube', 'linkedin', 'x'].map((p) => ({ key: p, path: `/admin/social/${p}`, el: () => <IntegrationPage kind={`social_${p}`} /> })),
     { key: 'webhook_logs', path: '/admin/social/webhooks', el: () => <R resource="webhook-logs" k="webhook_logs" g="g_social" /> },
+    { key: 'social_posts', path: '/admin/social/posts', el: () => <R resource="social-posts" k="social_posts" g="g_social" /> },
+    { key: 'social_publish', path: '/admin/social/publish', el: () => <S k="social_publish" g="g_social" info="admin.info.social_publish" fields={[{ key: 'social.tiktok_privacy', type: 'select', options: ['SELF_ONLY', 'PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR'] }, { key: 'social.youtube_privacy', type: 'select', options: ['public', 'unlisted', 'private'] }]} /> },
     { key: 'social_accounts', path: '/admin/social/accounts', el: () => <R resource="social-accounts" k="social_accounts" g="g_social" /> },
   ] },
   // Forum Diskusi: seluruh pengaturan & moderasi hanya di sini (pengguna hanya menulis & melapor)

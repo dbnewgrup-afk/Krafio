@@ -2,9 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Http\Controllers\Api\StudioController;
 use App\Models\AiJob;
 use App\Services\AiGateway;
-use App\Services\Entitlements;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -40,7 +40,7 @@ class ProcessAiJob implements ShouldQueue
             return;
         }
         $job->update(['status' => 'failed', 'error' => 'Proses gagal di penyedia AI.', 'completed_at' => now()]);
-        \App\Http\Controllers\Api\StudioController::refundJob($job, 'Pengembalian kredit job gagal #'.$job->id);
+        StudioController::refundJob($job, 'Pengembalian kredit job gagal #'.$job->id);
     }
 
     public static function enqueue(AiJob $job): void

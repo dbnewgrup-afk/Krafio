@@ -156,7 +156,7 @@ class SocialIntegrationTest extends KrafioTestCase
         $this->json_('POST', '/app/social/instagram/connect')->assertStatus(403);
         $this->actingUser($this->proUser());
         $this->json_('POST', '/app/social/instagram/connect')->assertStatus(422)->assertJsonPath('code', 'integration_not_available');
-        $this->json_('POST', '/app/social/posts', ['content' => 'x', 'platforms' => ['instagram'], 'type' => 'now'])->assertStatus(422)->assertJsonPath('code', 'postiz_not_configured');
+        $this->json_('POST', '/app/social/posts', ['content' => 'x', 'platforms' => ['instagram'], 'type' => 'now'])->assertStatus(422)->assertJsonPath('code', 'account_not_connected');
         $this->assertFalse((bool) Settings::get('social.instagram.enabled'));
     }
 }

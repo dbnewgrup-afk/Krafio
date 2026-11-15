@@ -13,7 +13,10 @@ class SeoAudit extends Model
     /** Isi form (termasuk konten penuh) tidak ikut di daftar/ekspor Admin; pemilik membacanya lewat SeoController. */
     protected $hidden = ['input'];
 
-    public function findings() { return $this->hasMany(SeoFinding::class, 'audit_id'); }
+    public function findings()
+    {
+        return $this->hasMany(SeoFinding::class, 'audit_id');
+    }
 
     protected function casts(): array
     {

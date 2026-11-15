@@ -8,9 +8,15 @@ class ForumPost extends Model
 {
     protected $guarded = ['id'];
 
-    public function thread() { return $this->belongsTo(ForumThread::class, 'thread_id'); }
+    public function thread()
+    {
+        return $this->belongsTo(ForumThread::class, 'thread_id');
+    }
 
-    public function user() { return $this->belongsTo(User::class); }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     protected function casts(): array
     {

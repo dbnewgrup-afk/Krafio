@@ -6,6 +6,7 @@ use App\Models\CreditLedgerEntry;
 use App\Models\CreditPack;
 use App\Models\User;
 use App\Support\ApiException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -21,7 +22,7 @@ class Credits
 
     /** Biaya kredit per aksi (55.1.1) — nilai awal; dapat diubah Admin di Settings `credits.costs`. */
     public const DEFAULT_COSTS = [
-        'photo_standard' => 8, 'photo_hd' => 15, 'remove_bg' => 2, 'upscale' => 4, 'inpaint' => 8,
+        'photo_standard' => 8, 'photo_hd' => 15, 'remove_bg' => 8, 'upscale' => 4, 'inpaint' => 8,
         'video_720_per_5s' => 80, 'video_1080_per_5s' => 150, 'clipper_per_min' => 10, 'video_edit_per_min' => 5,
     ];
 
@@ -54,7 +55,7 @@ class Credits
         }
         try {
             self::createPlanPack($u, $sub, $monthly, $period);
-        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+        } catch (UniqueConstraintViolationException) {
             // Request lain di saat bersamaan sudah membuat pack periode ini (B12) — cukup pakai yang ada.
         }
     }

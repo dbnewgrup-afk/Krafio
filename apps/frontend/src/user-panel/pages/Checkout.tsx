@@ -40,8 +40,22 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
   // Kode yang dipilih di halaman Promo langsung terpasang (tetap bisa diganti/dihapus)
   const [code, setCode] = useState('')
   const [applied, setApplied] = useState('')
-  const [offers, setOffers] = useState<Promo[]>([])
-  const [quote, setQuote] = useState<Quote | null>(null)
+  // Hasil quote & daftar promo disimpan bersama kuncinya; bila item/kode berganti, nilai lama otomatis dianggap kosong
+  // (tanpa setState sinkron di dalam effect).
+  const itemKey = item ? `${item.kind}|${item.code}|${item.cycle ?? ''}` : ''
+  const quoteKey = `${itemKey}|${applied}`
+  const [offersRes, setOffersRes] = useState<{ key: string; list: Promo[] }>({ key: '', list: [] })
+  const [quoteRes, setQuoteRes] = useState<{ key: string; quote: Quote } | null>(null)
+  const offers = offersRes.key === itemKey ? offersRes.list : []
+  const quote = quoteRes?.key === quoteKey ? quoteRes.quote : null
+  // Setiap membuka checkout untuk item baru: pasang kode dari halaman Promo (bila ada) — penyesuaian state saat render
+  const [seenItem, setSeenItem] = useState('')
+  if (itemKey !== seenItem) {
+    setSeenItem(itemKey)
+    const promo = item && item.kind !== 'custom' ? pendingPromo() ?? '' : ''
+    setCode(promo)
+    setApplied(promo)
+  }
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [pending, setPending] = useState<{ id: number; reference: string; amount: number; simulate: boolean; redirect_url?: string | null; existing?: boolean } | null>(null)
@@ -59,26 +73,22 @@ export function CheckoutModal({ item, onClose, onDone }: { item: CheckoutItem | 
 
   useEffect(() => {
     if (!item) return
-    setQuote(null)
+    const k = quoteKey
     http
       .post<{ data: Quote }>('/app/orders/quote', { kind: item.kind, code: item.code, cycle: item.cycle, coupon: applied || undefined })
-      .then((r) => setQuote(r.data))
+      .then((r) => setQuoteRes({ key: k, quote: r.data }))
       .catch((e) => setErr(e instanceof ApiError ? e.message : t('errors.server_body')))
-  }, [item, applied, t])
+  }, [item, applied, quoteKey, t])
 
-  // Setiap membuka checkout: pasang kode dari halaman Promo (bila ada) & muat promo yang berlaku untuk item ini
+  // Promo yang berlaku untuk item ini
   useEffect(() => {
-    setOffers([])
-    if (!item) return
-    const pending = item.kind !== 'custom' ? pendingPromo() ?? '' : ''
-    setCode(pending)
-    setApplied(pending)
-    if (item.kind === 'custom') return
+    if (!item || item.kind === 'custom') return
+    const k = itemKey
     http
       .post<{ data: Promo[] }>('/app/orders/promos', { kind: item.kind, code: item.code, cycle: item.cycle })
-      .then((r) => setOffers(r.data))
-      .catch(() => setOffers([]))
-  }, [item])
+      .then((r) => setOffersRes({ key: k, list: r.data }))
+      .catch(() => setOffersRes({ key: k, list: [] }))
+  }, [item, itemKey])
 
   if (!item) return null
   const final = quote?.final ?? item.price

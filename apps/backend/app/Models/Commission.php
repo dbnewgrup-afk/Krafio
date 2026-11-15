@@ -10,8 +10,15 @@ class Commission extends Model
 
     protected $guarded = ['id'];
 
-    public function referrer() { return $this->belongsTo(User::class, 'referrer_id'); }
-    public function referred() { return $this->belongsTo(User::class, 'referred_id'); }
+    public function referrer()
+    {
+        return $this->belongsTo(User::class, 'referrer_id');
+    }
+
+    public function referred()
+    {
+        return $this->belongsTo(User::class, 'referred_id');
+    }
 
     protected function casts(): array
     {

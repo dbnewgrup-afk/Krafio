@@ -5,20 +5,29 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessAiJob;
 use App\Models\AiJob;
-use App\Models\AiModel;
 use App\Models\AssistantMessage;
 use App\Models\Project;
 use App\Models\Template;
 use App\Models\Upload;
+use App\Models\UsageCounter;
+use App\Models\User;
+use App\Services\Ai\Outputs;
+use App\Services\Ai\Prompts;
+use App\Services\Ai\VideoTools;
 use App\Services\AiGateway;
 use App\Services\Audit;
 use App\Services\Credits;
 use App\Services\Entitlements;
+use App\Services\Export\Ooxml;
 use App\Services\FaqResponder;
+use App\Support\AiTools;
 use App\Support\ApiException;
+use App\Support\Idempotency;
 use App\Support\Present;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /** Studio AI, unggahan, proyek, aset, dan AI Assistant (PRD 6.1–6.10, 9.4). */
 class StudioController extends Controller
@@ -26,28 +35,28 @@ class StudioController extends Controller
     /** Jenis job → entitlement & jenis unggahan, dari registry AI Tools (sumber tunggal). */
     public static function types(): array
     {
-        return \App\Support\AiTools::types();
+        return AiTools::types();
     }
 
     /**
      * Biaya kredit per aksi (PRD 55.1.1) dihitung di server sesuai batas paket (55.2): resolusi foto,
      * resolusi & durasi maksimum video, durasi sumber clipper. Brainstorming memakai limit request (bukan kredit).
      */
-    public static function cost(string $type, array $p, ?\App\Models\User $u = null): int
+    public static function cost(string $type, array $p, ?User $u = null): int
     {
         $c = Credits::costs();
         $limits = $u ? Entitlements::grants($u)['limits'] : [];
 
         return match ($type) {
             'photo_generate' => ((($p['quality'] ?? 'standard') === 'hd') ? $c['photo_hd'] : $c['photo_standard']) * max(1, min(4, (int) ($p['count'] ?? 1))),
-            'photo_edit' => ["remove_bg" => $c['remove_bg'], "upscale" => $c['upscale']][$p['operation'] ?? ''] ?? $c['inpaint'],
+            'photo_edit' => ['remove_bg' => $c['remove_bg'], 'upscale' => $c['upscale']][$p['operation'] ?? ''] ?? $c['inpaint'],
             'video_generate' => (int) ceil(((int) ($p['duration'] ?? 5)) / 5) * ((($limits['video_resolution'] ?? '720p') === '1080p') ? $c['video_1080_per_5s'] : $c['video_720_per_5s']),
             'video_edit' => $c['video_edit_per_min'] * max(1, (int) ($p['minutes'] ?? 1)),
             // Render lokal FFmpeg: dihitung seperti edit video per menit hasil
-            'script_video' => $c['video_edit_per_min'] * max(1, (int) ceil(count(\App\Services\Ai\VideoTools::scenes((string) ($p['script'] ?? ''))) * max(1, (int) ($p['seconds'] ?? 3)) / 60)),
+            'script_video' => $c['video_edit_per_min'] * max(1, (int) ceil(count(VideoTools::scenes((string) ($p['script'] ?? ''))) * max(1, (int) ($p['seconds'] ?? 3)) / 60)),
             'video_clipper' => $c['clipper_per_min'] * max(1, (int) ($p['source_minutes'] ?? 1)),
             // Tool teks: unit (part/variasi/batch item) × biaya per unit yang diatur admin
-            default => ($t = \App\Support\AiTools::forType($type)) ? \App\Support\AiTools::units($t, $p) * max(0, (int) ($t['cost_per_unit'] ?? 1)) : 1,
+            default => ($t = AiTools::forType($type)) ? AiTools::units($t, $p) * max(0, (int) ($t['cost_per_unit'] ?? 1)) : 1,
         };
     }
 
@@ -66,7 +75,7 @@ class StudioController extends Controller
     }
 
     /** Batas per paket (PRD 55.2): job paralel, resolusi foto, durasi video, durasi sumber clipper. */
-    private function enforceLimits(\App\Models\User $u, string $type, array $p): void
+    private function enforceLimits(User $u, string $type, array $p): void
     {
         $l = Entitlements::grants($u)['limits'];
         $active = AiJob::where('user_id', $u->id)->whereIn('status', ['queued', 'processing'])->count();
@@ -97,8 +106,8 @@ class StudioController extends Controller
     /** Parameter dibersihkan sesuai skema form tool (opsi, rentang angka, panjang teks, field bersyarat). */
     private function params(string $type, array $in): array
     {
-        $tool = \App\Support\AiTools::forType($type);
-        $out = $tool ? \App\Support\AiTools::sanitize($tool, $in)['params'] : [];
+        $tool = AiTools::forType($type);
+        $out = $tool ? AiTools::sanitize($tool, $in)['params'] : [];
         if (! empty($in['template_id']) && Template::where('id', (int) $in['template_id'])->where('status', 'active')->exists()) {
             $out['template_id'] = (int) $in['template_id'];
         }
@@ -159,7 +168,7 @@ class StudioController extends Controller
         if (! $u->ai_consent_at) {
             throw new ApiException('ai_consent_required', 'Persetujuan pemrosesan AI diperlukan.', 403);
         }
-        $tool = \App\Support\AiTools::forType($type);
+        $tool = AiTools::forType($type);
         if ($tool && ! $tool['enabled']) {
             throw new ApiException('tool_disabled', 'Fitur ini sedang dinonaktifkan Admin.', 403);
         }
@@ -168,7 +177,7 @@ class StudioController extends Controller
         if ($tool && trim((string) ($input[$tool['prompt_field']] ?? '')) === '' && trim((string) ($data['prompt'] ?? '')) !== '') {
             $input[$tool['prompt_field']] = $data['prompt'];
         }
-        $checked = $tool ? \App\Support\AiTools::sanitize($tool, $input) : ['params' => [], 'errors' => []];
+        $checked = $tool ? AiTools::sanitize($tool, $input) : ['params' => [], 'errors' => []];
         if ($checked['errors']) {
             throw new ApiException('validation_failed', 'Data yang dikirim belum valid.', 422, [], $checked['errors']);
         }
@@ -191,7 +200,7 @@ class StudioController extends Controller
             throw new ApiException('ai_unavailable', 'Fitur ini belum bisa dipakai: penyedia AI belum diaktifkan Admin. Kuota dan kredit Anda tidak dipotong.', 503);
         }
         $cost = self::cost($type, $params, $u);
-        $idem = \App\Support\Idempotency::key($r, $u->id);
+        $idem = Idempotency::key($r, $u->id);
         if ($idem && ($exist = AiJob::where('idempotency_key', $idem)->where('user_id', $u->id)->first())) {
             return response()->json(['data' => Present::job($exist)]);
         }
@@ -206,7 +215,7 @@ class StudioController extends Controller
                 'upload_id' => $upload?->id,
                 'type' => $type,
                 'entitlement' => $def['ent'],
-                'prompt' => mb_substr($mainText, 0, 1000) ?: ($tool ? \App\Support\AiTools::tr($tool['label']) : 'Job AI'),
+                'prompt' => mb_substr($mainText, 0, 1000) ?: ($tool ? AiTools::tr($tool['label']) : 'Job AI'),
                 'params' => $params,
                 'cost' => $cost,
                 'idempotency_key' => $idem,
@@ -252,11 +261,11 @@ class StudioController extends Controller
         Entitlements::ensureCount($r->user(), 'storage_mb', $usedMb, (int) ceil($f->getSize() / 1048576), 'storage', 'storage (MB)');
         $path = $f->store('uploads/'.$r->user()->id, 'local');
         $meta = [];
-        if (str_starts_with((string) $f->getMimeType(), 'video/') && \App\Services\Ai\VideoTools::available()) {
+        if (str_starts_with((string) $f->getMimeType(), 'video/') && VideoTools::available()) {
             // Durasi & resolusi asli → biaya kredit edit/clipper dihitung dari video sebenarnya
-            $info = \App\Services\Ai\VideoTools::probe(\Illuminate\Support\Facades\Storage::disk('local')->path($path));
+            $info = VideoTools::probe(Storage::disk('local')->path($path));
             if ($info['duration'] <= 0) {
-                \Illuminate\Support\Facades\Storage::disk('local')->delete($path);
+                Storage::disk('local')->delete($path);
                 throw new ApiException('validation_failed', 'Video tidak dapat dibaca. Pastikan formatnya MP4, MOV, atau WebM.', 422, [], ['file' => ['Video tidak dapat dibaca.']]);
             }
             $meta = ['duration' => round($info['duration'], 2), 'width' => $info['width'], 'height' => $info['height']];
@@ -277,7 +286,7 @@ class StudioController extends Controller
             throw new ApiException('not_exportable', 'Hasil ini belum bisa diekspor.', 422);
         }
         $title = (string) ($res['title'] ?? $job->prompt);
-        $slug = \Illuminate\Support\Str::slug(mb_substr($title, 0, 50)) ?: 'krafio';
+        $slug = Str::slug(mb_substr($title, 0, 50)) ?: 'krafio';
         if ($format === 'docx') {
             $blocks = [['type' => 'h1', 'text' => $title]];
             $parts = $res['parts'] ?? [];
@@ -297,7 +306,7 @@ class StudioController extends Controller
                     $blocks[] = ['type' => 'p', 'text' => implode("\n", array_filter(array_map(fn ($f) => ($it[$f['key']] ?? '') !== '' && $f['key'] !== 'title' ? $f['label'].': '.$it[$f['key']] : null, $fields)))];
                 }
             }
-            $bytes = \App\Services\Export\Ooxml::docx($blocks, $title);
+            $bytes = Ooxml::docx($blocks, $title);
             $mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
         } else {
             if (! empty($res['items'])) {
@@ -314,7 +323,7 @@ class StudioController extends Controller
                 $head = array_merge(['Part', 'Judul'], array_values($labels));
                 $rows = array_map(fn ($p, $i) => array_merge([(string) ($i + 1), (string) $p['title']], array_map(fn ($k) => (string) (collect($p['sections'] ?? [])->firstWhere('key', $k)['content'] ?? ''), array_keys($labels))), $res['parts'] ?? [], array_keys($res['parts'] ?? []));
             }
-            $bytes = \App\Services\Export\Ooxml::xlsx($head, $rows, $title, $title);
+            $bytes = Ooxml::xlsx($head, $rows, $title, $title);
             $mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         }
 
@@ -326,11 +335,11 @@ class StudioController extends Controller
     {
         abort_unless($job->user_id === $r->user()->id, 404);
         $f = ($job->result['files'] ?? [])[$n] ?? null;
-        abort_unless($f && \Illuminate\Support\Facades\Storage::disk('local')->exists($f['path']), 404);
+        abort_unless($f && Storage::disk('local')->exists($f['path']), 404);
 
-        return response()->file(\Illuminate\Support\Facades\Storage::disk('local')->path($f['path']), [
+        return response()->file(Storage::disk('local')->path($f['path']), [
             'Content-Type' => $f['mime'], 'Cache-Control' => 'private, max-age=86400', 'X-Content-Type-Options' => 'nosniff',
-            'Content-Disposition' => 'inline; filename="krafio-'.$job->id.'-'.$n.'.'.(\App\Services\Ai\Outputs::EXT[$f['mime']] ?? 'bin').'"',
+            'Content-Disposition' => 'inline; filename="krafio-'.$job->id.'-'.$n.'.'.(Outputs::EXT[$f['mime']] ?? 'bin').'"',
         ]);
     }
 
@@ -435,7 +444,7 @@ class StudioController extends Controller
     }
 
     /** Batas jumlah proyek aktif per paket (PRD 55.2 "Proyek"); proyek di tempat sampah tidak dihitung. */
-    private function ensureProjectSlot(\App\Models\User $u): void
+    private function ensureProjectSlot(User $u): void
     {
         Entitlements::ensureCount($u, 'projects', Project::where('user_id', $u->id)->count(), 1, 'projects', 'jumlah proyek');
     }
@@ -455,11 +464,11 @@ class StudioController extends Controller
      *
      * @return array{alloc: array<int,int>|null}
      */
-    private static function chatMeter(\App\Models\User $u): array
+    private static function chatMeter(User $u): array
     {
         return DB::transaction(function () use ($u) {
-            $row = \App\Models\UsageCounter::where(['user_id' => $u->id, 'entitlement' => 'chat.meter', 'period' => Entitlements::period()])->lockForUpdate()->first()
-                ?? \App\Models\UsageCounter::create(['user_id' => $u->id, 'entitlement' => 'chat.meter', 'period' => Entitlements::period(), 'used' => 0]);
+            $row = UsageCounter::where(['user_id' => $u->id, 'entitlement' => 'chat.meter', 'period' => Entitlements::period()])->lockForUpdate()->first()
+                ?? UsageCounter::create(['user_id' => $u->id, 'entitlement' => 'chat.meter', 'period' => Entitlements::period(), 'used' => 0]);
             $alloc = null;
             if ($row->used % Credits::chatMessagesPerCredit() === 0) {
                 $alloc = Credits::consume($u, 1, 'chat', null, 'AI Assistant ('.Credits::chatMessagesPerCredit().' pesan)');
@@ -470,13 +479,14 @@ class StudioController extends Controller
         });
     }
 
-    private static function chatMeterRefund(\App\Models\User $u, array $meter): void
+    private static function chatMeterRefund(User $u, array $meter): void
     {
-        \App\Models\UsageCounter::where(['user_id' => $u->id, 'entitlement' => 'chat.meter', 'period' => Entitlements::period()])->where('used', '>', 0)->decrement('used');
+        UsageCounter::where(['user_id' => $u->id, 'entitlement' => 'chat.meter', 'period' => Entitlements::period()])->where('used', '>', 0)->decrement('used');
         if (! empty($meter['alloc'])) {
             Credits::refund($u, $meter['alloc'], 'chat', null, 'Pengembalian kredit AI Assistant');
         }
     }
+
     public function assistant(Request $r)
     {
         return ['data' => [
@@ -500,7 +510,7 @@ class StudioController extends Controller
         }
         AssistantMessage::create(['user_id' => $u->id, 'role' => 'user', 'content' => $data['message']]);
         $history = AssistantMessage::where('user_id', $u->id)->latest('id')->limit(10)->get()->reverse()->map(fn ($m) => ['role' => $m->role, 'content' => $m->content])->values()->all();
-        $system = \App\Services\Ai\Prompts::render('assistant.system', ['name' => $u->name], 'Anda AI Assistant Krafio yang membantu UMKM dan kreator membuat konten pemasaran. Jawab ringkas dalam bahasa pengguna.');
+        $system = Prompts::render('assistant.system', ['name' => $u->name], 'Anda AI Assistant Krafio yang membantu UMKM dan kreator membuat konten pemasaran. Jawab ringkas dalam bahasa pengguna.');
         $res = AiGateway::chat(array_merge([['role' => 'system', 'content' => $system]], $history));
         $text = $res['text'] ?? null;
         if (! $res) {

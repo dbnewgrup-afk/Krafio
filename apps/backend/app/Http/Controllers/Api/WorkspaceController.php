@@ -10,7 +10,9 @@ use App\Models\SeoAudit;
 use App\Models\SeoFinding;
 use App\Models\Ticket;
 use App\Models\Website;
+use App\Models\WebsiteVersion;
 use App\Services\Billing;
+use App\Services\CustomDomains;
 use App\Services\Entitlements;
 use App\Services\SeoAuditor;
 use App\Services\SeoWriter;
@@ -49,7 +51,7 @@ class WorkspaceController extends Controller
         return array_filter([
             'id' => $w->id, 'name' => $w->name, 'subdomain' => $w->subdomain, 'status' => $w->status, 'updated_at' => $w->updated_at->toIso8601String(),
             'content' => $content ? $w->content : null,
-            'domain' => \App\Services\CustomDomains::present($w),
+            'domain' => CustomDomains::present($w),
             // Alamat publik website yang sudah terbit (dilayani SiteController)
             'public_url' => $w->status === 'published' ? 'https://'.($w->domain_status === 'verified' && $w->custom_domain ? $w->custom_domain : $w->subdomain.'.'.config('krafio.site_domain')).'/' : null,
         ], fn ($v) => $v !== null);
@@ -60,7 +62,7 @@ class WorkspaceController extends Controller
     {
         abort_unless($website->user_id === $r->user()->id, 404);
         Entitlements::ensure($r->user(), 'website.builder', 0);
-        $w = \App\Services\CustomDomains::set($r->user(), $website, (string) $r->validate(['domain' => 'required|string|max:190'])['domain']);
+        $w = CustomDomains::set($r->user(), $website, (string) $r->validate(['domain' => 'required|string|max:190'])['domain']);
 
         return ['data' => $this->site($w)];
     }
@@ -69,13 +71,13 @@ class WorkspaceController extends Controller
     {
         abort_unless($website->user_id === $r->user()->id, 404);
 
-        return ['data' => $this->site(\App\Services\CustomDomains::verify($website))];
+        return ['data' => $this->site(CustomDomains::verify($website))];
     }
 
     public function removeDomain(Request $r, Website $website)
     {
         abort_unless($website->user_id === $r->user()->id, 404);
-        \App\Services\CustomDomains::remove($website);
+        CustomDomains::remove($website);
 
         return ['data' => $this->site($website->fresh())];
     }
@@ -144,7 +146,7 @@ class WorkspaceController extends Controller
     {
         abort_unless($website->user_id === $r->user()->id, 404);
         $website->update(['content' => $this->validContent($r), 'version' => $website->version + 1]);
-        \App\Models\WebsiteVersion::record($website, 'save', $website->content, $r->user()->id);
+        WebsiteVersion::record($website, 'save', $website->content, $r->user()->id);
 
         return ['data' => $this->site($website, true)];
     }
@@ -181,7 +183,7 @@ class WorkspaceController extends Controller
             throw new ApiException('publish_blocked', 'Website belum dapat dipublikasikan.', 422, ['issues' => $issues]);
         }
         $website->update(['content' => $content, 'published_content' => $content, 'status' => 'published', 'published_at' => now()]);
-        \App\Models\WebsiteVersion::record($website, 'publish', $content, $r->user()->id);
+        WebsiteVersion::record($website, 'publish', $content, $r->user()->id);
 
         return ['data' => $this->site($website, true)];
     }
@@ -191,7 +193,7 @@ class WorkspaceController extends Controller
     {
         abort_unless($website->user_id === $r->user()->id, 404);
 
-        return ['data' => \App\Models\WebsiteVersion::where('website_id', $website->id)->latest('id')->get()->map(fn ($v) => [
+        return ['data' => WebsiteVersion::where('website_id', $website->id)->latest('id')->get()->map(fn ($v) => [
             'id' => $v->id, 'kind' => $v->kind, 'created_at' => $v->created_at->toIso8601String(),
             'blocks' => count($v->content['blocks'] ?? []), 'title' => $v->content['blocks'][0]['title'] ?? null, 'seo_title' => $v->content['seo']['title'] ?? null,
         ])];
@@ -201,9 +203,9 @@ class WorkspaceController extends Controller
     public function restoreWebsiteVersion(Request $r, Website $website, int $version)
     {
         abort_unless($website->user_id === $r->user()->id, 404);
-        $v = \App\Models\WebsiteVersion::where('website_id', $website->id)->findOrFail($version);
+        $v = WebsiteVersion::where('website_id', $website->id)->findOrFail($version);
         $website->update(['content' => $v->content, 'version' => $website->version + 1]);
-        \App\Models\WebsiteVersion::record($website, 'restore', $v->content, $r->user()->id);
+        WebsiteVersion::record($website, 'restore', $v->content, $r->user()->id);
 
         return ['data' => $this->site($website, true)];
     }

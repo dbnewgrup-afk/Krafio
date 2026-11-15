@@ -79,8 +79,15 @@ function useProducts() {
     setRows(r.data)
   }, [])
   useEffect(() => {
-    load().catch(() => setRows([]))
-  }, [load])
+    let alive = true
+    http
+      .get<{ data: Row[] }>('/admin/r/templates', { per_page: 100, sort: 'sort' })
+      .then((r) => alive && setRows(r.data))
+      .catch(() => alive && setRows([]))
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const optimistic = async (next: (xs: Row[]) => Row[], run: () => Promise<void>) => {
     const prev = rows

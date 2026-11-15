@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\Api\AuthController;
 use App\Models\Addon;
 use App\Models\Commission;
 use App\Models\Coupon;
@@ -15,7 +16,9 @@ use App\Models\User;
 use App\Models\UserAddon;
 use App\Notifications\Notice;
 use App\Support\ApiException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 /**
@@ -339,14 +342,14 @@ class Billing
                         self::activate($u, $item, (int) $p->amount, $p->id, $p->pricing['coupon'] ?? null);
                     });
                     self::finalizeCoupon($redemption, true);
-                } catch (ApiException|\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                } catch (ApiException|ModelNotFoundException $e) {
                     // Uang sudah diterima tetapi item tidak dapat diaktifkan (paket/add-on dinonaktifkan, konflik add-on, dll.)
                     // → kompensasi otomatis ke saldo top-up dan tercatat (PRD 5.4).
                     self::finalizeCoupon($redemption, false);
                     Wallet::post($u->id, 'topup', 'credit', (int) $p->amount, 'Kompensasi '.$p->reference.' (aktivasi gagal)', ['payment_compensation', $p->id]);
                     $p->update(['gateway_payload' => array_merge($p->gateway_payload ?? [], ['activation_failed' => $e instanceof ApiException ? $e->errorCode : 'item_unavailable'])]);
                     $u->notify(new Notice('Pembayaran dialihkan ke saldo', 'Item pada '.$p->reference.' tidak dapat diaktifkan. Rp'.number_format($p->amount, 0, ',', '.').' dikembalikan ke saldo top-up Anda.', 'transaction', '/app/wallet'));
-                    \Illuminate\Support\Facades\Notification::send(User::where('role', 'admin')->get(), new Notice('Aktivasi pembayaran gagal', $p->reference.': dana dikembalikan ke saldo top-up pengguna.', 'billing', '/admin/finance/payments'));
+                    Notification::send(User::where('role', 'admin')->get(), new Notice('Aktivasi pembayaran gagal', $p->reference.': dana dikembalikan ke saldo top-up pengguna.', 'billing', '/admin/finance/payments'));
                     Audit::log('payment.activation_failed', $p, ['amount' => (int) $p->amount, 'reason' => $e->getMessage()], $u->id);
                 }
             }
@@ -444,7 +447,7 @@ class Billing
                             $u->activeSubscription()?->update(['promo' => array_merge($s->promo, ['months_left' => max(0, ($s->promo['months_left'] ?? 0) - 1)])]);
                         }
                     });
-                } catch (ApiException|\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                } catch (ApiException|ModelNotFoundException $e) {
                     // Saldo kurang, atau paket/custom package sudah tidak tersedia → past_due (satu langganan gagal tidak menghentikan yang lain)
                     $s->update(['status' => 'past_due']);
                     $insufficient = $e instanceof ApiException && $e->errorCode === 'insufficient_balance';
@@ -461,7 +464,7 @@ class Billing
             $s->update(['status' => 'expired']);
             $u = $s->user;
             if ($u && ! $u->activeSubscription()) {
-                \App\Http\Controllers\Api\AuthController::grantFreePlan($u, true, notify: false);
+                AuthController::grantFreePlan($u, true, notify: false);
                 Messenger::notify($u, 'subscription_ended', ['plan' => $s->plan_name, 'link' => self::appUrl('/app/subscription')],
                     'Paket berakhir', 'Paket '.$s->plan_name.' telah berakhir. Akun kembali ke paket Gratis; proyek & aset tetap tersimpan.', '/app/subscription');
             }
@@ -478,7 +481,7 @@ class Billing
         } else {
             try {
                 $price = self::resolve($u, $s->source === 'custom' && ! $s->scheduled_plan_code ? 'custom' : 'plan', $s->scheduled_plan_code ?: $s->plan_code, $s->scheduled_cycle ?: $s->cycle)['price'];
-            } catch (ApiException|\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            } catch (ApiException|ModelNotFoundException) {
                 $price = null;
             }
             $balance = Wallet::balance($u->id, 'topup');

@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Approval;
+use App\Models\LegalDocument;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserConsent;
-use App\Models\LegalDocument;
 use App\Notifications\Notice;
 use App\Services\Audit;
+use App\Services\Messenger;
 use App\Services\Otp;
 use App\Services\Settings;
 use App\Services\Totp;
@@ -18,6 +19,7 @@ use App\Support\ApiException;
 use App\Support\Present;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
@@ -303,7 +305,7 @@ class AuthController extends Controller
             'status' => 'active', 'starts_at' => now(), 'ends_at' => null,
         ]);
         if ($notify) {
-            \App\Services\Messenger::notify($u, 'welcome', ['plan' => $free->name_id], 'Selamat datang di Krafio', 'Akun Anda aktif dengan paket '.$free->name_id.'.', '/app');
+            Messenger::notify($u, 'welcome', ['plan' => $free->name_id], 'Selamat datang di Krafio', 'Akun Anda aktif dengan paket '.$free->name_id.'.', '/app');
         }
     }
 
@@ -329,7 +331,7 @@ class AuthController extends Controller
         $status = Password::broker()->reset($r->only('email', 'password', 'password_confirmation', 'token'), function (User $u, string $pw) {
             $u->forceFill(['password' => $pw, 'remember_token' => Str::random(60), 'must_change_password' => false])->save();
             // Cabut semua sesi lain (§9.6 butir 3)
-            \Illuminate\Support\Facades\DB::table('sessions')->where('user_id', $u->id)->delete();
+            DB::table('sessions')->where('user_id', $u->id)->delete();
             Audit::log('auth.password_reset', $u, [], $u->id);
         });
         if ($status !== Password::PASSWORD_RESET) {

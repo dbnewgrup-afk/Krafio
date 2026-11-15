@@ -4,15 +4,21 @@ namespace App\Support;
 
 use App\Http\Controllers\Api\StudioController;
 use App\Models\AiJob;
+use App\Models\ForumMute;
+use App\Models\ForumPost;
+use App\Models\ForumThread;
 use App\Models\SeoRule;
 use App\Models\User;
 use App\Notifications\Notice;
 use App\Services\Credits;
+use App\Services\CustomDomains;
+use App\Services\Forum;
 use App\Services\Messenger;
 use App\Services\Seo\ContentRules;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Efek samping CRUD generik Admin yang tidak boleh dilakukan dengan sekadar insert/update baris:
@@ -36,12 +42,12 @@ class AdminResourceHooks
         }
         // Forum: pengumuman/balasan dibuat atas nama Admin; bisu dicatat pembuatnya
         if ($resource === 'forum-threads') {
-            return \App\Models\ForumThread::create($data + ['user_id' => $r->user()->id, 'status' => $data['status'] ?? 'published']);
+            return ForumThread::create($data + ['user_id' => $r->user()->id, 'status' => $data['status'] ?? 'published']);
         }
         if ($resource === 'forum-posts') {
-            $t = \App\Models\ForumThread::findOrFail($data['thread_id']);
-            $p = \App\Models\ForumPost::create($data + ['user_id' => $r->user()->id, 'status' => $data['status'] ?? 'published']);
-            \App\Services\Forum::refreshThreadStats($t);
+            $t = ForumThread::findOrFail($data['thread_id']);
+            $p = ForumPost::create($data + ['user_id' => $r->user()->id, 'status' => $data['status'] ?? 'published']);
+            Forum::refreshThreadStats($t);
             $t->user && ! $t->user->isAdmin() && $t->user->notify(new Notice('Admin membalas topik Anda', mb_substr($t->title, 0, 80), 'forum', '/app/forum/t/'.$t->id));
 
             return $p;
@@ -51,7 +57,7 @@ class AdminResourceHooks
             if ($target->isAdmin()) {
                 throw new ApiException('cannot_mute_admin', 'Akun admin tidak dapat dibisukan.', 422);
             }
-            $m = \App\Models\ForumMute::create($data + ['created_by' => $r->user()->id]);
+            $m = ForumMute::create($data + ['created_by' => $r->user()->id]);
             $until = $m->until ? ' sampai '.$m->until->timezone('Asia/Jakarta')->format('d M Y H:i').' WIB' : '';
             $target->notify(new Notice('Akses menulis forum dibatasi', 'Anda tidak dapat menulis di forum'.$until.'. Alasan: '.$m->reason, 'forum', '/app/forum'));
 
@@ -92,7 +98,7 @@ class AdminResourceHooks
     {
         if (in_array($resource, ['forum-threads', 'forum-posts'], true) && ($before['status'] ?? null) !== $m->status) {
             if ($resource === 'forum-posts') {
-                \App\Services\Forum::refreshThreadStats($m->thread);
+                Forum::refreshThreadStats($m->thread);
             }
             $author = $m->user;
             if (in_array($m->status, ['hidden', 'deleted'], true) && $author && ! $author->isAdmin()) {
@@ -109,8 +115,8 @@ class AdminResourceHooks
         // Domain kustom diubah admin → wajib verifikasi DNS ulang (token baru)
         if ($resource === 'websites' && array_key_exists('custom_domain', $before) && $before['custom_domain'] !== $m->custom_domain) {
             $m->custom_domain
-                ? $m->forceFill(['custom_domain' => strtolower($m->custom_domain), 'domain_status' => 'pending', 'domain_token' => \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(32)), 'domain_verified_at' => null, 'domain_error' => null])->save()
-                : \App\Services\CustomDomains::remove($m);
+                ? $m->forceFill(['custom_domain' => strtolower($m->custom_domain), 'domain_status' => 'pending', 'domain_token' => Str::lower(Str::random(32)), 'domain_verified_at' => null, 'domain_error' => null])->save()
+                : CustomDomains::remove($m);
         }
         if ($resource === 'commissions' && $m->status === 'reversed' && ($before['status'] ?? null) !== 'reversed') {
             $m->forceFill(['reversed_at' => now()])->save();
@@ -130,7 +136,7 @@ class AdminResourceHooks
     {
         if ($resource === 'forum-posts') {
             $m->forceFill(['status' => 'deleted'])->saveQuietly(); // agar ringkasan balasan topik ikut terkoreksi
-            \App\Services\Forum::refreshThreadStats($m->thread);
+            Forum::refreshThreadStats($m->thread);
         }
         // Rule analisis konten terhubung ke logika analisis: cukup dinonaktifkan, tidak dihapus
         if ($resource === 'seo-rules' && $m instanceof SeoRule && $m->engine === 'content') {

@@ -131,12 +131,14 @@ export function useLoader(): LoaderCtx {
 
 function Stage({ elapsed, onRetry, onBack }: { elapsed: number; onRetry: () => void; onBack: () => void }) {
   const { t } = useTranslation()
+  // ID insiden dibuat sekali per tampilan agar tidak berubah tiap render (dilaporkan user ke support)
+  const [incidentId] = useState(() => `nav-${Date.now().toString(36)}`)
   // Timeout bertahap (§12.3 butir 6)
   if (elapsed >= 30)
     return (
       <div className="grid justify-items-center gap-2 text-center">
         <p className="t-small">{t('loader.failed')}</p>
-        <p className="t-mono opacity-70">ID: {`nav-${Date.now().toString(36)}`}</p>
+        <p className="t-mono opacity-70">ID: {incidentId}</p>
         <div className="flex gap-2">
           <button type="button" onClick={onRetry} className="t-label h-9 rounded-md bg-primary px-3 text-primary-contrast">{t('common.retry')}</button>
           <button type="button" onClick={onBack} className="t-label h-9 rounded-md border border-current/30 px-3">{t('common.back')}</button>

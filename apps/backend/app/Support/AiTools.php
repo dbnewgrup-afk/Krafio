@@ -459,6 +459,10 @@ class AiTools
                 $d[$k] = (string) $o[$k];
             }
         }
+        // Model teks pilihan (model_id) untuk tool ini; kosong = urutan prioritas provider
+        if (! empty($o['model']) && ($d['capability'] ?? '') === 'text') {
+            $d['model'] = (string) $o['model'];
+        }
         if (isset($o['cost_per_unit']) && isset($d['cost_per_unit'])) {
             $d['cost_per_unit'] = max(0, (int) $o['cost_per_unit']);
         }

@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Http\Controllers\Api\AuthController;
 use App\Models\Addon;
+use App\Models\AiPrompt;
+use App\Models\Coupon;
 use App\Models\EmailTemplate;
 use App\Models\Faq;
 use App\Models\FeatureFlag;
@@ -13,8 +15,12 @@ use App\Models\SeoRule;
 use App\Models\Template;
 use App\Models\TemplateCategory;
 use App\Models\User;
-use App\Models\AiPrompt;
+use App\Models\WaTemplate;
+use App\Services\Seo\ContentRules;
 use App\Services\Wallet;
+use App\Support\AiPromptDefaults;
+use App\Support\LifecycleMail;
+use App\Support\PromoShowcase;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -101,14 +107,14 @@ class DatabaseSeeder extends Seeder
             Addon::updateOrCreate(['code' => $code], ['name_id' => $id, 'name_en' => $en, 'description_id' => $did, 'description_en' => $den, 'price' => $price, 'billing' => $billing, 'duration_days' => $days, 'grants' => $grants, 'plan_codes' => $planCodes, 'is_active' => true]);
         }
         // Contoh promo (55.4.1). Nonaktif kecuali referral — Admin mengaktifkan sesuai kampanye.
-        \App\Models\Coupon::updateOrCreate(['code' => 'REFERRAL10'], ['name' => 'Diskon referral bulan pertama', 'type' => 'percent', 'value' => 10, 'plan_codes' => ['starter', 'pro', 'business'], 'cycles' => ['monthly'], 'first_purchase_only' => true, 'auto_apply' => true, 'campaign' => 'referral', 'duration' => 'once', 'is_active' => true]);
-        \App\Models\Coupon::updateOrCreate(['code' => 'UPGRADE20'], ['name' => 'Upgrade Starter ke Pro', 'type' => 'percent', 'value' => 20, 'plan_codes' => ['pro'], 'cycles' => ['monthly'], 'auto_apply' => true, 'campaign' => 'upgrade', 'duration' => 'once', 'is_active' => true]);
-        \App\Models\Coupon::updateOrCreate(['code' => 'WINBACK15'], ['name' => 'Kembali lagi', 'type' => 'percent', 'value' => 15, 'max_discount' => 50000, 'auto_apply' => true, 'campaign' => 'winback', 'duration' => 'once', 'is_active' => false]);
-        \App\Models\Coupon::updateOrCreate(['code' => 'EARLYBIRD'], ['name' => 'Early bird peluncuran', 'type' => 'percent', 'value' => 30, 'max_discount' => 100000, 'plan_codes' => ['starter', 'pro'], 'duration' => 'first_n_months', 'duration_months' => 3, 'max_uses' => 500, 'max_uses_per_user' => 1, 'is_active' => false]);
-        \App\Models\Coupon::updateOrCreate(['code' => 'BONUS100'], ['name' => 'Bonus 100 kredit', 'type' => 'bonus_credit', 'value' => 100, 'min_purchase' => 59000, 'duration' => 'once', 'max_uses_per_user' => 1, 'is_active' => true] + \App\Support\PromoShowcase::SEED['BONUS100']);
+        Coupon::updateOrCreate(['code' => 'REFERRAL10'], ['name' => 'Diskon referral bulan pertama', 'type' => 'percent', 'value' => 10, 'plan_codes' => ['starter', 'pro', 'business'], 'cycles' => ['monthly'], 'first_purchase_only' => true, 'auto_apply' => true, 'campaign' => 'referral', 'duration' => 'once', 'is_active' => true]);
+        Coupon::updateOrCreate(['code' => 'UPGRADE20'], ['name' => 'Upgrade Starter ke Pro', 'type' => 'percent', 'value' => 20, 'plan_codes' => ['pro'], 'cycles' => ['monthly'], 'auto_apply' => true, 'campaign' => 'upgrade', 'duration' => 'once', 'is_active' => true]);
+        Coupon::updateOrCreate(['code' => 'WINBACK15'], ['name' => 'Kembali lagi', 'type' => 'percent', 'value' => 15, 'max_discount' => 50000, 'auto_apply' => true, 'campaign' => 'winback', 'duration' => 'once', 'is_active' => false]);
+        Coupon::updateOrCreate(['code' => 'EARLYBIRD'], ['name' => 'Early bird peluncuran', 'type' => 'percent', 'value' => 30, 'max_discount' => 100000, 'plan_codes' => ['starter', 'pro'], 'duration' => 'first_n_months', 'duration_months' => 3, 'max_uses' => 500, 'max_uses_per_user' => 1, 'is_active' => false]);
+        Coupon::updateOrCreate(['code' => 'BONUS100'], ['name' => 'Bonus 100 kredit', 'type' => 'bonus_credit', 'value' => 100, 'min_purchase' => 59000, 'duration' => 'once', 'max_uses_per_user' => 1, 'is_active' => true] + PromoShowcase::SEED['BONUS100']);
         // Promo publik contoh (tampil di /promo & beranda)
-        foreach (\App\Support\PromoShowcase::extraCoupons() as $code => $attrs) {
-            \App\Models\Coupon::firstOrCreate(['code' => $code], $attrs);
+        foreach (PromoShowcase::extraCoupons() as $code => $attrs) {
+            Coupon::firstOrCreate(['code' => $code], $attrs);
         }
     }
 
@@ -184,7 +190,7 @@ class DatabaseSeeder extends Seeder
         foreach ($rules as [$code, $name, $sev, $w]) {
             SeoRule::updateOrCreate(['code' => $code], ['name' => $name, 'engine' => 'audit', 'category' => 'technical', 'severity' => $sev, 'weight' => $w, 'is_active' => true, 'ruleset_version' => '1.0']);
         }
-        \App\Services\Seo\ContentRules::seed(); // analisis konten bergaya Yoast (docs/seo.md)
+        ContentRules::seed(); // analisis konten bergaya Yoast (docs/seo.md)
     }
 
     private function misc(): void
@@ -206,7 +212,7 @@ class DatabaseSeeder extends Seeder
             'test' => ['Email uji Krafio', "Halo {{name}},\n\nIni email uji dari pengaturan SMTP Krafio ({{time}}). Jika Anda menerima email ini, SMTP berfungsi.", 'Krafio test email', "Hi {{name}},\n\nThis is a test email from Krafio SMTP settings ({{time}})."],
         ];
         // Siklus langganan & affiliate (blueprint) — menggantikan teks pengingat lama
-        $mails = \App\Support\LifecycleMail::TEMPLATES + $mails;
+        $mails = LifecycleMail::TEMPLATES + $mails;
         foreach ($mails as $k => [$sid, $bid, $sen, $ben]) {
             EmailTemplate::updateOrCreate(['key' => $k], ['subject_id' => $sid, 'body_id' => $bid, 'subject_en' => $sen, 'body_en' => $ben, 'is_active' => true]);
         }
@@ -218,14 +224,14 @@ class DatabaseSeeder extends Seeder
             'withdrawal_paid' => ['krafio_withdrawal_paid', 'Halo {{1}}, withdrawal {{2}} telah ditransfer. Ref: {{3}}.', ['name', 'amount', 'reference']],
         ];
         foreach ($wa as $event => [$name, $body, $vars]) {
-            \App\Models\WaTemplate::updateOrCreate(['event' => $event], ['meta_name' => $name, 'language' => 'id', 'body_preview' => $body, 'variables' => $vars, 'is_active' => true]);
+            WaTemplate::updateOrCreate(['event' => $event], ['meta_name' => $name, 'language' => 'id', 'body_preview' => $body, 'variables' => $vars, 'is_active' => true]);
         }
         // Siklus langganan, affiliate, refund: NONAKTIF sampai template disetujui Meta (Admin → Template WA → aktifkan)
-        foreach (array_diff_key(\App\Support\LifecycleMail::WA, $wa) as $event => [$name, $body, $vars]) {
-            \App\Models\WaTemplate::firstOrCreate(['event' => $event], ['meta_name' => $name, 'language' => 'id', 'body_preview' => $body, 'variables' => $vars, 'is_active' => false]);
+        foreach (array_diff_key(LifecycleMail::WA, $wa) as $event => [$name, $body, $vars]) {
+            WaTemplate::firstOrCreate(['event' => $event], ['meta_name' => $name, 'language' => 'id', 'body_preview' => $body, 'variables' => $vars, 'is_active' => false]);
         }
         // Prompt Library bawaan (dibaca AI Gateway; admin bisa membuat versi baru tanpa mengubah kode)
-        foreach (\App\Support\AiPromptDefaults::PROMPTS as $key => [$name, $template]) {
+        foreach (AiPromptDefaults::PROMPTS as $key => [$name, $template]) {
             AiPrompt::firstOrCreate(['key' => $key], ['name' => $name, 'template' => $template, 'version' => '1.0', 'status' => 'active']);
         }
     }

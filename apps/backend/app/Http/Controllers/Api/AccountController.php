@@ -10,6 +10,7 @@ use App\Services\Settings;
 use App\Support\ApiException;
 use App\Support\Present;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
@@ -149,7 +150,7 @@ class AccountController extends Controller
         }
         $password = self::generatePassword();
         $user->forceFill(['password' => $password, 'must_change_password' => true, 'remember_token' => Str::random(60)])->save();
-        \Illuminate\Support\Facades\DB::table('sessions')->where('user_id', $user->id)->delete();
+        DB::table('sessions')->where('user_id', $user->id)->delete();
         Audit::log('admin.account.password_reset', $user);
 
         return ['data' => ['password' => $password]];

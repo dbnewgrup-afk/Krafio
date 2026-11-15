@@ -10,7 +10,10 @@ class AiModel extends Model
 
     protected $guarded = ['id'];
 
-    public function provider() { return $this->belongsTo(AiProvider::class, 'provider_id'); }
+    public function provider()
+    {
+        return $this->belongsTo(AiProvider::class, 'provider_id');
+    }
 
     protected function casts(): array
     {

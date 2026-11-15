@@ -68,7 +68,10 @@ if (typeof window !== 'undefined') {
 
 export function useBackClose(active: boolean, onClose: () => void): void {
   const cb = useRef(onClose)
-  cb.current = onClose
+  // Perbarui callback terbaru setelah render (bukan saat render)
+  useEffect(() => {
+    cb.current = onClose
+  })
   useEffect(() => {
     if (!active) return
     const token = `ov-${Math.random().toString(36).slice(2)}`

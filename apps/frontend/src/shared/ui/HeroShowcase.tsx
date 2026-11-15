@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Pause, Play, X } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight, ImageIcon, X } from 'lucide-react'
 import { cn } from '@/shared/lib/cn'
 import { CountUp } from '@/shared/motion/CountUp'
 import { useIntro } from '@/shared/motion/intro'
@@ -66,7 +66,6 @@ export function HeroShowcase({ slides: all, config: cfg, className, editingIndex
   const [index, setIndex] = useState(0)
   const [dir, setDir] = useState<1 | -1>(1)
   const [hover, setHover] = useState(false)
-  const [paused, setPaused] = useState(false)
   const [box, setBox] = useState<HeroSlide | null>(null)
   const n = slides.length
   const cur = slides[Math.min(index, Math.max(0, n - 1))]
@@ -91,12 +90,12 @@ export function HeroShowcase({ slides: all, config: cfg, className, editingIndex
 
   // Autoplay 6 dtk, berhenti saat hover / fokus / tab tersembunyi / reduced-motion
   useEffect(() => {
-    if (!config.autoPlay || reduced || hover || paused || n < 2 || box) return
+    if (!config.autoPlay || reduced || hover || n < 2 || box) return
     const id = window.setInterval(() => {
       if (!document.hidden) go(index + 1, 1)
     }, Math.max(3000, config.interval))
     return () => window.clearInterval(id)
-  }, [config.autoPlay, config.interval, reduced, hover, paused, n, index, go, box])
+  }, [config.autoPlay, config.interval, reduced, hover, n, index, go, box])
 
   // Pointer: parallax / tilt / glare
   const px = useMotionValue(0)
@@ -233,7 +232,7 @@ export function HeroShowcase({ slides: all, config: cfg, className, editingIndex
           </AnimatePresence>
         </motion.div>
 
-        {/* Kontrol: titik, panah, jeda */}
+        {/* Kontrol: titik dan panah (autoplay berjalan otomatis, tanpa tombol jeda) */}
         {n > 1 && (
           <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-2.5 md:px-7">
             <div className="flex items-center gap-1.5" role="tablist" aria-label={t('hero.slides')}>
@@ -248,11 +247,6 @@ export function HeroShowcase({ slides: all, config: cfg, className, editingIndex
               </span>
             </div>
             <div className="flex items-center gap-1">
-              {config.autoPlay && !reduced && (
-                <button type="button" onClick={() => setPaused((p) => !p)} aria-label={paused ? t('carousel.play') : t('carousel.pause')} className="grid size-9 place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-fg">
-                  {paused ? <Play className="size-4" aria-hidden /> : <Pause className="size-4" aria-hidden />}
-                </button>
-              )}
               {(
                 <>
                   <button type="button" onClick={() => go(index - 1, -1)} aria-label={t('carousel.prev')} className={cn('size-9 place-items-center rounded-full border border-line text-fg hover:bg-surface-2', config.showArrows ? 'grid' : 'hidden md:grid')}>

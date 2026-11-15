@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WithdrawalDestination extends Model
 {
@@ -10,7 +11,8 @@ class WithdrawalDestination extends Model
 
     protected $guarded = ['id'];
 
-    use \Illuminate\Database\Eloquent\SoftDeletes;
+    use SoftDeletes;
+
     protected $hidden = ['account_number'];
 
     protected function casts(): array

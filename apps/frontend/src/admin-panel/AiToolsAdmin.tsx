@@ -34,7 +34,14 @@ interface AdminTool extends AiTool {
   repos: Repo[]
   usage_month: { jobs: number; completed: number; failed: number }
 }
+interface TextModel {
+  model_id: string
+  name: string
+  provider: string | null
+  provider_active: boolean
+}
 interface Payload {
+  text_models: TextModel[]
   providers: Record<'text' | 'image' | 'video', boolean>
   tools: AdminTool[]
 }
@@ -187,16 +194,17 @@ export function AiToolsAdmin({ title }: { title: string }) {
         </section>
       ))}
 
-      {edit && <ToolConfigModal tool={edit} onClose={() => setEdit(null)} onSave={async (body) => (await save(edit.key, body)) && setEdit(null)} />}
+      {edit && <ToolConfigModal tool={edit} models={data?.text_models ?? []} onClose={() => setEdit(null)} onSave={async (body) => (await save(edit.key, body)) && setEdit(null)} />}
     </>
   )
 }
 
-function ToolConfigModal({ tool, onClose, onSave }: { tool: AdminTool; onClose: () => void; onSave: (b: Record<string, unknown>) => Promise<unknown> }) {
+function ToolConfigModal({ tool, models, onClose, onSave }: { tool: AdminTool; models: TextModel[]; onClose: () => void; onSave: (b: Record<string, unknown>) => Promise<unknown> }) {
   const { t } = useTranslation()
-  const o = tool.override as { label?: string; description?: string; cost_per_unit?: number; max_parts?: number; hidden_fields?: string[]; defaults?: Record<string, unknown> }
+  const o = tool.override as { model?: string; label?: string; description?: string; cost_per_unit?: number; max_parts?: number; hidden_fields?: string[]; defaults?: Record<string, unknown> }
   const [label, setLabel] = useState(o.label ?? '')
   const [desc, setDesc] = useState(o.description ?? '')
+  const [model, setModel] = useState(o.model ?? '')
   const [cost, setCost] = useState(o.cost_per_unit !== undefined ? String(o.cost_per_unit) : '')
   const [maxParts, setMaxParts] = useState(o.max_parts !== undefined ? String(o.max_parts) : '')
   const [hidden, setHidden] = useState<string[]>(o.hidden_fields ?? [])
@@ -214,7 +222,7 @@ function ToolConfigModal({ tool, onClose, onSave }: { tool: AdminTool; onClose: 
           loading={busy}
           onClick={async () => {
             setBusy(true)
-            await onSave({ label: label || null, description: desc || null, cost_per_unit: cost === '' ? null : Number(cost), max_parts: maxParts === '' ? null : Number(maxParts), hidden_fields: hidden, defaults })
+            await onSave({ model: model || null, label: label || null, description: desc || null, cost_per_unit: cost === '' ? null : Number(cost), max_parts: maxParts === '' ? null : Number(maxParts), hidden_fields: hidden, defaults })
             setBusy(false)
           }}
         >
@@ -225,6 +233,17 @@ function ToolConfigModal({ tool, onClose, onSave }: { tool: AdminTool; onClose: 
       <div className="grid gap-4">
         <TextField label={t('admin.ai_tools.label')} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={tool.default_label} optional maxLength={80} />
         <TextArea label={t('admin.ai_tools.description')} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={tool.default_description} optional rows={2} maxLength={300} />
+        {tool.capability === 'text' && (
+          <SelectField label={t('admin.ai_tools.model')} value={model} onChange={(e) => setModel(e.target.value)} hint={t('admin.ai_tools.model_hint')}>
+            <option value="">{t('admin.ai_tools.model_auto')}</option>
+            {models.map((m) => (
+              <option key={m.model_id} value={m.model_id}>
+                {m.name} · {m.provider ?? '-'}
+                {m.provider_active ? '' : ` (${t('admin.ai_tools.model_inactive')})`}
+              </option>
+            ))}
+          </SelectField>
+        )}
         {tool.default_cost_per_unit !== null && (
           <div className="grid grid-cols-2 gap-3">
             <TextField label={t('admin.ai_tools.cost_per_unit')} type="number" min={0} max={100} value={cost} onChange={(e) => setCost(e.target.value)} placeholder={String(tool.default_cost_per_unit)} hint={t('admin.ai_tools.cost_hint')} />

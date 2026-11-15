@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CalendarClock, Link2, RefreshCw, Send, Unlink, ExternalLink } from 'lucide-react'
+import { CalendarClock, Link2, RefreshCw, Send, Unlink, ExternalLink, ImagePlus, X as XIcon } from 'lucide-react'
 import { http, ApiError } from '@/api-client/http'
 import { useApi } from '@/shared/hooks/useApi'
 import { useDocTitle } from '@/shared/hooks/useDocTitle'
@@ -49,6 +49,42 @@ interface SocialPostRow {
   error: string | null
   scheduled_at: string | null
   created_at: string
+  provider?: 'direct' | 'postiz'
+  results?: Record<string, { ok: boolean; url: string | null; error: string | null }>
+}
+
+interface MediaItem {
+  key: string
+  name: string
+  video: boolean
+  id?: number
+  error?: string
+}
+
+/** Unggah satu file ke /app/uploads (multipart; cookie Sanctum + XSRF). */
+function uploadMedia(f: File, fallback: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData()
+    fd.append('file', f)
+    const x = new XMLHttpRequest()
+    x.open('POST', '/api/app/uploads')
+    x.withCredentials = true
+    const m = document.cookie.match(/XSRF-TOKEN=([^;]+)/)
+    if (m) x.setRequestHeader('X-XSRF-TOKEN', decodeURIComponent(m[1]))
+    x.setRequestHeader('Accept', 'application/json')
+    x.onload = () => {
+      if (x.status >= 200 && x.status < 300) return resolve((JSON.parse(x.responseText).data as { id: number }).id)
+      let msg = fallback
+      try {
+        msg = JSON.parse(x.responseText).message ?? msg
+      } catch {
+        /* respons bukan JSON */
+      }
+      reject(new Error(msg))
+    }
+    x.onerror = () => reject(new Error(fallback))
+    x.send(fd)
+  })
 }
 
 /**
@@ -259,7 +295,7 @@ export function SocialPage() {
   )
 }
 
-/** Buat posting / jadwal ke akun yang terhubung lewat Postiz (posting langsung ke API platform belum tersedia). */
+/** Buat posting / jadwal: langsung ke API resmi platform (akun terhubung langsung) atau lewat Postiz. */
 function Composer({ data }: { data: SocialData }) {
   const { t } = useTranslation()
   const toast = useToast()
@@ -272,6 +308,34 @@ function Composer({ data }: { data: SocialData }) {
   const [when, setWhen] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [media, setMedia] = useState<MediaItem[]>([])
+  const uploading = media.some((m) => !m.id && !m.error)
+  const pick = (files: FileList | null) => {
+    for (const f of Array.from(files ?? []).slice(0, 10 - media.length)) {
+      const key = `${f.name}-${f.size}-${Math.random()}`
+      setMedia((c) => [...c, { key, name: f.name, video: f.type.startsWith('video/') }])
+      uploadMedia(f, t('studio.upload_failed'))
+        .then((id) => setMedia((c) => c.map((m) => (m.key === key ? { ...m, id } : m))))
+        .catch((e: Error) => setMedia((c) => c.map((m) => (m.key === key ? { ...m, error: e.message } : m))))
+    }
+  }
+  const act = async (id: number, action: 'publish' | 'cancel') => {
+    try {
+      await http.post(`/app/social/posts/${id}/${action}`)
+      toast.push('success', t(`social.action_${action}_done`))
+      posts.reload()
+    } catch (e) {
+      toast.push('error', e instanceof ApiError ? e.message : (e as Error).message)
+    }
+  }
+  // Muat ulang daftar selama ada posting yang sedang diproses
+  const pending = posts.data?.some((p) => p.status === 'queued' || p.status === 'publishing')
+  useEffect(() => {
+    if (!pending) return
+    const reload = posts.reload
+    const h = window.setInterval(() => reload(), 5000)
+    return () => window.clearInterval(h)
+  }, [pending, posts.reload])
   // Batas awal jadwal (5 menit dari saat composer dibuka) — dihitung sekali, bukan saat render
   const [minWhen] = useState(() => new Date(Date.now() + 5 * 60000).toISOString().slice(0, 16))
   const toggle = useCallback((p: string) => setChosen((c) => (c.includes(p) ? c.filter((x) => x !== p) : [...c, p])), [])
@@ -282,9 +346,11 @@ function Composer({ data }: { data: SocialData }) {
     if (type === 'schedule' && !when) return setErr(t('social.compose_when'))
     setBusy(true)
     try {
-      await http.post('/app/social/posts', { content, platforms: chosen, type, scheduled_at: type === 'schedule' ? new Date(when).toISOString() : null })
+      const upload_ids = media.filter((m) => m.id).map((m) => m.id)
+      await http.post('/app/social/posts', { content, platforms: chosen, type, scheduled_at: type === 'schedule' ? new Date(when).toISOString() : null, upload_ids })
       toast.push('success', t(`social.posted_${type}`))
       setContent('')
+      setMedia([])
       posts.reload()
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : (e as Error).message)
@@ -302,10 +368,8 @@ function Composer({ data }: { data: SocialData }) {
             {t('social.compose_title')}
           </span>
         </CardTitle>
-        {!data.postiz_enabled ? (
-          <p className="t-small text-muted">{t('social.compose_needs_postiz')}</p>
-        ) : targets.length === 0 ? (
-          <p className="t-small text-muted">{t('social.compose_no_targets')}</p>
+        {targets.length === 0 ? (
+          <p className="t-small text-muted">{data.platforms.some((p) => p.available) ? t('social.compose_no_targets') : t('social.compose_needs_setup')}</p>
         ) : (
           <div className="grid gap-4">
             <TextArea label={t('social.compose_content')} rows={5} maxLength={5000} value={content} onChange={(e) => setContent(e.target.value)} hint={`${content.length}/5000`} />
@@ -319,10 +383,32 @@ function Composer({ data }: { data: SocialData }) {
                 ))}
               </div>
             </div>
+            <div className="grid gap-1.5">
+              <span className="t-label text-fg">{t('social.compose_media')}</span>
+              <div className="flex flex-wrap gap-2">
+                {media.map((m) => (
+                  <span key={m.key} className={cn('t-small inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5', m.error ? 'border-danger/40 text-danger' : 'border-line text-fg')} title={m.error}>
+                    <span className="truncate">{(m.video ? '🎬 ' : '🖼️ ') + m.name}</span>
+                    <span className="text-muted">{m.error ? t('social.media_failed') : m.id ? '' : t('social.media_uploading')}</span>
+                    <button type="button" aria-label={t('common.remove', { defaultValue: 'Hapus' })} onClick={() => setMedia((c) => c.filter((x) => x.key !== m.key))}>
+                      <XIcon className="size-3.5" aria-hidden />
+                    </button>
+                  </span>
+                ))}
+                {media.length < 10 && (
+                  <label className="t-label inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-line px-3.5 text-fg hover:border-primary/50">
+                    <ImagePlus className="size-4" aria-hidden />
+                    {t('social.media_add')}
+                    <input type="file" className="sr-only" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" onChange={(e) => (pick(e.target.files), (e.target.value = ''))} />
+                  </label>
+                )}
+              </div>
+              <p className="t-small text-muted">{t('social.media_hint')}</p>
+            </div>
             <Segmented label={t('social.compose_type')} value={type} onChange={setType} items={(['now', 'schedule', 'draft'] as const).map((v) => ({ value: v, label: t(`social.type_${v}`) }))} />
             {type === 'schedule' && <TextField type="datetime-local" label={t('social.compose_when_label')} value={when} onChange={(e) => setWhen(e.target.value)} min={minWhen} />}
             {err && <p className="t-small rounded-md bg-danger/10 p-3 text-danger">{err}</p>}
-            <Button loading={busy} icon={<Send className="size-4" aria-hidden />} onClick={submit}>
+            <Button loading={busy} disabled={uploading} icon={<Send className="size-4" aria-hidden />} onClick={submit}>
               {t(`social.submit_${type}`)}
             </Button>
           </div>
@@ -340,11 +426,38 @@ function Composer({ data }: { data: SocialData }) {
               <li key={p.id} className="rounded-md border border-line p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="t-small text-muted">{p.platforms.join(', ')}</span>
-                  <StatusChip status={p.status === 'sent' || p.status === 'scheduled' ? 'completed' : p.status === 'failed' ? 'failed' : 'queued'} label={t(`social.post_st_${p.status}`, { defaultValue: p.status })} />
+                  <StatusChip status={p.status === 'sent' || p.status === 'scheduled' ? 'completed' : p.status === 'failed' || p.status === 'partial' ? 'failed' : 'queued'} label={t(`social.post_st_${p.status}`, { defaultValue: p.status })} />
                 </div>
                 <p className="line-clamp-2 text-sm text-fg">{p.content}</p>
                 <p className="t-small mt-1 text-muted">{p.scheduled_at ? t('social.scheduled_for', { when: dateTime(p.scheduled_at) }) : relative(p.created_at)}</p>
+                {p.results && Object.keys(p.results).length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                    {Object.entries(p.results).map(([pl, r]) =>
+                      r.ok && r.url ? (
+                        <a key={pl} href={r.url} target="_blank" rel="noreferrer" className="t-small inline-flex items-center gap-1 text-primary hover:underline">
+                          ✓ {pl} <ExternalLink className="size-3" aria-hidden />
+                        </a>
+                      ) : (
+                        <span key={pl} className={cn('t-small', r.ok ? 'text-success' : 'text-danger')}>
+                          {r.ok ? '✓' : '✗'} {pl}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                )}
                 {p.error && <p className="t-small text-danger">{p.error}</p>}
+                {p.provider === 'direct' && ['failed', 'partial', 'draft', 'scheduled'].includes(p.status) && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => act(p.id, 'publish')}>
+                      {t(p.status === 'failed' || p.status === 'partial' ? 'social.action_retry' : 'social.action_publish_now')}
+                    </Button>
+                    {['draft', 'scheduled'].includes(p.status) && (
+                      <Button size="sm" variant="ghost" onClick={() => act(p.id, 'cancel')}>
+                        {t('social.action_cancel')}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

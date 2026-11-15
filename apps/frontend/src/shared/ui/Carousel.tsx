@@ -1,11 +1,11 @@
 import { Children, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 import { useReducedMotion } from '@/shared/hooks/useMediaQuery'
 
 // Carousel (Design Spec §14.2): swipe/drag + scroll-snap, panah (hover desktop), titik/penghitung, keyboard ← →,
-// peek 1,15–1,3 di mobile, autoplay hanya bila diminta dengan tombol Pause/Play, berhenti saat hover/fokus/tab tersembunyi.
+// peek 1,15–1,3 di mobile, autoplay berjalan otomatis (tanpa tombol jeda), berhenti sementara saat hover/fokus/tab tersembunyi.
 export function Carousel({
   children,
   label,
@@ -36,7 +36,6 @@ export function Carousel({
   const track = useRef<HTMLDivElement>(null)
   const items = Children.toArray(children)
   const [index, setIndex] = useState(0)
-  const [playing, setPlaying] = useState(!!autoplay)
   const [hover, setHover] = useState(false)
   const reduced = useReducedMotion()
   const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null)
@@ -74,12 +73,12 @@ export function Carousel({
   }, [])
 
   useEffect(() => {
-    if (!autoplay || !playing || hover || reduced) return
+    if (!autoplay || hover || reduced) return
     const id = window.setInterval(() => {
       if (!document.hidden) goTo(index + 1)
     }, interval)
     return () => window.clearInterval(id)
-  }, [autoplay, playing, hover, reduced, index, interval, goTo])
+  }, [autoplay, hover, reduced, index, interval, goTo])
 
   const showDots = dots && items.length > 1 && variant !== 'strip'
   const dark = tone === 'dark'
@@ -108,7 +107,7 @@ export function Carousel({
       <div
         ref={track}
         className={cn('snap-row -my-3.5 py-3.5', gap, 'cursor-grab active:cursor-grabbing')}
-        aria-live={playing ? 'off' : 'polite'}
+        aria-live={autoplay ? 'off' : 'polite'}
         onPointerDown={(e) => {
           if (e.pointerType !== 'mouse' || !track.current) return
           drag.current = { x: e.clientX, left: track.current.scrollLeft, moved: false }
@@ -156,7 +155,7 @@ export function Carousel({
         </>
       )}
 
-      {(showDots || (autoplay && !reduced)) && (
+      {(showDots || (variant === 'hero' && items.length > 1)) && (
         <div className={cn('mt-3 flex items-center justify-center gap-3', variant === 'hero' && 'mt-5 border-t pt-3 md:mt-6', variant === 'hero' && (dark ? 'border-white/12' : 'border-line'))}>
           {variant === 'hero' && items.length > 1 && (
             <button type="button" onClick={() => goTo(index - 1)} aria-label={t('carousel.prev')} className={cn('grid size-9 place-items-center rounded-full border transition-[border-color,color] duration-[120ms]', dark ? 'border-white/25 bg-white/8 text-[var(--on-dark)] hover:border-white/60' : 'border-line-strong bg-surface text-fg shadow-k-sm hover:border-primary hover:text-primary')}>
@@ -177,12 +176,6 @@ export function Carousel({
                 {index + 1} / {items.length}
               </span>
             ))}
-          {autoplay && !reduced && (
-            <button type="button" onClick={() => setPlaying((p) => !p)} className={cn('t-label inline-flex h-8 items-center gap-1.5 rounded-full border px-3', dark ? 'border-white/25 bg-white/8 text-[var(--on-dark-muted)] hover:text-[var(--on-dark)]' : 'border-line-strong bg-surface text-muted hover:text-fg')} aria-label={playing ? t('carousel.pause') : t('carousel.play')}>
-              {playing ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
-              {playing ? t('carousel.pause') : t('carousel.play')}
-            </button>
-          )}
           {variant === 'hero' && items.length > 1 && (
             <button type="button" onClick={() => goTo(index + 1)} aria-label={t('carousel.next')} className={cn('grid size-9 place-items-center rounded-full border transition-[border-color,color] duration-[120ms]', dark ? 'border-white/25 bg-white/8 text-[var(--on-dark)] hover:border-white/60' : 'border-line-strong bg-surface text-fg shadow-k-sm hover:border-primary hover:text-primary')}>
               <ChevronRight className="size-4" aria-hidden />

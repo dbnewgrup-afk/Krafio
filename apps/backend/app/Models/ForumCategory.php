@@ -8,7 +8,10 @@ class ForumCategory extends Model
 {
     protected $guarded = ['id'];
 
-    public function threads() { return $this->hasMany(ForumThread::class, 'category_id'); }
+    public function threads()
+    {
+        return $this->hasMany(ForumThread::class, 'category_id');
+    }
 
     protected function casts(): array
     {

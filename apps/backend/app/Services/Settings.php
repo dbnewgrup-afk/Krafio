@@ -34,6 +34,9 @@ class Settings
         'otp.hourly_limit' => 5,
         'sso.google' => false,
         'social.links' => [],
+        // Posting langsung (Social › Publisher). TikTok: app yang belum lolos audit hanya boleh SELF_ONLY.
+        'social.tiktok_privacy' => 'SELF_ONLY', // SELF_ONLY | PUBLIC_TO_EVERYONE | MUTUAL_FOLLOW_FRIENDS | FOLLOWER_OF_CREATOR
+        'social.youtube_privacy' => 'public', // public | unlisted | private (proyek Google belum terverifikasi → dipaksa private)
         'payment.gateway' => 'manual',
         'smtp.from_name' => 'Krafio',
         'smtp.from_address' => 'no-reply@krafio.local',

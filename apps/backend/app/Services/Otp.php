@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Support\ApiException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * OTP verifikasi akun (PRD Bab 44, Design Spec §9.7): 6 digit, berlaku 5 menit, cooldown kirim ulang 60 dtk,

@@ -1,21 +1,21 @@
 <?php
 
+use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\MarginCalculatorController;
-use App\Http\Controllers\Api\Admin\UserFeaturesController;
 use App\Http\Controllers\Api\Admin\OpsController;
 use App\Http\Controllers\Api\Admin\ResourceController;
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\Admin\UserFeaturesController;
 use App\Http\Controllers\Api\AiToolsController;
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\ForumController;
 use App\Http\Controllers\Api\InboxController;
-use App\Http\Controllers\Api\ShowcaseController;
-use App\Http\Controllers\Api\SocialController;
 use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\SeoController;
+use App\Http\Controllers\Api\ShowcaseController;
+use App\Http\Controllers\Api\SocialController;
 use App\Http\Controllers\Api\StudioController;
 use App\Http\Controllers\Api\WorkspaceController;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +42,7 @@ Route::get('media/{media}/{name?}', [ShowcaseController::class, 'serve'])->where
 Route::post('webhooks/payment/{gateway}', [BillingController::class, 'webhook'])->middleware('throttle:300,1,r3');
 // Callback OAuth medsos (publik; pengguna diidentifikasi dari state sekali pakai) & kembali dari Postiz
 Route::get('social/callback/{platform}', [SocialController::class, 'callback'])->middleware('throttle:30,1,soc1');
+Route::get('social/media/{upload}', [SocialController::class, 'media'])->name('social.media')->middleware(['signed:relative', 'throttle:120,1,soc6']);
 Route::get('social/postiz-return', [SocialController::class, 'postizReturn'])->middleware('throttle:30,1,soc2');
 
 Route::prefix('auth')->group(function () {
@@ -143,6 +144,7 @@ Route::middleware(['auth:sanctum', 'admin.mfa'])->group(function () {
         Route::get('social', [SocialController::class, 'index']);
         Route::get('social/posts', [SocialController::class, 'posts']);
         Route::post('social/posts', [SocialController::class, 'createPost'])->middleware('throttle:20,1,soc3');
+        Route::post('social/posts/{post}/{action}', [SocialController::class, 'postAction'])->whereIn('action', ['publish', 'cancel'])->middleware('throttle:20,1,soc7');
         Route::post('social/{platform}/connect', [SocialController::class, 'connect'])->middleware('throttle:20,1,soc4');
         Route::post('social/{platform}/sync', [SocialController::class, 'sync'])->middleware('throttle:20,1,soc5');
         Route::post('social/{platform}/disconnect', [SocialController::class, 'disconnect']);

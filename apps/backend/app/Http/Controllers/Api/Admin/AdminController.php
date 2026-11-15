@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AiJob;
 use App\Models\AiProvider;
 use App\Models\Approval;
+use App\Models\Commission;
 use App\Models\CouponRedemption;
 use App\Models\CustomPackage;
 use App\Models\LedgerEntry;
@@ -16,23 +17,33 @@ use App\Models\Payment;
 use App\Models\SecurityEvent;
 use App\Models\Template;
 use App\Models\Ticket;
+use App\Models\UsageCounter;
 use App\Models\User;
+use App\Models\Website;
 use App\Models\Withdrawal;
 use App\Notifications\Notice;
+use App\Services\Ai\ClaudeDriver;
+use App\Services\Ai\GeminiDriver;
 use App\Services\AiGateway;
 use App\Services\Audit;
 use App\Services\Billing;
 use App\Services\Entitlements;
+use App\Services\Messenger;
+use App\Services\Ops;
+use App\Services\Refunds;
+use App\Services\Reports;
 use App\Services\Settings;
 use App\Services\Wallet;
-use App\Services\Messenger;
 use App\Support\ApiException;
 use App\Support\Present;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Redis;
+use Predis\Client;
 
 /** Admin Panel API (PRD 13 + Spesifikasi Admin Panel). Seluruh tindakan penting masuk audit log. */
 class AdminController extends Controller
@@ -81,12 +92,12 @@ class AdminController extends Controller
     public function reports(Request $r)
     {
         $d = $r->validate(['from' => 'nullable|date', 'to' => 'nullable|date|after_or_equal:from', 'plan' => 'nullable|string|max:40', 'gateway' => 'nullable|string|max:30']);
-        $to = isset($d['to']) ? \Illuminate\Support\Carbon::parse($d['to'])->endOfDay() : now();
-        $from = isset($d['from']) ? \Illuminate\Support\Carbon::parse($d['from'])->startOfDay() : $to->copy()->subDays(29)->startOfDay();
+        $to = isset($d['to']) ? Carbon::parse($d['to'])->endOfDay() : now();
+        $from = isset($d['from']) ? Carbon::parse($d['from'])->startOfDay() : $to->copy()->subDays(29)->startOfDay();
         if ($from->diffInDays($to) > 366) {
             throw new ApiException('validation_failed', 'Rentang laporan maksimal 1 tahun.', 422, [], ['from' => ['Rentang maksimal 1 tahun.']]);
         }
-        $data = \App\Services\Reports::build($from, $to, $d['plan'] ?? null, $d['gateway'] ?? null);
+        $data = Reports::build($from, $to, $d['plan'] ?? null, $d['gateway'] ?? null);
         if ($r->query('export') === 'csv') {
             Audit::log('admin.reports.export', null, $d);
 
@@ -99,13 +110,13 @@ class AdminController extends Controller
     /** Monitoring "Perlu tindakan": hitungan per kategori, diurutkan dari yang paling kritis. */
     public function opsAttention()
     {
-        return ['data' => \App\Services\Ops::attention()];
+        return ['data' => Ops::attention()];
     }
 
     /** Pulihkan manual job macet (> 30 menit diproses) — sama seperti scheduler. */
     public function opsRecoverStuckJobs()
     {
-        return ['data' => ['recovered' => \App\Services\Ops::recoverStuckJobs()]];
+        return ['data' => ['recovered' => Ops::recoverStuckJobs()]];
     }
 
     public function dashboard()
@@ -184,7 +195,7 @@ class AdminController extends Controller
             'last_login_ip' => $user->last_login_ip,
             'referred_by' => $user->referrer?->name,
             'subscriptions' => $user->subscriptions()->latest('id')->limit(20)->get(['id', 'plan_name', 'status', 'starts_at', 'ends_at', 'price']),
-            'counts' => ['jobs' => AiJob::where('user_id', $user->id)->count(), 'websites' => $user->hasMany(\App\Models\Website::class)->count(), 'referrals' => User::where('referred_by', $user->id)->count()],
+            'counts' => ['jobs' => AiJob::where('user_id', $user->id)->count(), 'websites' => $user->hasMany(Website::class)->count(), 'referrals' => User::where('referred_by', $user->id)->count()],
         ]];
     }
 
@@ -230,7 +241,7 @@ class AdminController extends Controller
     public function resetQuota(Request $r, User $user)
     {
         $data = $r->validate(['entitlement' => 'required|in:'.implode(',', Entitlements::KEYS), 'reason' => 'required|string|min:5']);
-        \App\Models\UsageCounter::where(['user_id' => $user->id, 'entitlement' => $data['entitlement'], 'period' => Entitlements::period()])->update(['used' => 0]);
+        UsageCounter::where(['user_id' => $user->id, 'entitlement' => $data['entitlement'], 'period' => Entitlements::period()])->update(['used' => 0]);
         Audit::log('admin.quota.reset', $user, $data);
 
         return response()->noContent();
@@ -305,9 +316,9 @@ class AdminController extends Controller
                     break;
                 case 'refund':
                     if ($data['decision'] === 'approve') {
-                        \App\Services\Refunds::approve($approval, $r->user(), $data['refund_method'] ?? 'balance', $data['reference'] ?? null);
+                        Refunds::approve($approval, $r->user(), $data['refund_method'] ?? 'balance', $data['reference'] ?? null);
                     } else {
-                        \App\Services\Refunds::reject($approval, (string) $data['reason']);
+                        Refunds::reject($approval, (string) $data['reason']);
                     }
                     break;
                 case 'template':
@@ -353,7 +364,7 @@ class AdminController extends Controller
             if ($data['status'] === 'paid') {
                 // FIFO: hanya komisi tertua yang tertutup penuh oleh nominal withdrawal ini yang ditandai dibayar
                 $left = (int) $w->amount;
-                foreach (\App\Models\Commission::where('referrer_id', $w->user_id)->where('status', 'available')->orderBy('available_at')->orderBy('id')->lockForUpdate()->get() as $c) {
+                foreach (Commission::where('referrer_id', $w->user_id)->where('status', 'available')->orderBy('available_at')->orderBy('id')->lockForUpdate()->get() as $c) {
                     if ((int) $c->amount > $left) {
                         break;
                     }
@@ -426,9 +437,9 @@ class AdminController extends Controller
             $db['status'] = 'down';
         }
         $redis = 'not_configured';
-        if (extension_loaded('redis') || class_exists(\Predis\Client::class)) {
+        if (extension_loaded('redis') || class_exists(Client::class)) {
             try {
-                \Illuminate\Support\Facades\Redis::connection()->ping();
+                Redis::connection()->ping();
                 $redis = 'healthy';
             } catch (\Throwable) {
                 $redis = 'down';
@@ -466,12 +477,17 @@ class AdminController extends Controller
 
     public function testProvider(AiProvider $provider)
     {
-        if (! $provider->api_key || ! $provider->base_url) {
-            throw new ApiException('not_configured', 'Base URL dan API key wajib diisi.', 422);
+        $needsUrl = ! in_array($provider->driver, ['anthropic', 'gemini'], true);
+        if (! $provider->api_key || ($needsUrl && ! $provider->base_url)) {
+            throw new ApiException('not_configured', $needsUrl ? 'Base URL dan API key wajib diisi.' : 'API key wajib diisi.', 422);
         }
         try {
-            $res = Http::timeout(10)->withToken($provider->api_key)->acceptJson()->get(rtrim($provider->base_url, '/').'/models');
-            $ok = $res->successful();
+            $ok = match ($provider->driver) {
+                // Claude: daftar model lewat SDK resmi
+                'anthropic' => ClaudeDriver::ping($provider),
+                'gemini' => Http::timeout(10)->acceptJson()->withHeaders(['x-goog-api-key' => (string) $provider->api_key])->get(GeminiDriver::base($provider).'/models')->successful(),
+                default => Http::timeout(10)->withToken($provider->api_key)->acceptJson()->get(rtrim($provider->base_url, '/').'/models')->successful(),
+            };
         } catch (\Throwable) {
             $ok = false;
         }

@@ -12,7 +12,10 @@ class AuditLog extends Model
 
     public const UPDATED_AT = null;
 
-    public function actor() { return $this->belongsTo(User::class, 'actor_id'); }
+    public function actor()
+    {
+        return $this->belongsTo(User::class, 'actor_id');
+    }
 
     protected function casts(): array
     {

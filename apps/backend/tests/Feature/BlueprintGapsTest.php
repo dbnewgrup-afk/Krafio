@@ -161,11 +161,11 @@ class BlueprintGapsTest extends KrafioTestCase
     public function test_ai_margin_alert_appears_and_notifies_admins_once_per_day(): void
     {
         $u = $this->user();
-        Credits::consume($u, 10, 'ai_job', null, 'uji'); // pendapatan 10 × Rp180 = Rp1.800
+        Credits::consume($u, 10, 'ai_job', null, 'uji'); // pendapatan 10 × Rp176 (billing.credit_value_idr) = Rp1.760
         AiProvider::create(['name' => 'Mahal', 'driver' => 'custom_http', 'base_url' => 'https://ai.test', 'capabilities' => ['image'], 'status' => 'active', 'priority' => 1, 'cost_month' => 1500]);
         $m = Ops::aiMargin();
-        $this->assertSame([1800, 1500], [$m['revenue'], $m['cost']]);
-        $this->assertTrue($m['low'], 'Margin 16,7% < 55%');
+        $this->assertSame([1760, 1500], [$m['revenue'], $m['cost']]);
+        $this->assertTrue($m['low'], 'Margin 14,8% < 55%');
 
         $this->admin();
         $item = collect($this->json_('GET', '/admin/ops/attention')->json('data'))->firstWhere('key', 'ai_margin_low');
@@ -212,7 +212,7 @@ class BlueprintGapsTest extends KrafioTestCase
         $this->assertSame('image/png', $res->headers->get('Content-Type'));
         $this->assertNotSame($png, Storage::disk('local')->get($job->result['files'][0]['path']), 'Paket Gratis → hasil diberi watermark');
         $this->actingUser($this->user())->get($url)->assertNotFound();
-        $this->assertSame(300, (int) AiProvider::value('cost_month'));
+        $this->assertSame(300, (int) AiProvider::where('driver', 'comfyui')->value('cost_month'));
     }
 
     public function test_media_falls_back_to_next_provider_and_refunds_when_all_fail(): void

@@ -135,6 +135,8 @@
   "frontpage": "Frontpage",
   "user": "User Panel",
   "admin": "Admin Panel",
+  "anthropic": "Anthropic Claude (teks)",
+  "gemini": "Google Gemini (teks/gambar/video)",
   "openai_compatible": "OpenAI-compatible",
   "comfyui": "ComfyUI",
   "custom_http": "HTTP kustom",
@@ -244,9 +246,7 @@
   "prev": "Sebelumnya",
   "next": "Berikutnya",
   "go_to": "Ke slide {{n}}",
-  "slide_of": "{{n}} dari {{total}}",
-  "pause": "Jeda",
-  "play": "Putar"
+  "slide_of": "{{n}} dari {{total}}"
  },
  "modal": {
   "discard_title": "Buang perubahan?",
@@ -1393,7 +1393,16 @@
   },
   "not_found": "Website tidak tersedia",
   "back_list": "Kembali ke daftar website",
-  "open_site": "Buka website"
+  "open_site": "Buka website",
+  "versions": "Riwayat versi",
+  "versions_hint": "Versi tersimpan otomatis saat menyimpan (digabung per 10 menit), menerbitkan, dan memulihkan — maks. 30 terbaru. Memulihkan menjadikannya draft; terbitkan lagi bila sudah sesuai.",
+  "versions_empty": "Belum ada versi",
+  "v_save": "Simpan",
+  "v_publish": "Terbit",
+  "v_restore": "Pulihkan",
+  "v_latest": "terbaru",
+  "v_blocks": "{{count}} blok",
+  "version_restored": "Versi dipulihkan sebagai draft."
  },
  "seo": {
   "subtitle": "Audit halaman publik dengan rules engine Krafio.",
@@ -1567,7 +1576,20 @@
   "post_st_scheduled": "Terjadwal",
   "post_st_draft": "Draf",
   "post_st_failed": "Gagal",
-  "not_available_hint": "Menunggu Admin mengaktifkan aplikasi resmi platform ini atau Postiz."
+  "not_available_hint": "Menunggu Admin mengaktifkan aplikasi resmi platform ini atau Postiz.",
+  "compose_needs_setup": "Posting belum tersedia. Admin perlu mengisi aplikasi resmi platform (Integrasi › Media sosial) atau mengaktifkan Postiz.",
+  "compose_media": "Media (opsional)",
+  "media_add": "Tambah foto/video",
+  "media_uploading": "mengunggah…",
+  "media_failed": "gagal",
+  "media_hint": "Instagram wajib foto/video · YouTube & TikTok wajib video (TikTok juga bisa foto) · LinkedIn & X hanya teks. Pilih 1 video atau beberapa foto.",
+  "post_st_publishing": "Sedang dikirim",
+  "post_st_partial": "Sebagian gagal",
+  "action_retry": "Kirim ulang",
+  "action_publish_now": "Terbitkan sekarang",
+  "action_cancel": "Batalkan",
+  "action_publish_done": "Posting masuk antrean kirim.",
+  "action_cancel_done": "Posting dibatalkan."
  },
  "admin": {
   "nav": {
@@ -1717,7 +1739,9 @@
    "youtube": "YouTube",
    "linkedin": "LinkedIn",
    "x": "X (Twitter)",
-   "margin_calculator": "Kalkulator margin"
+   "margin_calculator": "Kalkulator margin",
+   "social_posts": "Posting sosial",
+   "social_publish": "Pengaturan posting"
   },
   "login_title": "Masuk Admin",
   "login_sub": "Khusus Super Admin. Setiap percobaan tercatat.",
@@ -2073,7 +2097,7 @@
    "plan_codes_hint": "Pisahkan dengan koma. Kosongkan untuk semua paket.",
    "offered_to_hint": "Kosongkan agar tersedia untuk semua user.",
    "cycles_hint": "monthly, yearly",
-   "base_url_hint": "Contoh: https://api.openai.com/v1",
+   "base_url_hint": "Kosongkan untuk Claude/Gemini. OpenAI-compatible contoh: https://api.openai.com/v1",
    "secret_hint": "Disimpan terenkripsi; tidak ditampilkan ulang.",
    "tags_hint": "Pisahkan dengan koma.",
    "sections_hint": "Array JSON: [{\"id\": \"definisi\", \"heading\": \"Definisi\", \"body\": \"…\"}]",
@@ -2182,7 +2206,8 @@
    "whatsapp_templates": "Template pesan WhatsApp dikelola dan disetujui di WhatsApp Manager. Setelah integrasi aktif, daftar template disinkronkan ke sini.",
    "cloudflare": "Turnstile tampil di login setelah 3 kali gagal dan di registrasi. DNS, WAF, dan cache diatur di dashboard Cloudflare.",
    "admin_security": "MFA TOTP wajib untuk semua Admin. Tindakan keuangan meminta kata sandi ulang bila sesi lebih dari 15 menit.",
-   "seo_content": "Analisis konten mengikuti pedoman Yoast SEO (docs/seo.md). Ambang, bobot, severity, dan rekomendasi tiap cek diatur di SEO rules (filter engine: Analisis konten, kolom params; kosongkan untuk nilai default). Tambahan kata diisi sebagai JSON array, mis. [\"promo\", \"gratis\"]. Naikkan versi ruleset setelah mengubah aturan."
+   "seo_content": "Analisis konten mengikuti pedoman Yoast SEO (docs/seo.md). Ambang, bobot, severity, dan rekomendasi tiap cek diatur di SEO rules (filter engine: Analisis konten, kolom params; kosongkan untuk nilai default). Tambahan kata diisi sebagai JSON array, mis. [\"promo\", \"gratis\"]. Naikkan versi ruleset setelah mengubah aturan.",
+   "social_publish": "Posting langsung memakai token OAuth user. TikTok: aplikasi yang belum lolos audit TikTok hanya boleh SELF_ONLY (privat). YouTube: proyek Google yang belum diverifikasi akan dipaksa private oleh YouTube."
   },
   "gateway_status": {
    "sent": "Belum dibayar",
@@ -2240,7 +2265,8 @@
    "credit_ledger": "Jejak kredit masuk/keluar — hanya-baca agar tidak bisa dimanipulasi.",
    "coupon_redemptions": "Pemakaian kupon per transaksi — hanya-baca.",
    "social_accounts": "Akun sosial yang dihubungkan user. Hapus untuk memutus koneksi.",
-   "reports": "User, funnel, AI, operasional, keuangan, KPI, dan template — data nyata dengan filter tanggal."
+   "reports": "User, funnel, AI, operasional, keuangan, KPI, dan template — data nyata dengan filter tanggal.",
+   "social_posts": "Semua posting/jadwal user (langsung ke API platform atau lewat Postiz) beserta status dan galatnya."
   },
   "ops": {
    "title": "Perlu tindakan",
@@ -2290,6 +2316,10 @@
    "description": "Deskripsi",
    "cost_per_unit": "Biaya per unit (kredit)",
    "cost_hint": "Unit = part/variasi, atau per 10 item untuk daftar. 1 kredit ≈ Rp176 bersih.",
+   "model": "Model teks",
+   "model_hint": "Kosong = otomatis (provider prioritas tertinggi). Model murah (Haiku/Gemini Flash) menjaga margin.",
+   "model_auto": "Otomatis (prioritas provider)",
+   "model_inactive": "provider belum aktif",
    "max_parts": "Maks. part/item",
    "fields_title": "Field form",
    "fields_hint": "Hapus centang untuk menyembunyikan field dari pengguna; field wajib selalu tampil. Pilih nilai default di kolom kanan.",

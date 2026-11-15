@@ -135,6 +135,8 @@
   "frontpage": "Frontpage",
   "user": "User Panel",
   "admin": "Admin Panel",
+  "anthropic": "Anthropic Claude (text)",
+  "gemini": "Google Gemini (text/image/video)",
   "openai_compatible": "OpenAI-compatible",
   "comfyui": "ComfyUI",
   "custom_http": "Custom HTTP",
@@ -244,9 +246,7 @@
   "prev": "Previous",
   "next": "Next",
   "go_to": "Go to slide {{n}}",
-  "slide_of": "{{n}} of {{total}}",
-  "pause": "Pause",
-  "play": "Play"
+  "slide_of": "{{n}} of {{total}}"
  },
  "modal": {
   "discard_title": "Discard changes?",
@@ -1393,7 +1393,16 @@
   },
   "not_found": "Website unavailable",
   "back_list": "Back to websites",
-  "open_site": "Open website"
+  "open_site": "Open website",
+  "versions": "Version history",
+  "versions_hint": "Versions are kept on save (merged per 10 minutes), publish and restore — latest 30. Restoring makes it a draft; publish again when ready.",
+  "versions_empty": "No versions yet",
+  "v_save": "Saved",
+  "v_publish": "Published",
+  "v_restore": "Restore",
+  "v_latest": "latest",
+  "v_blocks": "{{count}} blocks",
+  "version_restored": "Version restored as a draft."
  },
  "seo": {
   "subtitle": "Audit public pages with the Krafio rules engine.",
@@ -1567,7 +1576,20 @@
   "post_st_scheduled": "Scheduled",
   "post_st_draft": "Draft",
   "post_st_failed": "Failed",
-  "not_available_hint": "Waiting for an admin to enable this platform’s official app or Postiz."
+  "not_available_hint": "Waiting for an admin to enable this platform’s official app or Postiz.",
+  "compose_needs_setup": "Posting is not available yet. An admin needs to set up the official platform apps (Integrations › Social media) or enable Postiz.",
+  "compose_media": "Media (optional)",
+  "media_add": "Add photo/video",
+  "media_uploading": "uploading…",
+  "media_failed": "failed",
+  "media_hint": "Instagram requires a photo/video · YouTube & TikTok require a video (TikTok also accepts photos) · LinkedIn & X are text only. Pick 1 video or several photos.",
+  "post_st_publishing": "Publishing",
+  "post_st_partial": "Partly failed",
+  "action_retry": "Retry",
+  "action_publish_now": "Publish now",
+  "action_cancel": "Cancel",
+  "action_publish_done": "Post queued for publishing.",
+  "action_cancel_done": "Post cancelled."
  },
  "admin": {
   "nav": {
@@ -1717,7 +1739,9 @@
    "youtube": "YouTube",
    "linkedin": "LinkedIn",
    "x": "X (Twitter)",
-   "margin_calculator": "Margin calculator"
+   "margin_calculator": "Margin calculator",
+   "social_posts": "Social posts",
+   "social_publish": "Posting settings"
   },
   "login_title": "Admin sign in",
   "login_sub": "Super Admin only. Every attempt is logged.",
@@ -2073,7 +2097,7 @@
    "plan_codes_hint": "Comma-separated. Leave empty for all plans.",
    "offered_to_hint": "Leave empty to make it available to all users.",
    "cycles_hint": "monthly, yearly",
-   "base_url_hint": "Example: https://api.openai.com/v1",
+   "base_url_hint": "Leave empty for Claude/Gemini. OpenAI-compatible e.g. https://api.openai.com/v1",
    "secret_hint": "Stored encrypted; never shown again.",
    "tags_hint": "Comma-separated.",
    "sections_hint": "JSON array: [{\"id\": \"definitions\", \"heading\": \"Definitions\", \"body\": \"…\"}]",
@@ -2182,7 +2206,8 @@
    "whatsapp_templates": "WhatsApp message templates are managed and approved in WhatsApp Manager. Once the integration is active, templates sync here.",
    "cloudflare": "Turnstile appears on sign-in after 3 failed attempts and on sign-up. DNS, WAF, and cache are managed in the Cloudflare dashboard.",
    "admin_security": "TOTP MFA is required for all Admins. Financial actions ask for the password again when the session is older than 15 minutes.",
-   "seo_content": "Content analysis follows the Yoast SEO guidelines (docs/seo.md). Thresholds, weight, severity and recommendations per check are managed in SEO rules (filter engine: Content analysis, params column; leave empty for defaults). Extra words are JSON arrays, e.g. [\"promo\", \"gratis\"]. Bump the ruleset version after changing rules."
+   "seo_content": "Content analysis follows the Yoast SEO guidelines (docs/seo.md). Thresholds, weight, severity and recommendations per check are managed in SEO rules (filter engine: Content analysis, params column; leave empty for defaults). Extra words are JSON arrays, e.g. [\"promo\", \"gratis\"]. Bump the ruleset version after changing rules.",
+   "social_publish": "Direct posting uses each user's OAuth token. TikTok: apps that have not passed TikTok's audit may only post SELF_ONLY (private). YouTube: unverified Google projects are forced to private by YouTube."
   },
   "gateway_status": {
    "sent": "Unpaid",
@@ -2240,7 +2265,8 @@
    "credit_ledger": "Credit in/out trail — read-only so it cannot be tampered with.",
    "coupon_redemptions": "Coupon usage per transaction — read-only.",
    "social_accounts": "Social accounts connected by users. Delete to disconnect.",
-   "reports": "Users, funnel, AI, operations, finance, KPIs and templates — real data with date filters."
+   "reports": "Users, funnel, AI, operations, finance, KPIs and templates — real data with date filters.",
+   "social_posts": "All user posts/schedules (direct to platform APIs or via Postiz) with status and errors."
   },
   "ops": {
    "title": "Needs attention",
@@ -2290,6 +2316,10 @@
    "description": "Description",
    "cost_per_unit": "Cost per unit (credits)",
    "cost_hint": "Unit = part/variation, or per 10 items for lists. 1 credit ≈ Rp176 net.",
+   "model": "Text model",
+   "model_hint": "Empty = automatic (highest priority provider). Cheaper models (Haiku/Gemini Flash) protect margin.",
+   "model_auto": "Automatic (provider priority)",
+   "model_inactive": "provider inactive",
    "max_parts": "Max parts/items",
    "fields_title": "Form fields",
    "fields_hint": "Untick to hide a field from users; required fields are always shown. Pick defaults on the right.",

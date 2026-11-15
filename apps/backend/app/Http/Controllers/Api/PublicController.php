@@ -4,14 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Addon;
+use App\Models\AiProvider;
 use App\Models\Banner;
+use App\Models\BlogPost;
 use App\Models\Faq;
 use App\Models\LegalDocument;
 use App\Models\Plan;
 use App\Models\Template;
 use App\Models\Ticket;
-use App\Notifications\Notice;
 use App\Models\User;
+use App\Notifications\Notice;
+use App\Services\Promos;
 use App\Services\Settings;
 use App\Support\ApiException;
 use App\Support\Present;
@@ -94,7 +97,7 @@ class PublicController extends Controller
     /** Etalase promo publik (halaman /promo & section beranda). */
     public function promos()
     {
-        return ['data' => \App\Services\Promos::publicList()];
+        return ['data' => Promos::publicList()];
     }
 
     public function faqs(Request $r)
@@ -129,11 +132,11 @@ class PublicController extends Controller
     public function blog(Request $r)
     {
         $en = $r->query('lang') === 'en';
-        $q = \App\Models\BlogPost::where('status', 'published')->where(fn ($w) => $w->whereNull('published_at')->orWhere('published_at', '<=', now()))->orderByDesc('published_at')->orderByDesc('id');
+        $q = BlogPost::where('status', 'published')->where(fn ($w) => $w->whereNull('published_at')->orWhere('published_at', '<=', now()))->orderByDesc('published_at')->orderByDesc('id');
 
-        return \App\Support\Present::paginate($q->paginate(min(30, max(1, (int) $r->query('per_page', 12)))), fn ($p) => [
+        return Present::paginate($q->paginate(min(30, max(1, (int) $r->query('per_page', 12)))), fn ($p) => [
             'slug' => $p->slug, 'title' => ($en && $p->title_en) ? $p->title_en : $p->title_id,
-            'excerpt' => \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', strip_tags(preg_replace('/^#+\s*/m', '', (string) (($en && $p->body_en) ? $p->body_en : $p->body_id))))), 180),
+            'excerpt' => Str::limit(trim(preg_replace('/\s+/', ' ', strip_tags(preg_replace('/^#+\s*/m', '', (string) (($en && $p->body_en) ? $p->body_en : $p->body_id))))), 180),
             'published_at' => ($p->published_at ?? $p->created_at)?->toIso8601String(),
         ]);
     }
@@ -141,7 +144,7 @@ class PublicController extends Controller
     public function blogPost(Request $r, string $slug)
     {
         $en = $r->query('lang') === 'en';
-        $p = \App\Models\BlogPost::where('slug', $slug)->where('status', 'published')->where(fn ($w) => $w->whereNull('published_at')->orWhere('published_at', '<=', now()))->firstOrFail();
+        $p = BlogPost::where('slug', $slug)->where('status', 'published')->where(fn ($w) => $w->whereNull('published_at')->orWhere('published_at', '<=', now()))->firstOrFail();
 
         return ['data' => [
             'slug' => $p->slug, 'title' => ($en && $p->title_en) ? $p->title_en : $p->title_id, 'body' => (string) (($en && $p->body_en) ? $p->body_en : $p->body_id),
@@ -162,7 +165,7 @@ class PublicController extends Controller
             ['key' => 'web', 'status' => 'healthy'],
             ['key' => 'api', 'status' => $db === 'healthy' ? 'healthy' : 'down'],
             ['key' => 'jobs', 'status' => $queueBacklog > 500 ? 'degraded' : 'healthy'],
-            ['key' => 'ai', 'status' => \App\Models\AiProvider::where('status', 'active')->exists() ? 'healthy' : 'degraded'],
+            ['key' => 'ai', 'status' => AiProvider::where('status', 'active')->exists() ? 'healthy' : 'degraded'],
             ['key' => 'payments', 'status' => 'healthy'],
         ];
         $overall = collect($components)->contains('status', 'down') ? 'down' : (collect($components)->contains('status', 'degraded') ? 'degraded' : 'healthy');

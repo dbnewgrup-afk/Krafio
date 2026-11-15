@@ -60,6 +60,9 @@ class AiToolsController extends Controller
         $prompts = AiPrompt::where('key', 'like', 'tool.%')->get()->keyBy('key');
 
         return ['data' => [
+            // Model teks yang bisa dipilih per tool (Admin → AI → Model)
+            'text_models' => AiModel::with('provider:id,name,status')->where('capability', 'text')->where('is_active', true)->get()
+                ->map(fn ($m) => ['model_id' => $m->model_id, 'name' => $m->name, 'provider' => $m->provider?->name, 'provider_active' => $m->provider?->status === 'active'])->unique('model_id')->values(),
             'providers' => ['text' => AiGateway::configured('text'), 'image' => AiGateway::configured('image'), 'video' => AiGateway::configured('video')],
             'tools' => array_map(function ($key) use ($usage, $prompts) {
                 $def = AiTools::definitions()[$key];
@@ -90,6 +93,7 @@ class AiToolsController extends Controller
             'label' => 'sometimes|nullable|string|max:80',
             'description' => 'sometimes|nullable|string|max:300',
             'cost_per_unit' => 'sometimes|nullable|integer|min:0|max:100',
+            'model' => 'sometimes|nullable|string|max:120',
             'max_parts' => 'sometimes|nullable|integer|min:1|max:'.max(1, (int) ($def['max_parts'] ?? 1)),
             'hidden_fields' => 'sometimes|array',
             'hidden_fields.*' => 'string|in:'.implode(',', array_column($def['fields'], 'key')),

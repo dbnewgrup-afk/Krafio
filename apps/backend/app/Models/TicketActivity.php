@@ -12,7 +12,10 @@ class TicketActivity extends Model
 
     public $timestamps = false;
 
-    public function actor() { return $this->belongsTo(User::class, 'actor_id'); }
+    public function actor()
+    {
+        return $this->belongsTo(User::class, 'actor_id');
+    }
 
     protected function casts(): array
     {

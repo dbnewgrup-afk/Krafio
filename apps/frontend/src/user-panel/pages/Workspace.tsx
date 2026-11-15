@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, Send, Bot, Globe, Monitor, Tablet, Smartphone, Save, Rocket, Trash2, FolderOpen, MonitorSmartphone, Wand2, SearchCheck } from 'lucide-react'
+import { Plus, Send, Bot, Globe, Monitor, Tablet, Smartphone, Save, Rocket, Trash2, FolderOpen, MonitorSmartphone, Wand2, SearchCheck, History } from 'lucide-react'
 import { http, ApiError } from '@/api-client/http'
 import type { AiJob, TemplateItem } from '@/api-client/types'
 import { useAuth } from '@/shared/context/AuthContext'
@@ -457,6 +457,7 @@ export function WebsiteEditorPage() {
   const [dirty, setDirty] = useState(false)
   const [sheet, setSheet] = useState(false)
   const [issues, setIssues] = useState<string[] | null>(null)
+  const [versionsOpen, setVersionsOpen] = useState(false)
   useEffect(() => {
     if (site.data?.content) {
       setContent(site.data.content)
@@ -556,6 +557,7 @@ export function WebsiteEditorPage() {
         actions={
           <>
             <Button variant="secondary" icon={<Save className="size-4" aria-hidden />} onClick={async () => { await http.put(`/app/websites/${id}`, { content }); setDirty(false); toast.push('success', t('common.saved')) }}>{t('common.save')}</Button>
+            <Button variant="ghost" icon={<History className="size-4" aria-hidden />} onClick={() => setVersionsOpen(true)}>{t('websites.versions')}</Button>
             <Button icon={<Rocket className="size-4" aria-hidden />} onClick={publish}>{t('websites.publish')}</Button>
             {(site.data as { public_url?: string }).public_url && (
               <a href={(site.data as { public_url?: string }).public_url} target="_blank" rel="noopener noreferrer" className="t-label inline-flex h-10 items-center gap-1.5 rounded-md px-3 text-primary hover:bg-surface-2">
@@ -565,6 +567,17 @@ export function WebsiteEditorPage() {
             )}
           </>
         }
+      />
+      <WebsiteVersions
+        open={versionsOpen}
+        websiteId={id!}
+        onClose={() => setVersionsOpen(false)}
+        onRestored={() => {
+          setVersionsOpen(false)
+          setDirty(false)
+          site.reload()
+          toast.push('success', t('websites.version_restored'))
+        }}
       />
       {!isDesktop && <p className="t-small mb-3 flex items-center gap-2 rounded-md bg-info/10 p-2 text-info"><MonitorSmartphone className="size-4" aria-hidden />{t('common.wide_screen_hint')}</p>}
       {issues && (
@@ -813,5 +826,63 @@ function UrlAuditPanel() {
         )}
       </div>
     </>
+  )
+}
+
+interface WebsiteVersionRow {
+  id: number
+  kind: 'save' | 'publish' | 'restore'
+  created_at: string
+  blocks: number
+  title: string | null
+  seo_title: string | null
+}
+
+/** Riwayat versi website (PRD 28.3): pulihkan → menjadi draft, tidak langsung terbit. */
+function WebsiteVersions({ open, websiteId, onClose, onRestored }: { open: boolean; websiteId: string; onClose: () => void; onRestored: () => void }) {
+  const { t } = useTranslation()
+  const list = useApi<WebsiteVersionRow[]>(open ? `/app/websites/${websiteId}/versions` : null)
+  const [busy, setBusy] = useState<number | null>(null)
+  return (
+    <Modal open={open} onClose={onClose} size="form" title={t('websites.versions')}>
+      <p className="t-small mb-3 text-muted">{t('websites.versions_hint')}</p>
+      {!list.data ? (
+        <Skeleton className="h-40" />
+      ) : list.data.length === 0 ? (
+        <EmptyState icon={<History className="size-7" aria-hidden />} title={t('websites.versions_empty')} />
+      ) : (
+        <ul className="grid gap-2">
+          {list.data.map((v, i) => (
+            <li key={v.id} className="flex items-center justify-between gap-3 rounded-md border border-line p-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-fg">
+                  {t(`websites.v_${v.kind}`)} · {dateTime(v.created_at)}
+                  {i === 0 && <span className="t-small ml-2 text-primary">{t('websites.v_latest')}</span>}
+                </p>
+                <p className="t-small truncate text-muted">{[v.seo_title ?? v.title, t('websites.v_blocks', { count: v.blocks })].filter(Boolean).join(' · ')}</p>
+              </div>
+              {i > 0 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={busy === v.id}
+                  onClick={async () => {
+                    setBusy(v.id)
+                    try {
+                      await http.post(`/app/websites/${websiteId}/versions/${v.id}/restore`)
+                      onRestored()
+                    } finally {
+                      setBusy(null)
+                    }
+                  }}
+                >
+                  {t('websites.v_restore')}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
   )
 }

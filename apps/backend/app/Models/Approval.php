@@ -10,8 +10,15 @@ class Approval extends Model
 
     protected $guarded = ['id'];
 
-    public function user() { return $this->belongsTo(User::class); }
-    public function decider() { return $this->belongsTo(User::class, 'decided_by'); }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function decider()
+    {
+        return $this->belongsTo(User::class, 'decided_by');
+    }
 
     protected function casts(): array
     {

@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Models;
+use App\Services\Entitlements;
+use App\Services\Messenger;
 
 /**
  * Registry resource Admin Panel (PRD 13, Spesifikasi Admin Panel). Satu definisi per resource:
@@ -28,7 +30,7 @@ class AdminResources
             'custom-packages' => ['model' => Models\CustomPackage::class, 'search' => ['code', 'name'], 'filters' => ['status'], 'sort' => ['price', 'created_at'], 'rules' => [
                 'code' => 'required|alpha_dash|max:40', 'name' => 'required|string|max:120', 'description' => 'nullable|string|max:1000', 'price' => 'required|integer|min:0', 'duration_days' => 'required|integer|min:1',
                 // Enterprise: fitur bebas dipilih admin, tetapi hanya dari daftar entitlement yang dikenal sistem
-                'features' => 'array', 'features.*' => 'string|in:'.implode(',', \App\Services\Entitlements::KEYS),
+                'features' => 'array', 'features.*' => 'string|in:'.implode(',', Entitlements::KEYS),
                 'quotas' => 'array', 'quotas.*' => 'integer|min:0', 'limits' => 'nullable|array',
                 'offered_to' => 'nullable|integer|exists:users,id', 'status' => 'required|in:draft,published,archived',
             ]],
@@ -68,7 +70,7 @@ class AdminResources
             'withdrawals' => ['model' => Models\Withdrawal::class, 'readonly' => true, 'with' => ['user'], 'search' => ['reference'], 'filters' => ['status'], 'sort' => ['created_at', 'amount']],
             'approvals' => ['model' => Models\Approval::class, 'readonly' => true, 'with' => ['user', 'decider'], 'search' => ['title'], 'filters' => ['type', 'status'], 'sort' => ['created_at', 'decided_at']],
             'ai-providers' => ['model' => Models\AiProvider::class, 'search' => ['name', 'driver'], 'filters' => ['status', 'health'], 'sort' => ['priority', 'tokens_used', 'cost_month'], 'secret' => ['api_key'], 'rules' => [
-                'name' => 'required|string|max:80', 'driver' => 'required|in:openai_compatible,comfyui,custom_http,openai_images,fal,replicate', 'base_url' => 'nullable|url|max:255', 'capabilities' => 'required|array|min:1', 'capabilities.*' => 'in:text,image,video',
+                'name' => 'required|string|max:80', 'driver' => 'required|in:anthropic,gemini,openai_compatible,comfyui,custom_http,openai_images,fal,replicate', 'base_url' => 'nullable|url|max:255', 'capabilities' => 'required|array|min:1', 'capabilities.*' => 'in:text,image,video',
                 'status' => 'required|in:draft,active,disabled', 'priority' => 'integer|min:1|max:999', 'monthly_token_limit' => 'nullable|integer|min:0',
             ]],
             'ai-models' => ['model' => Models\AiModel::class, 'with' => ['provider'], 'search' => ['name', 'model_id'], 'filters' => ['capability', 'is_active'], 'sort' => ['credit_cost', 'created_at'], 'rules' => [
@@ -129,6 +131,7 @@ class AdminResources
                 'is_active' => $bool, 'ruleset_version' => 'required|string|max:10',
             ]],
             'seo-audits' => ['model' => Models\SeoAudit::class, 'can' => ['delete'], 'search' => ['url', 'title', 'keyphrase'], 'filters' => ['status', 'kind', 'content_type'], 'sort' => ['created_at', 'score', 'readability_score']],
+            'social-posts' => ['model' => Models\SocialPost::class, 'can' => ['delete'], 'search' => ['content'], 'filters' => ['provider', 'status', 'type', 'user_id'], 'sort' => ['created_at', 'scheduled_at']],
             'social-accounts' => ['model' => Models\SocialAccount::class, 'can' => ['delete'], 'search' => ['account_name'], 'filters' => ['platform', 'status'], 'sort' => ['updated_at']],
             'webhook-logs' => ['model' => Models\WebhookLog::class, 'readonly' => true, 'search' => ['event', 'source'], 'filters' => ['source', 'signature_valid'], 'sort' => ['created_at']],
             'email-templates' => ['model' => Models\EmailTemplate::class, 'search' => ['key', 'subject_id'], 'filters' => ['is_active'], 'sort' => ['key'], 'rules' => [
@@ -156,7 +159,7 @@ class AdminResources
             'mail-logs' => ['model' => Models\MailLog::class, 'readonly' => true, 'search' => ['to', 'subject', 'template'], 'filters' => ['status', 'template', 'mailer'], 'sort' => ['created_at']],
             'wa-logs' => ['model' => Models\WaLog::class, 'readonly' => true, 'search' => ['to', 'event', 'template'], 'filters' => ['status', 'event'], 'sort' => ['created_at']],
             'wa-templates' => ['model' => Models\WaTemplate::class, 'search' => ['event', 'meta_name'], 'filters' => ['is_active', 'language'], 'sort' => ['event', 'updated_at'], 'rules' => [
-                'event' => 'required|in:'.implode(',', array_keys(\App\Services\Messenger::EVENTS)),
+                'event' => 'required|in:'.implode(',', array_keys(Messenger::EVENTS)),
                 'meta_name' => 'required|string|max:120|regex:/^[a-z0-9_]+$/', 'language' => 'required|string|max:10', 'body_preview' => 'required|string|max:1024',
                 'variables' => 'array', 'is_active' => $bool,
             ]],

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Http\Controllers\Api\StudioController;
 use App\Models\AiJob;
+use App\Models\AiProvider;
 use App\Models\Approval;
 use App\Models\CreditLedgerEntry;
 use App\Models\Payment;
@@ -13,6 +14,8 @@ use App\Models\User;
 use App\Models\Withdrawal;
 use App\Notifications\Notice;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Monitoring operasional & otomasi berbasis aturan (tanpa AI):
@@ -58,8 +61,8 @@ class Ops
         $debit = (int) CreditLedgerEntry::where('direction', 'debit')->where('ref_type', 'ai_job')->where('created_at', '>=', $from)->sum('amount');
         $refund = (int) CreditLedgerEntry::where('direction', 'credit')->where('ref_type', 'ai_job')->where('created_at', '>=', $from)->sum('amount');
         $credits = max(0, $debit - $refund);
-        $revenue = $credits * (int) Settings::get('billing.credit_value_idr', 180);
-        $cost = (int) \App\Models\AiProvider::sum('cost_month');
+        $revenue = $credits * (int) Settings::get('billing.credit_value_idr', 176);
+        $cost = (int) AiProvider::sum('cost_month');
         $margin = $revenue > 0 ? round(($revenue - $cost) / $revenue * 100, 1) : ($cost > 0 ? -100.0 : null);
         $threshold = (int) Settings::get('billing.margin_alert_percent', 55);
 
@@ -70,10 +73,10 @@ class Ops
     public static function alertLowMargin(): bool
     {
         $m = self::aiMargin();
-        if (! $m['low'] || ! \Illuminate\Support\Facades\Cache::add('ops.margin_alert.'.now()->format('Ymd'), 1, now()->endOfDay())) {
+        if (! $m['low'] || ! Cache::add('ops.margin_alert.'.now()->format('Ymd'), 1, now()->endOfDay())) {
             return false;
         }
-        \Illuminate\Support\Facades\Notification::send(User::where('role', 'admin')->get(), new \App\Notifications\Notice(
+        Notification::send(User::where('role', 'admin')->get(), new Notice(
             'Margin AI di bawah '.$m['threshold'].'%',
             'Margin bulan ini '.$m['margin'].'% (pendapatan kredit Rp'.number_format($m['revenue'], 0, ',', '.').', biaya provider Rp'.number_format($m['cost'], 0, ',', '.').'). Tinjau harga kredit, model, atau provider.',
             'system', '/admin/ai/usage'));
@@ -85,7 +88,7 @@ class Ops
     /** Awal bulan: reset penghitung token & biaya provider (dasar kuota token bulanan & margin). */
     public static function resetProviderCounters(): void
     {
-        \App\Models\AiProvider::query()->update(['tokens_used' => 0, 'cost_month' => 0]);
+        AiProvider::query()->update(['tokens_used' => 0, 'cost_month' => 0]);
     }
 
     /** Job yang macet di "processing" > 30 menit → gagal + kredit/kuota dikembalikan (sekali). */

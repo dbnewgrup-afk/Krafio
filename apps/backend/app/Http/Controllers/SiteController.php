@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Website;
+use App\Services\Entitlements;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -149,7 +150,7 @@ class SiteController extends Controller
             $sections .= '<section id="'.$anchor.'" class="sec sec-'.$type.'"><div class="wrap">'.($heading !== '' ? ($i === 0 ? '<h1>' : '<h2>').$heading.($i === 0 ? '</h1>' : '</h2>') : '').$body.'</div></section>';
         }
         $jsonLd = json_encode(['@context' => 'https://schema.org', '@type' => 'LocalBusiness', 'name' => $w->name, 'description' => $desc, 'url' => $url], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
-        $badge = ! empty(\App\Services\Entitlements::grants($w->user)['limits']['watermark']) || ($w->user?->activeSubscription()?->plan_code ?? 'free') === 'free'
+        $badge = ! empty(Entitlements::grants($w->user)['limits']['watermark']) || ($w->user?->activeSubscription()?->plan_code ?? 'free') === 'free'
             ? '<p class="made">Dibuat dengan <a href="https://krafio.id" rel="noopener">Krafio</a></p>' : '';
 
         return '<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'

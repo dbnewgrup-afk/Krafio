@@ -242,6 +242,15 @@ server {
     listen 443 ssl http2;
     server_name krafio.id;
     root /var/www/krafio/apps/frontend/dist;
+    client_max_body_size 220m;   # unggahan video ≤200 MB
+
+    # Header keamanan SPA (audit B7). CSP mengizinkan font Google, gambar https/data/blob, dan media hasil AI.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data: blob:; media-src 'self' blob:; connect-src 'self'; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     # API dan Sanctum ke Laravel
     location ~ ^/(api|sanctum)/ {
@@ -262,6 +271,22 @@ server {
         try_files $uri $uri/index.html /spa.html;
     }
     location /assets/ { expires 1y; add_header Cache-Control "public, immutable"; }
+}
+
+# Website pengguna: <subdomain>.krafio.site + domain kustom terverifikasi (dirender Laravel, SiteController).
+# Butuh wildcard DNS (*.krafio.site → server) dan sertifikat wildcard (mis. Cloudflare / certbot DNS challenge).
+# Domain kustom pengguna diarahkan CNAME ke sites.krafio.site (Cloudflare for SaaS menangani SSL-nya).
+server {
+    listen 443 ssl http2;
+    server_name *.krafio.site;            # sesuaikan dengan KRAFIO_SITE_DOMAIN
+    root /var/www/krafio/apps/backend/public;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    location / { try_files $uri /index.php?$query_string; }
+    location = /index.php {
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+    }
 }
 ```
 

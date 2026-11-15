@@ -16,7 +16,10 @@ use App\Services\Backups;
 use App\Services\Integrations;
 use App\Services\Messenger;
 use App\Services\Payment\PaymentGateway;
+use App\Services\Social\Platforms;
+use App\Services\Social\Postiz;
 use App\Support\ApiException;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -37,7 +40,7 @@ class OpsController extends Controller
         $data = Integrations::present($this->kind($kind));
         if (str_starts_with($kind, 'social_')) {
             // URL callback yang wajib didaftarkan di developer console platform
-            $data['callback_url'] = \App\Services\Social\Platforms::redirectUri(substr($kind, 7));
+            $data['callback_url'] = Platforms::redirectUri(substr($kind, 7));
         }
         if ($kind === 'postiz') {
             $data['callback_url'] = rtrim((string) config('krafio.frontend_url'), '/').'/api/social/postiz-return';
@@ -70,11 +73,11 @@ class OpsController extends Controller
         } elseif ($kind === 'whatsapp') {
             [$ok, $msg] = Messenger::testWhatsappConnection($c);
         } elseif ($kind === 'postiz') {
-            [$ok, $msg] = $i->is_active ? \App\Services\Social\Postiz::test() : [false, 'Aktifkan Postiz untuk menguji koneksi.'];
+            [$ok, $msg] = $i->is_active ? Postiz::test() : [false, 'Aktifkan Postiz untuk menguji koneksi.'];
         } elseif (str_starts_with($kind, 'social_')) {
             // Tidak ada endpoint uji tanpa login pengguna; cek kelengkapan kredensial & tampilkan URL callback
             $ok = ! empty($c['client_id']) && ! empty($c['client_secret']);
-            $msg = $ok ? 'Kredensial lengkap. Pastikan URL callback '.\App\Services\Social\Platforms::redirectUri(substr($kind, 7)).' terdaftar di developer console, lalu uji dengan tombol Hubungkan di panel user.' : 'Client ID / Client Secret belum lengkap.';
+            $msg = $ok ? 'Kredensial lengkap. Pastikan URL callback '.Platforms::redirectUri(substr($kind, 7)).' terdaftar di developer console, lalu uji dengan tombol Hubungkan di panel user.' : 'Client ID / Client Secret belum lengkap.';
         } else {
             $to = (string) $r->input('to', $r->user()->email);
             if (! $i->is_active) {
@@ -109,8 +112,8 @@ class OpsController extends Controller
     public function financeReport(Request $r)
     {
         $data = $r->validate(['from' => 'nullable|date', 'to' => 'nullable|date', 'group' => 'nullable|in:day,month']);
-        $from = isset($data['from']) ? \Carbon\Carbon::parse($data['from'])->startOfDay() : now()->subDays(29)->startOfDay();
-        $to = isset($data['to']) ? \Carbon\Carbon::parse($data['to'])->endOfDay() : now()->endOfDay();
+        $from = isset($data['from']) ? Carbon::parse($data['from'])->startOfDay() : now()->subDays(29)->startOfDay();
+        $to = isset($data['to']) ? Carbon::parse($data['to'])->endOfDay() : now()->endOfDay();
         $fmt = ($data['group'] ?? 'day') === 'month' ? '%Y-%m' : '%Y-%m-%d';
         $bucket = fn ($q, string $col) => $q->selectRaw("DATE_FORMAT({$col}, '{$fmt}') b, SUM(amount) s, COUNT(*) c")->groupBy('b')->pluck('s', 'b');
 

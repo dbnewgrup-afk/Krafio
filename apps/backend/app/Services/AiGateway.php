@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\Api\StudioController;
 use App\Models\AiJob;
 use App\Models\AiModel;
 use App\Models\AiProvider;
+use App\Support\AiTools;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -12,7 +15,7 @@ use Illuminate\Support\Facades\Log;
  * AI Gateway (PRD 7.1, 26.1): satu pintu untuk semua panggilan AI — routing per kapabilitas,
  * fallback berdasarkan prioritas, pencatatan token/biaya, dan kill switch lewat status provider.
  *
- * Driver yang tersedia: `openai_compatible` (endpoint /chat/completions) untuk teks.
+ * Driver teks: `anthropic` (Claude), `gemini`, `openai_compatible`. Media: `gemini`, `comfyui`, `custom_http`, `openai_images`, `fal`, `replicate`.
  * Bila belum ada provider aktif untuk kapabilitas tertentu, gateway mengembalikan hasil SIMULASI yang
  * ditandai jelas — tidak pernah berpura-pura sebagai hasil model sungguhan.
  */
@@ -28,7 +31,7 @@ class AiGateway
     {
         $out = [];
         $providers = AiProvider::where('status', 'active')->orderBy('priority')->get()
-            ->filter(fn ($p) => in_array($capability, $p->capabilities ?? [], true) && (in_array($p->driver, ['comfyui', 'custom_http'], true) ? (bool) $p->base_url : (bool) $p->api_key));
+            ->filter(fn ($p) => in_array($capability, $p->capabilities ?? [], true) && (in_array($p->driver, ['comfyui', 'custom_http'], true) ? (bool) $p->base_url : self::hasKey($p)));
         foreach ($providers as $p) {
             if ($p->monthly_token_limit && $p->tokens_used >= $p->monthly_token_limit) {
                 continue;
@@ -42,53 +45,111 @@ class AiGateway
         return $out;
     }
 
+    /**
+     * API key provider dapat dibaca. Key terenkripsi dengan APP_KEY lama (APP_KEY diganti setelah data ada) tidak bisa
+     * dibuka → provider dilewati & dicatat, bukan membuat seluruh halaman error 500. Admin perlu mengisi ulang key-nya.
+     */
+    private static function hasKey(AiProvider $p): bool
+    {
+        try {
+            return (bool) $p->api_key;
+        } catch (DecryptException) {
+            Log::error('API key provider AI tidak bisa didekripsi (APP_KEY berubah?) — isi ulang key di Admin → AI → Provider', ['provider' => $p->id, 'name' => $p->name]);
+            if ($p->health !== 'down') {
+                $p->forceFill(['health' => 'down'])->saveQuietly();
+            }
+
+            return false;
+        }
+    }
+
     public static function configured(string $capability): bool
     {
         return count(self::candidates($capability)) > 0;
     }
 
     /**
-     * Panggilan teks (OpenAI-compatible /chat/completions); mengembalikan null bila semua provider gagal/tidak tersedia.
-     * $opts: json (minta objek JSON), timeout (detik), temperature.
+     * Panggilan teks; mengembalikan null bila semua provider gagal/tidak tersedia.
+     * Driver: `anthropic` (Claude, SDK resmi), `gemini` (endpoint OpenAI-compatible Google), `openai_compatible` (OpenAI/Ollama/dll).
+     * $opts: json (minta objek JSON), timeout (detik), temperature, frequency_penalty, model (model_id pilihan per tool).
      */
     public static function chat(array $messages, int $maxTokens = 700, array $opts = []): ?array
     {
-        foreach (self::candidates('text') as [$p, $m]) {
-            $url = rtrim($p->base_url ?: 'https://api.openai.com/v1', '/').'/chat/completions';
-            $body = ['model' => $m->model_id, 'messages' => $messages, 'max_tokens' => $maxTokens, 'temperature' => $opts['temperature'] ?? 0.8];
-            if (isset($opts['frequency_penalty'])) {
-                $body['frequency_penalty'] = (float) $opts['frequency_penalty']; // cegah model kecil mengulang baris yang sama
-            }
-            if (! empty($opts['json'])) {
-                $body['response_format'] = ['type' => 'json_object'];
-            }
+        foreach (self::textCandidates($opts['model'] ?? null) as [$p, $m]) {
             // Model lokal (Ollama/Jan) di CPU jauh lebih lambat daripada API cloud
             $timeout = (int) ($opts['timeout'] ?? (self::isLocal($p) ? config('krafio.ai_local_timeout', 600) : config('krafio.ai_text_timeout', 120)));
             try {
+                if ($p->driver === 'anthropic') {
+                    $r = Ai\ClaudeDriver::chat($p, $m, $messages, $maxTokens, $opts, $timeout);
+
+                    return self::recordText($p, $m, $r['text'], $r['input_tokens'] + $r['output_tokens']);
+                }
+                $url = $p->driver === 'gemini' ? Ai\GeminiDriver::chatUrl($p) : rtrim($p->base_url ?: 'https://api.openai.com/v1', '/').'/chat/completions';
+                $body = ['model' => $m->model_id, 'messages' => $messages, 'max_tokens' => $maxTokens, 'temperature' => $opts['temperature'] ?? 0.8];
+                if (isset($opts['frequency_penalty']) && $p->driver !== 'gemini') {
+                    $body['frequency_penalty'] = (float) $opts['frequency_penalty']; // cegah model kecil mengulang baris yang sama
+                }
+                if (! empty($opts['json'])) {
+                    $body['response_format'] = ['type' => 'json_object'];
+                }
                 $req = fn (array $b) => Http::timeout($timeout)->connectTimeout(10)->withToken((string) $p->api_key)->acceptJson()->post($url, $b);
                 $res = $req($body);
-                if ($res->status() === 400 && isset($body['response_format'])) {
-                    unset($body['response_format']); // provider tidak mendukung mode JSON → instruksi prompt saja
-                    $res = $req($body);
+                // Parameter opsional yang tidak dikenal sebagian provider (sebagian model lokal menolak response_format) → kirim ulang tanpa itu.
+                foreach (['frequency_penalty', 'response_format'] as $optional) {
+                    if ($res->status() === 400 && isset($body[$optional])) {
+                        unset($body[$optional]);
+                        $res = $req($body);
+                    }
                 }
                 if ($res->successful()) {
-                    $tokens = (int) data_get($res->json(), 'usage.total_tokens', 0);
-                    // Biaya provider (Rp per 1.000 token di model) → dasar margin AI
-                    $cost = (int) ceil($tokens / 1000 * (int) $m->cost_idr);
-                    $p->increment('tokens_used', $tokens);
-                    $p->update(['health' => 'healthy', 'last_checked_at' => now(), 'cost_month' => (int) $p->cost_month + $cost]);
-
-                    return ['text' => (string) data_get($res->json(), 'choices.0.message.content', ''), 'provider_id' => $p->id, 'model' => $m->model_id, 'tokens' => $tokens, 'cost' => $cost];
+                    return self::recordText($p, $m, (string) data_get($res->json(), 'choices.0.message.content', ''), (int) data_get($res->json(), 'usage.total_tokens', 0));
                 }
                 Log::warning('AI provider menolak', ['provider' => $p->id, 'status' => $res->status(), 'body' => mb_substr($res->body(), 0, 300)]);
                 $p->update(['health' => 'degraded', 'last_checked_at' => now()]);
             } catch (\Throwable $e) {
-                Log::warning('AI provider gagal', ['provider' => $p->id, 'error' => $e->getMessage()]);
+                Log::warning('AI provider gagal', ['provider' => $p->id, 'error' => mb_substr($e->getMessage(), 0, 300)]);
                 $p->update(['health' => 'down', 'last_checked_at' => now()]);
             }
         }
 
         return null;
+    }
+
+    /** Catat token & biaya (Rp per 1.000 token di model → dasar margin AI). */
+    private static function recordText(AiProvider $p, AiModel $m, string $text, int $tokens): array
+    {
+        $cost = (int) ceil($tokens / 1000 * (int) $m->cost_idr);
+        $p->increment('tokens_used', $tokens);
+        $p->update(['health' => 'healthy', 'last_checked_at' => now(), 'cost_month' => (int) $p->cost_month + $cost]);
+
+        return ['text' => $text, 'provider_id' => $p->id, 'model' => $m->model_id, 'tokens' => $tokens, 'cost' => $cost];
+    }
+
+    /**
+     * Kandidat teks; bila tool punya model pilihan (Admin → AI Tools), provider pemilik model itu dicoba lebih dulu
+     * dengan model tersebut — sisanya tetap jadi cadangan sesuai prioritas.
+     *
+     * @return array<int, array{0: AiProvider, 1: AiModel}>
+     */
+    public static function textCandidates(?string $preferred = null): array
+    {
+        $list = self::candidates('text');
+        if (! $preferred) {
+            return $list;
+        }
+        foreach ($list as $i => [$p]) {
+            $pm = AiModel::where('provider_id', $p->id)->where('capability', 'text')->where('is_active', true)->where('model_id', $preferred)->first();
+            if ($pm) {
+                // Model bawaan provider yang sama tetap jadi cadangan pertama (mis. model pilihan sedang sibuk/503)
+                if ($list[$i][1]->id === $pm->id) {
+                    unset($list[$i]);
+                }
+
+                return array_merge([[$p, $pm]], array_values($list));
+            }
+        }
+
+        return $list;
     }
 
     /** Provider berjalan di mesin sendiri (localhost/LAN) — dipakai untuk batas waktu yang lebih longgar. */
@@ -105,11 +166,11 @@ class AiGateway
             return;
         }
         $job->update(['status' => 'processing', 'progress' => 15, 'started_at' => $job->started_at ?? now()]);
-        $tool = \App\Support\AiTools::forType($job->type);
+        $tool = AiTools::forType($job->type);
         // Kapabilitas dari registry AI Tools (sumber tunggal); peta lama hanya cadangan
         $cap = $tool['capability'] ?? self::CAPABILITY[$job->type] ?? 'text';
         if ($cap === 'text') {
-            Ai\TextWriter::run($job, $tool ?? \App\Support\AiTools::get('content_brainstorm'));
+            Ai\TextWriter::run($job, $tool ?? AiTools::get('content_brainstorm'));
 
             return;
         }
@@ -142,7 +203,7 @@ class AiGateway
 
         // Tidak ada penyedia aktif: JANGAN membuat hasil contoh. Job gagal dan kredit dikembalikan.
         $job->update(['status' => 'failed', 'progress' => 100, 'completed_at' => now(), 'error' => 'Penyedia AI '.($cap === 'video' ? 'video' : 'gambar').' belum aktif. Kredit sudah dikembalikan.']);
-        \App\Http\Controllers\Api\StudioController::refundJob($job, 'Job #'.$job->id.' tidak dapat diproses: penyedia AI belum aktif');
+        StudioController::refundJob($job, 'Job #'.$job->id.' tidak dapat diproses: penyedia AI belum aktif');
     }
 
     /** Tool dapat dijalankan sekarang? (ada penyedia aktif, atau diproses lokal: FFmpeg / upscale & enhance foto). */
@@ -168,7 +229,7 @@ class AiGateway
     {
         $user = $job->user;
         $limits = $user ? Entitlements::grants($user)['limits'] : [];
-        $tool = \App\Support\AiTools::forType($job->type);
+        $tool = AiTools::forType($job->type);
         // Prompt media dirakit dari field form (label opsi, bukan kode) → bisa diubah admin di Prompt Library
         $vars = ['prompt' => $job->prompt] + ($tool ? Ai\TextWriter::vars($tool, $job->params ?? []) : []);
         $vars = array_map(fn ($v) => $v === '-' ? '' : $v, $vars);
@@ -194,7 +255,7 @@ class AiGateway
             }
         }
         $job->update(['status' => 'failed', 'progress' => 100, 'completed_at' => now(), 'error' => 'Semua penyedia AI gagal memproses. Kredit sudah dikembalikan.']);
-        \App\Http\Controllers\Api\StudioController::refundJob($job, 'Job #'.$job->id.' gagal di semua penyedia AI');
+        StudioController::refundJob($job, 'Job #'.$job->id.' gagal di semua penyedia AI');
         Audit::log('ai.job_failed_all_providers', $job, ['errors' => array_map(fn ($e) => mb_substr($e, 0, 200), $errors)], null);
     }
 }

@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Services\JualKirim\JualKirimClient;
 use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;

@@ -24,6 +24,7 @@ class MediaDrivers
     public static function generate(AiProvider $p, AiModel $m, AiJob $job, array $vars): array
     {
         return match ($p->driver) {
+            'gemini' => GeminiDriver::generate($p, $m, $job, $vars),
             'comfyui' => self::comfy($p, $m, $job, $vars),
             'custom_http' => self::http($p, $m, $job, $vars),
             'openai_images' => self::openaiImages($p, $m, $job, $vars),

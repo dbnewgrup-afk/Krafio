@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\UserConsent;
 use App\Notifications\Notice;
 use App\Services\Audit;
+use App\Services\Messenger;
 use App\Support\ApiException;
 use App\Support\Present;
 use Illuminate\Http\Request;
@@ -53,7 +54,7 @@ class MeController extends Controller
         $u->update(['password' => $r->input('password')]);
         $u->forceFill(['must_change_password' => false])->save();
         DB::table('sessions')->where('user_id', $u->id)->where('id', '!=', $r->session()->getId())->delete();
-        \App\Services\Messenger::notify($u, 'password_changed', ['time' => now()->format('d-m-Y H:i')], 'Kata sandi diubah', 'Kata sandi akun Anda baru saja diubah. Jika bukan Anda, segera hubungi support.');
+        Messenger::notify($u, 'password_changed', ['time' => now()->format('d-m-Y H:i')], 'Kata sandi diubah', 'Kata sandi akun Anda baru saja diubah. Jika bukan Anda, segera hubungi support.');
         Audit::log('auth.password_changed', $u);
 
         return response()->noContent();
@@ -146,7 +147,7 @@ class MeController extends Controller
 
     public function saveNotificationPrefs(Request $r)
     {
-        $prefs = $r->validate(['*' => 'array'])  ;
+        $prefs = $r->validate(['*' => 'array']);
         // Kategori wajib (keamanan & transaksi) tidak dapat dimatikan (Design Spec §19.8)
         foreach (['security', 'transaction'] as $m) {
             $prefs[$m] = array_merge($prefs[$m] ?? [], ['email' => true, 'in_app' => true]);

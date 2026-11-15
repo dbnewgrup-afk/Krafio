@@ -60,7 +60,7 @@ class TextWriter
             $spec = self::jsonSpec(array_merge(['title' => ['Judul', $n > 1 ? "judul singkat part/variasi {$i}" : 'judul singkat konten']], $sections));
             $user = $instruction."\n\nBRIEF:\n".$brief.$ctx."\n\nFORMAT JAWABAN (JSON):\n".$spec;
 
-            $res = AiGateway::chat([['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]], self::maxTokens($tool, $params), ['json' => true, 'temperature' => 0.7, 'frequency_penalty' => 0.4]);
+            $res = AiGateway::chat([['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]], self::maxTokens($tool, $params), ['json' => true, 'temperature' => 0.7, 'frequency_penalty' => 0.4, 'model' => $tool['model'] ?? null]);
             if (! $res) {
                 throw new \RuntimeException($i === 1 ? 'Penyedia AI teks tidak merespons. Kuota sudah dikembalikan.' : 'Penyedia AI berhenti merespons di part '.$i.'. Kuota sudah dikembalikan.');
             }
@@ -109,7 +109,7 @@ class TextWriter
                 $ctx .= "\nJangan mengulang item yang sudah ada: ".implode('; ', array_map(fn ($it) => Str::limit((string) ($it['title'] ?? ''), 60), $result['items'])).'.';
             }
             $user = $instruction."\n\nBRIEF:\n".$brief."\n\nBuat {$want} item.".$ctx."\n\nFORMAT JAWABAN (JSON):\n".$spec;
-            $res = AiGateway::chat([['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]], min(3200, 300 * $want + 300), ['json' => true, 'temperature' => 0.8, 'frequency_penalty' => 0.4]);
+            $res = AiGateway::chat([['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]], min(3200, 300 * $want + 300), ['json' => true, 'temperature' => 0.8, 'frequency_penalty' => 0.4, 'model' => $tool['model'] ?? null]);
             if (! $res) {
                 if (! $result['items']) {
                     throw new \RuntimeException('Penyedia AI teks tidak merespons. Kuota sudah dikembalikan.');

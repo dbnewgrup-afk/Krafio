@@ -8,8 +8,11 @@ use App\Models\Plan;
 use App\Models\Template;
 use App\Models\User;
 use App\Models\UserConsent;
+use App\Services\Billing;
 use App\Services\Entitlements;
+use App\Services\Settings;
 use App\Services\Wallet;
+use Illuminate\Support\Str;
 
 /** Bentuk respons API yang dipakai frontend (api-client/types.ts). Field per bahasa dengan fallback ke `id`. */
 class Present
@@ -80,19 +83,19 @@ class Present
      */
     private static function renewal(User $u, $sub): ?array
     {
-        $grace = (int) \App\Services\Settings::get('subscription.grace_days', 3);
+        $grace = (int) Settings::get('subscription.grace_days', 3);
         $lapsed = $u->subscriptions()->where('status', 'past_due')->whereNotNull('ends_at')->latest('ends_at')->first();
         if ($lapsed && $lapsed->ends_at->copy()->addDays($grace)->isFuture()) {
             return ['state' => 'past_due', 'plan' => $lapsed->plan_name, 'plan_code' => $lapsed->plan_code, 'cycle' => $lapsed->cycle, 'ends_at' => $lapsed->ends_at->toIso8601String(), 'grace_until' => $lapsed->ends_at->copy()->addDays($grace)->toIso8601String()];
         }
-        if (! $sub || $sub->status !== 'active' || ! $sub->ends_at || $sub->ends_at->isPast() || $sub->source === 'trial' || ($sub->price <= 0 && $sub->source !== 'admin') || $sub->ends_at->gt(now()->addDays(7)) || \App\Services\Billing::hasSuccessor($sub)) {
+        if (! $sub || $sub->status !== 'active' || ! $sub->ends_at || $sub->ends_at->isPast() || $sub->source === 'trial' || ($sub->price <= 0 && $sub->source !== 'admin') || $sub->ends_at->gt(now()->addDays(7)) || Billing::hasSuccessor($sub)) {
             return null;
         }
 
         $price = null;
         if ($sub->source !== 'admin') {
             try {
-                $price = \App\Services\Billing::resolve($u, $sub->source === 'custom' && ! $sub->scheduled_plan_code ? 'custom' : 'plan', $sub->scheduled_plan_code ?: $sub->plan_code, $sub->scheduled_cycle ?: $sub->cycle)['price'];
+                $price = Billing::resolve($u, $sub->source === 'custom' && ! $sub->scheduled_plan_code ? 'custom' : 'plan', $sub->scheduled_plan_code ?: $sub->plan_code, $sub->scheduled_cycle ?: $sub->cycle)['price'];
             } catch (\Throwable) {
                 $price = null; // paket tidak lagi tersedia → banner meminta pilih paket lain
             }
@@ -167,7 +170,7 @@ class Present
             'status' => $t->status,
             'is_featured' => $t->is_featured,
             'palette' => $t->palette ?? [],
-            'art' => \Illuminate\Support\Str::slug((string) $t->title_id),
+            'art' => Str::slug((string) $t->title_id),
             'cover_url' => $t->cover_url,
             'focus' => $t->focus,
             'badges' => $t->badges ?? [],

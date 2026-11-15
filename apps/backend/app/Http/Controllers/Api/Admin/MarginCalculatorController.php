@@ -26,7 +26,7 @@ class MarginCalculatorController extends Controller
         'ppn_pct' => 11,
         'target_margin_pct' => 55,
         'media' => [
-            'image_1k' => 0.0336, 'image_2k' => 0.0504, 'remove_bg' => 0.0, 'inpaint' => 0.0336,
+            'image_1k' => 0.0336, 'image_2k' => 0.0504, 'remove_bg' => 0.0336, 'inpaint' => 0.0336,
             'video_720_per_s' => 0.07, 'video_1080_per_s' => 0.104,
         ],
         'text_models' => [
@@ -37,12 +37,12 @@ class MarginCalculatorController extends Controller
         ],
         // Estimasi token per UNIT (part/variasi/10 item) + model yang dipakai
         'text_tools' => [
-            'content_script' => ['in' => 900, 'out' => 1200, 'model' => 'sonnet'],
+            'content_script' => ['in' => 900, 'out' => 1200, 'model' => 'gemini_flash'],
             'content_caption' => ['in' => 700, 'out' => 400, 'model' => 'haiku'],
             'content_brainstorm' => ['in' => 800, 'out' => 1500, 'model' => 'haiku'],
             'content_plan' => ['in' => 800, 'out' => 1500, 'model' => 'haiku'],
             'copywriting' => ['in' => 700, 'out' => 600, 'model' => 'haiku'],
-            'article_writer' => ['in' => 800, 'out' => 2500, 'model' => 'sonnet'],
+            'article_writer' => ['in' => 800, 'out' => 2500, 'model' => 'gemini_flash'],
             'story_series' => ['in' => 800, 'out' => 900, 'model' => 'haiku'],
             'prompt_optimizer' => ['in' => 600, 'out' => 500, 'model' => 'haiku'],
         ],
@@ -70,7 +70,7 @@ class MarginCalculatorController extends Controller
             'assumptions' => $assumptions,
             'credit_costs' => Credits::costs(),
             'chat_messages_per_credit' => Credits::chatMessagesPerCredit(),
-            'credit_value_idr' => (int) Settings::get('billing.credit_value_idr', 180),
+            'credit_value_idr' => (int) Settings::get('billing.credit_value_idr', 176),
             'text_tools' => $tools,
             'packs' => Addon::where('is_active', true)->get()->filter(fn ($a) => ! empty($a->grants['credits']))->map(fn ($a) => ['code' => $a->code, 'name' => $a->name_id, 'price' => (int) $a->price, 'credits' => (int) $a->grants['credits']])->sortBy('credits')->values(),
             'plans' => Plan::where('is_active', true)->orderBy('sort')->get()->filter(fn ($p) => $p->price_monthly > 0)->map(fn ($p) => ['code' => $p->code, 'name' => $p->name_id, 'price' => (int) $p->price_monthly, 'credits' => (int) ($p->quotas['credits'] ?? 0), 'chat_per_day' => (int) ($p->quotas['chatbot.basic'] ?? 0)])->values(),

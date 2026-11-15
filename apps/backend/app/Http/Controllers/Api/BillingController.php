@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Approval;
 use App\Models\Commission;
+use App\Models\CouponRedemption;
+use App\Models\CreditLedgerEntry;
 use App\Models\CustomPackage;
 use App\Models\LedgerEntry;
 use App\Models\Payment;
+use App\Models\Plan;
 use App\Models\ReferralClick;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserAddon;
 use App\Models\WebhookLog;
@@ -17,16 +21,22 @@ use App\Models\WithdrawalDestination;
 use App\Notifications\Notice;
 use App\Services\Audit;
 use App\Services\Billing;
-use App\Services\Settings;
-use App\Services\Wallet;
+use App\Services\Messenger;
+use App\Services\Ops;
 use App\Services\Payment\JualKirimInvoices;
 use App\Services\Payment\PaymentGateway;
-use Illuminate\Support\Facades\Cache;
+use App\Services\Promos;
+use App\Services\Refunds;
+use App\Services\Settings;
+use App\Services\Wallet;
 use App\Support\ApiException;
+use App\Support\Idempotency;
 use App\Support\Present;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 
 class BillingController extends Controller
 {
@@ -34,7 +44,7 @@ class BillingController extends Controller
     {
         $u = $r->user();
         $cur = $u->activeSubscription();
-        $plan = $cur ? \App\Models\Plan::where('code', $cur->plan_code)->first() : null;
+        $plan = $cur ? Plan::where('code', $cur->plan_code)->first() : null;
 
         return ['data' => [
             'current' => $cur ? [
@@ -42,7 +52,7 @@ class BillingController extends Controller
                 'status' => $cur->status, 'starts_at' => $cur->starts_at?->toIso8601String(), 'ends_at' => $cur->ends_at?->toIso8601String(), 'cycle' => $cur->cycle,
                 'granted_by_admin' => $cur->source === 'admin',
                 // Akhir periode terakhir yang sudah dibayar (termasuk perpanjangan di muka)
-                'paid_until' => \App\Models\Subscription::where('user_id', $u->id)->where('status', 'active')->where('plan_code', $cur->plan_code)->latest('ends_at')->first()?->ends_at?->toIso8601String() ?? $cur->ends_at?->toIso8601String(),
+                'paid_until' => Subscription::where('user_id', $u->id)->where('status', 'active')->where('plan_code', $cur->plan_code)->latest('ends_at')->first()?->ends_at?->toIso8601String() ?? $cur->ends_at?->toIso8601String(),
             ] : null,
             'history' => $u->subscriptions()->latest('id')->limit(30)->get()->map(fn ($s) => [
                 'id' => $s->id, 'plan_name' => $s->plan_name, 'status' => $s->ends_at && $s->ends_at->isPast() && $s->status === 'active' ? 'expired' : $s->status,
@@ -55,7 +65,7 @@ class BillingController extends Controller
     /** Riwayat pembayaran (paid/refunded) + apakah bisa diajukan refund. */
     public function paymentHistory(Request $r)
     {
-        return ['data' => \App\Services\Refunds::history($r->user())];
+        return ['data' => Refunds::history($r->user())];
     }
 
     /** Ajukan refund → Approval refund (diputuskan admin). */
@@ -63,7 +73,7 @@ class BillingController extends Controller
     {
         abort_unless($payment->user_id === $r->user()->id, 404);
         $data = $r->validate(['reason' => 'required|string|min:10|max:1000']);
-        \App\Services\Refunds::request($r->user(), $payment, $data['reason']);
+        Refunds::request($r->user(), $payment, $data['reason']);
 
         return response()->json(['data' => ['requested' => true]], 201);
     }
@@ -74,7 +84,7 @@ class BillingController extends Controller
         $data = $r->validate(['kind' => 'required|in:plan,addon,custom', 'code' => 'required|string|max:40', 'cycle' => 'nullable|in:monthly,yearly']);
         $item = Billing::resolve($r->user(), $data['kind'], $data['code'], $data['cycle'] ?? null);
 
-        return ['data' => \App\Services\Promos::forItem($r->user(), $item)];
+        return ['data' => Promos::forItem($r->user(), $item)];
     }
 
     public function quote(Request $r)
@@ -94,14 +104,14 @@ class BillingController extends Controller
         $u = $r->user();
         $data = $r->validate(['kind' => 'required|in:plan,addon,custom', 'code' => 'required|string|max:40', 'cycle' => 'nullable|in:monthly,yearly', 'source' => 'required|in:balance,gateway', 'coupon' => 'nullable|string|max:40']);
         $item = Billing::resolve($u, $data['kind'], $data['code'], $data['cycle'] ?? null);
-        $idem = \App\Support\Idempotency::key($r, $u->id);
+        $idem = Idempotency::key($r, $u->id);
         $purpose = $data['kind'] === 'plan' ? 'subscription' : $data['kind'];
 
         // Downgrade berlaku pada periode tagihan berikutnya (BR-034)
         $cur = $u->activeSubscription();
         if ($data['kind'] === 'plan' && $cur && $cur->plan_code !== $data['code'] && $cur->source !== 'trial' && $cur->price > 0 && ! Billing::isUpgrade($u, $item)) {
             // Berlaku di akhir periode TERAKHIR (bila sudah diperpanjang di muka)
-            $tail = \App\Models\Subscription::where('user_id', $u->id)->where('status', 'active')->latest('ends_at')->first() ?? $cur;
+            $tail = Subscription::where('user_id', $u->id)->where('status', 'active')->latest('ends_at')->first() ?? $cur;
             $tail->update(['scheduled_plan_code' => $data['code'], 'scheduled_cycle' => $item['cycle']]);
             Audit::log('billing.downgrade_scheduled', $tail, ['to' => $data['code']]);
 
@@ -141,7 +151,7 @@ class BillingController extends Controller
             if ($final > 0) {
                 // Pembelian dari saldo juga tercatat sebagai pembayaran (riwayat, refund, tautan komisi) — gateway "balance"
                 $p = Payment::create([
-                    'user_id' => $u->id, 'reference' => 'KRF'.now()->format('ymd').strtoupper(\Illuminate\Support\Str::random(6)), 'purpose' => $purpose, 'purpose_code' => $item['code'],
+                    'user_id' => $u->id, 'reference' => 'KRF'.now()->format('ymd').strtoupper(Str::random(6)), 'purpose' => $purpose, 'purpose_code' => $item['code'],
                     'cycle' => $item['cycle'], 'amount' => $final, 'method' => 'balance', 'gateway' => 'balance', 'status' => 'paid', 'paid_at' => now(),
                     'idempotency_key' => $idem ? 'bal:'.$idem : null, 'pricing' => $q, 'coupon_id' => $q['coupon']['id'] ?? null,
                 ]);
@@ -160,7 +170,7 @@ class BillingController extends Controller
 
     public function cancelDowngrade(Request $r)
     {
-        \App\Models\Subscription::where('user_id', $r->user()->id)->where('status', 'active')->update(['scheduled_plan_code' => null, 'scheduled_cycle' => null]);
+        Subscription::where('user_id', $r->user()->id)->where('status', 'active')->update(['scheduled_plan_code' => null, 'scheduled_cycle' => null]);
 
         return response()->noContent();
     }
@@ -182,12 +192,12 @@ class BillingController extends Controller
     /** Prakiraan kapan kredit habis dari laju pemakaian 14 hari terakhir. */
     public function creditForecast(Request $r)
     {
-        return ['data' => \App\Services\Ops::creditForecast($r->user())];
+        return ['data' => Ops::creditForecast($r->user())];
     }
 
     public function creditHistory(Request $r)
     {
-        $q = \App\Models\CreditLedgerEntry::where('user_id', $r->user()->id)->latest('id');
+        $q = CreditLedgerEntry::where('user_id', $r->user()->id)->latest('id');
 
         return Present::paginate($q->paginate(min(100, max(1, (int) $r->query('per_page', 25)))), fn ($e) => [
             'id' => $e->id, 'direction' => $e->direction, 'amount' => (int) $e->amount, 'description' => $e->description, 'created_at' => $e->created_at->toIso8601String(),
@@ -264,7 +274,7 @@ class BillingController extends Controller
         if ($same && ! empty($same->gateway_payload['redirect_url'])) {
             return response()->json(['data' => ['id' => $same->id, 'reference' => $same->reference, 'amount' => (int) $same->amount, 'status' => $same->status, 'redirect_url' => $same->gateway_payload['redirect_url'], 'simulate' => $this->canSimulate(), 'reused' => true]], 200);
         }
-        $p = Billing::newPayment($r->user(), 'topup', null, null, (int) $data['amount'], $data['method'], \App\Support\Idempotency::key($r, $r->user()->id));
+        $p = Billing::newPayment($r->user(), 'topup', null, null, (int) $data['amount'], $data['method'], Idempotency::key($r, $r->user()->id));
         Audit::log('wallet.topup_created', $p, ['amount' => $p->amount]);
         $gw = $this->openGateway($p, $r->user(), 'Top-up saldo Krafio');
 
@@ -284,7 +294,7 @@ class BillingController extends Controller
             $res = PaymentGateway::create($p, $u, $desc);
         } catch (\Throwable $e) {
             $p->update(['status' => 'failed', 'gateway_payload' => ['error' => $e instanceof ApiException ? $e->errorCode : 'gateway_error']]);
-            Billing::finalizeCoupon(\App\Models\CouponRedemption::where('payment_id', $p->id)->where('status', 'reserved')->first(), false);
+            Billing::finalizeCoupon(CouponRedemption::where('payment_id', $p->id)->where('status', 'reserved')->first(), false);
             throw $e;
         }
         $p->update(['gateway' => PaymentGateway::driver(), 'gateway_payload' => $res]);
@@ -327,7 +337,7 @@ class BillingController extends Controller
                 return false;
             }
             $p->update(['status' => 'cancelled']);
-            Billing::finalizeCoupon(\App\Models\CouponRedemption::where('payment_id', $p->id)->where('status', 'reserved')->first(), false);
+            Billing::finalizeCoupon(CouponRedemption::where('payment_id', $p->id)->where('status', 'reserved')->first(), false);
             Approval::where('type', 'payment')->where('subject_id', $p->id)->where('status', 'pending')->update(['status' => 'rejected', 'reason' => 'Dibatalkan pengguna.', 'decided_at' => now()]);
 
             return true;
@@ -403,7 +413,7 @@ class BillingController extends Controller
             Billing::markPaid($p->id, ['gateway' => $gateway, 'webhook_id' => $log->id]);
         } elseif (in_array($v['status'], ['failed', 'expired'], true) && $p->status === 'pending') {
             $p->update(['status' => $v['status']]);
-            Billing::finalizeCoupon(\App\Models\CouponRedemption::where('payment_id', $p->id)->where('status', 'reserved')->first(), false);
+            Billing::finalizeCoupon(CouponRedemption::where('payment_id', $p->id)->where('status', 'reserved')->first(), false);
         }
         $log->update(['status' => 'processed']);
 
@@ -460,7 +470,7 @@ class BillingController extends Controller
         $min = (int) Settings::get('wallet.withdraw_min');
         $data = $r->validate(['amount' => "required|integer|min:{$min}", 'destination_id' => 'required|integer'], ['amount.min' => 'Minimal withdrawal Rp'.number_format($min, 0, ',', '.').'.']);
         $dest = WithdrawalDestination::where('id', $data['destination_id'])->where('user_id', $u->id)->firstOrFail();
-        $idem = \App\Support\Idempotency::key($r, $u->id);
+        $idem = Idempotency::key($r, $u->id);
         if ($idem && ($w = Withdrawal::where('idempotency_key', $idem)->where('user_id', $u->id)->first())) {
             return ['data' => self::wd($w)];
         }
@@ -473,7 +483,7 @@ class BillingController extends Controller
         });
         Notification::send(User::where('role', 'admin')->get(), new Notice('Withdrawal baru', $u->email.' — Rp'.number_format($w->amount, 0, ',', '.'), 'approval', '/admin/approvals/withdrawals'));
         // Konfirmasi ke member (in-app + email; template withdrawal_requested)
-        \App\Services\Messenger::notify($u, 'withdrawal_requested', ['amount' => 'Rp'.number_format($w->amount, 0, ',', '.')], 'Withdrawal diajukan', 'Pengajuan withdrawal Rp'.number_format($w->amount, 0, ',', '.').' diterima dan akan diproses 1–3 hari kerja setelah valid.', '/app/wallet/withdrawals');
+        Messenger::notify($u, 'withdrawal_requested', ['amount' => 'Rp'.number_format($w->amount, 0, ',', '.')], 'Withdrawal diajukan', 'Pengajuan withdrawal Rp'.number_format($w->amount, 0, ',', '.').' diterima dan akan diproses 1–3 hari kerja setelah valid.', '/app/wallet/withdrawals');
         Audit::log('wallet.withdrawal_requested', $w, ['amount' => $w->amount]);
 
         return response()->json(['data' => self::wd($w)], 201);
